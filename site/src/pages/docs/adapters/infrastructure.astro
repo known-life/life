@@ -1,0 +1,49 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+---
+
+<Docs title="Infrastructure Adapters">
+  <h1>Infrastructure</h1>
+  <p class="lead">Infrastructure adapters translate semantic capabilities into vendor resources. The agent says what it needs. The adapter decides how.</p>
+
+  <h2>Semantic capabilities, not vendor products</h2>
+  <p>A cell never asks for "a Worker" or "a D1 database." It asks for capabilities:</p>
+  <pre><code>requires:
+  - infra.compute        # runs code
+  - infra.route          # HTTP exposure
+  - infra.datastore      # structured data (SQL)
+  - infra.kv             # key-value with TTL
+  - infra.object_store   # files and blobs
+  - infra.secret_store   # holds secrets
+  - infra.ai             # model inference
+  - infra.email          # outbound email
+  - infra.sandbox        # isolated execution
+  - infra.agent          # stateful agents</code></pre>
+  <p>The infra adapter owns the translation. On another provider, the same capabilities map to different resources — the cell's <code>.life</code> doesn't change.</p>
+
+  <h2>Cloudflare</h2>
+  <p>The first infrastructure adapter — itself a gene the engine loads (it bundles no adapters). Inherit it, then connect once:</p>
+  <pre><code>life inherit cloudflare
+life connect cloudflare</code></pre>
+  <table>
+    <tbody>
+      <tr><td><code>infra.compute</code></td><td>Workers</td></tr>
+      <tr><td><code>infra.route</code></td><td>workers.dev / custom domains</td></tr>
+      <tr><td><code>infra.datastore</code></td><td>D1</td></tr>
+      <tr><td><code>infra.kv</code></td><td>KV</td></tr>
+      <tr><td><code>infra.object_store</code></td><td>R2</td></tr>
+      <tr><td><code>infra.secret_store</code></td><td>Worker secrets</td></tr>
+      <tr><td><code>infra.ai</code></td><td>Workers AI</td></tr>
+      <tr><td><code>infra.agent</code></td><td>Durable Objects</td></tr>
+      <tr><td><code>schedule:</code> (field)</td><td>Cron Triggers</td></tr>
+    </tbody>
+  </table>
+  <p><code>connect</code> validates the API token and account before anything is provisioned. From there, <code>life deploy &lt;dir&gt;</code> provisions whatever the cell requires and ships it; <code>life data &lt;dir&gt; secret set</code> handles secrets out of band; <code>life teardown &lt;dir&gt; --confirm</code> destroys dependency-aware.</p>
+  <p>Resource names derive from the cell's <code>name:</code> and can be scoped per-.life, so two .lifes sharing one account never collide on the same backing store.</p>
+
+  <h2>If something is missing</h2>
+  <p>If a cell requires <code>infra.compute</code> and no adapter is connected, <code>life test</code> tells the agent exactly what to do: <code>life connect cloudflare</code>.</p>
+
+  <h2>The agent doesn't improvise setup</h2>
+  <p>This is the key discipline. When infra is missing, the agent doesn't guess at vendor CLI commands or provision resources ad-hoc. It advances Life state one verified step at a time — connect, test, deploy — and reads the failing test for the next move.</p>
+</Docs>

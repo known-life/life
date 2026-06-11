@@ -1,0 +1,243 @@
+---
+import Base from "./Base.astro";
+import Nav from "../components/Nav.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const pathname = Astro.url.pathname.replace(/\/$/, "");
+
+const sections = [
+  { label: "Overview", href: "/docs" },
+  { label: "Quick Start", href: "/docs/quick-start" },
+  { label: "Getting Started", href: "/docs/getting-started" },
+  { label: "Interface", href: "/docs/interface" },
+{ group: "Adapters" },
+  { label: "Harness", href: "/docs/adapters/harness" },
+  { label: "Infrastructure", href: "/docs/adapters/infrastructure" },
+  { label: "Repo", href: "/docs/adapters/storage" },
+];
+---
+
+<Base title={`${title} — Life`} description={description}>
+  <Nav />
+  <div class="docs-layout container">
+    <aside class="sidebar">
+      <div class="sidebar-header mono dim">Documentation</div>
+      <nav class="sidebar-nav">
+        {sections.map((s) => (
+          'group' in s
+            ? <div class="sidebar-group mono dim">{s.group}</div>
+            : <a
+                href={s.href}
+                class:list={["sidebar-link", { active: pathname === s.href.replace(/\/$/, "") }]}
+              >
+                {s.label}
+              </a>
+        ))}
+      </nav>
+    </aside>
+    <main class="docs-content">
+      <article class="prose">
+        <slot />
+      </article>
+    </main>
+  </div>
+</Base>
+
+<style>
+  .docs-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 3rem;
+    padding-top: 2.5rem;
+    padding-bottom: 4rem;
+    min-height: calc(100vh - 56px);
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 72px;
+    align-self: start;
+    max-height: calc(100vh - 88px);
+    overflow-y: auto;
+  }
+
+  .sidebar-header {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .sidebar-link {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .sidebar-group {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 1rem;
+    margin-bottom: 0.25rem;
+    padding: 0 0.75rem;
+  }
+
+  .sidebar-link:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+
+  .sidebar-link.active {
+    color: var(--text);
+    background: var(--bg-surface);
+    font-weight: 500;
+  }
+
+  .docs-content {
+    max-width: 720px;
+    min-width: 0;
+  }
+
+  /* Prose styling */
+  .prose :global(h1) {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prose :global(h2) {
+    font-size: 1.4rem;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-dim);
+  }
+
+  .prose :global(h2:first-of-type) {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .prose :global(h3) {
+    font-size: 1.1rem;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prose :global(p) {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  .prose :global(ul), .prose :global(ol) {
+    color: var(--text-secondary);
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .prose :global(li) {
+    margin-bottom: 0.35rem;
+  }
+
+  .prose :global(li code) {
+    font-size: 0.825em;
+  }
+
+  .prose :global(pre) {
+    margin-bottom: 1.25rem;
+  }
+
+  .prose :global(.lead) {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .prose :global(strong) {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  .prose :global(th) {
+    text-align: left;
+    font-weight: 600;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .prose :global(td) {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-dim);
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 868px) {
+    .docs-layout {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .sidebar {
+      position: static;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+    }
+
+    .sidebar-nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .sidebar-link {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.6rem;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Spec/docs pages: same light pastel scheme as the genepool + landing.
+     This block only ships on pages that use the Docs layout, so the global
+     dark theme stays intact everywhere else. We remap the palette custom
+     properties on <body> (overriding :root from global.css for this subtree),
+     so every var()-driven style — bg, text, code, pre, tables, nav — recolours. */
+  body{
+    --bg:#ffffff; --bg-raised:#fcfbf9; --bg-surface:#f6f4ef; --bg-hover:#f3eee4;
+    --border:#e7e3db; --border-dim:#efece6;
+    --text:#22201f; --text-secondary:#6c6760; --text-dim:#a7a097;
+    --accent:#3f9488; --accent-dim:#2c6a61;
+    --accent-glow:rgba(63,148,136,.08); --accent-border:rgba(63,148,136,.22);
+    --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+    --font-mono:"Spline Sans Mono",ui-monospace,monospace;
+  }
+  /* display headings in Unbounded, matching the rest of the site */
+  .docs-content h1,.docs-content h2,.docs-content h3{font-family:"Unbounded",system-ui,sans-serif;letter-spacing:-.02em}
+  .docs-content a:hover{color:#e07a64}
+</style>

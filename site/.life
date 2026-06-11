@@ -1,0 +1,125 @@
+name: site
+summary: "The known.life genepool itself — an Astro SSR app on a Cloudflare Worker that IS the registry (publish · resolve · auth · scan · gene viewer) plus the docs site. This is the one production surface every other .life depends on: install.sh is served from here, /api/resolve/<gene>/latest is how genes are inherited, and the engine ships as the `life` package's files[\"life\"]. Deploys under the convention as a ci-auto unit (it's production, default-on); the live Cloudflare resources predate the convention, so config: pins their names and binding vars (env.KNOWN_KV / env.KNOWN_R2) rather than refactoring the worker. The deploy is THIS repo's own — the canonical dogfood worst case the ci-deploy-convention was designed against."
+
+requires:
+  - infra.compute
+  - infra.route
+  - infra.datastore
+  - infra.kv
+  - infra.object_store
+  - infra.secret_store
+  # Workers AI (env.AI) — query/summary embeddings for semantic /search
+  # (lib/semantic.ts); the worker fails open to lexical search without it.
+  - infra.ai
+
+# Deploy to the live Worker script name, not the unit's (`site`). Per-resource
+# names + binding vars are pinned to the resources that predate the convention
+# (the worker reads env.KNOWN_KV / env.KNOWN_R2 / env.DB), so `life deploy`
+# binds the existing stores instead of provisioning fresh empty ones.
+deploy_name: known-life
+config:
+  db_name: known-life-db
+  kv_title: known-life-known_kv
+  kv_binding: KNOWN_KV
+  bucket: known-life-known-r2
+  r2_binding: KNOWN_R2
+
+# Build: install deps, fold the root installer into the served assets (it's
+# served at known.life/install.sh from the gene pool, not raw GitHub), then run
+# the Astro Cloudflare build → dist/_worker.js (SSR module graph) + dist/ assets.
+build: npm ci --no-audit --no-fund && cp ../install.sh public/install.sh && npm run build
+
+# The build above embeds the repo-root installer, so an install.sh edit must
+# trigger this unit's ci-auto deploy (engine ≥3.46.0 deploy_inputs) — without
+# it, an installer change "deploys" as a silent no-op until the next site/ touch.
+deploy_inputs:
+  - install.sh
+artifact: dist/_worker.js
+assets:
+  dir: ./dist
+  binding: ASSETS
+  not_found: 404-page
+
+# A public site on the apex custom domain. It brings its own worker, so it
+# authenticates its own privileged paths (owner-gate on publish/lifecycle, the
+# /exchange boot flow) — there is no injected gate; `public: true` is the honest
+# marker that the surface itself is world-reachable.
+route: known.life
+public: true
+
+# Post-deploy smoke (engine ≥3.38.0): the genepool's two load-bearing surfaces
+# answer after every CI deploy — the installer every cold-start curls, and the
+# resolve endpoint every .life inherits through. A mismatch fails the deploy.
+verify:
+  - /install.sh=200
+  - /api/resolve/life/latest=200
+
+# CF-runtime config with no portable meaning — the exact pinned compatibility
+# the live worker runs on. nodejs_compat is required by the Astro CF adapter.
+cloudflare:
+  compatibility_date: "2026-05-01"
+  compatibility_flags:
+    - nodejs_compat
+
+---
+
+# site — the known.life genepool
+
+This directory is **the genepool itself**: the deployable that serves
+[known.life](https://known.life). It plays two independent roles (see the root
+`.life` and `CLAUDE.md`) — here it is purely the *deployment surface*; the rest
+of the repo is a .life that happens to use the genepool this worker hosts.
+
+## What it serves
+
+An [Astro](https://astro.build) app with the Cloudflare adapter, deployed as a
+single SSR Worker plus edge static assets:
+
+- **The registry API** (`src/registry/`) — `router.ts` dispatches to
+  `routes/`: `publish` · `resolve` · `package` · `claim` · `lifecycle` (the
+  mutate surface), `maintainers` (account-level publish delegation — logins the
+  owner trusts to publish all their genes), `auth` + `mcp-oauth` + `mcp`
+  (lifekey-proven auth, the MCP bridge), `setup` (the hosted cold-start flow),
+  `skill`; plus `/api/provides/<cap>` (reverse capability lookup, ranked by
+  installs — how the engine resolves an unmet `requires:`), handled in the
+  router itself. The pre-publish secret/PII scan is not a route: it runs inside
+  the publish pipeline (`lib/scan.ts`). The security spine has a credential-free
+  vitest suite (`npm test`, CI job `worker-unit`).
+- **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
+  to static assets.
+- **The installer** — `install.sh` (repo root) is copied into `public/` at build
+  time and served from `known.life/install.sh`, so cold-start never depends on
+  raw GitHub. Because that file lives outside this directory, the frontmatter
+  declares it under `deploy_inputs:` (engine ≥3.46.0) so an installer edit
+  triggers this unit's ci-auto deploy — before that, change detection keyed on
+  `site/**` alone and an installer change shipped as a silent no-op.
+- **The engine** — shipped as the `life` package's `files["life"]`, served from
+  `/api/resolve/life/latest` like any other module (no separate static asset).
+
+## How it deploys
+
+Under the **ci-deploy-convention**: a push that changes `site/**` deploys this
+unit from CI via the engine's `deploy --changed`, never by hand from a session
+(`life deploy` against the live genepool would break every other .life). The
+frontmatter above is the whole deploy spec — the cloudflare adapter absorbs the
+build, the Astro module-graph upload, the asset exclusion of `_worker.js`, the
+D1 schema apply (`schema.sql`, idempotent), resource-ID resolution by name, and
+secret-text carry-through on redeploy. The `config:` overrides bind the live
+`known-life-*` resources the worker already reads.
+
+Backing data: **D1** (`known-life-db` — accounts, names, packages, versions,
+installs, deps, embeddings; `schema.sql`), **KV** (`known-life-known_kv` — auth
+sessions, caches, rate limits), **R2** (`known-life-known-r2` —
+content-addressed package blobs), **Workers AI** (`env.AI` — bge-base
+embeddings powering semantic `/search`, computed lazily and cached in the D1
+`embeddings` table; `lib/semantic.ts`). Operator secrets (`ANTHROPIC_API_KEY`,
+the OAuth client pair) are set out of band via `data <dir> secret set` and
+survive every redeploy.
+
+The deeper deploy mechanics — the capability→primitive map, `route:` gating, the
+Workers REST flow — live in the `cloudflare` skill (`life ask cloudflare`).
+
+<!-- First live deploy through the ci-deploy-convention (deploy.yml → `deploy
+--changed` → `life deploy site`), 2026-06-09: an inert change to exercise the
+real auto path end-to-end against the live genepool. -->
+

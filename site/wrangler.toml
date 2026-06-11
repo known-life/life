@@ -1,0 +1,57 @@
+#:schema node_modules/wrangler/config-schema.json
+# known.life — registry + docs site
+#
+# Bindings reference live Cloudflare resources by ID. To populate the TODOs:
+#   wrangler kv namespace list           # → id for KNOWN_KV
+#   wrangler r2 bucket list              # → name confirms; binding uses bucket_name
+#   wrangler d1 list                     # → uuid for the DB binding
+# The IDs are stable once provisioned — fill them in once, never again.
+
+name = "known-life"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+main = "dist/_worker.js/index.js"
+
+# Astro's Cloudflare adapter emits dist/_worker.js (the SSR worker entry) plus
+# dist/ static assets (prerendered docs, public/* including install.sh). The
+# engine binary is no longer a static asset — it's the `life` registry package,
+# served from /api/resolve/life/latest like any other module.
+[assets]
+directory = "./dist"
+not_found_handling = "404-page"
+binding = "ASSETS"
+
+[[routes]]
+pattern = "known.life"
+custom_domain = true
+
+# D1 — accounts, names, packages, versions, installs, deps. The schema is
+# applied by deploy-site.yml via `wrangler d1 execute --file schema.sql` before
+# the worker upload; D1 is idempotent so re-applying is safe.
+[[d1_databases]]
+binding = "DB"
+database_name = "known-life-db"
+database_id = "TODO_FILL_IN_FROM_wrangler_d1_list"
+
+# KV — auth sessions, rankings cache, rate limits. App-named (env.KNOWN_KV);
+# the worker code reads it under that exact name.
+[[kv_namespaces]]
+binding = "KNOWN_KV"
+id = "TODO_FILL_IN_FROM_wrangler_kv_namespace_list"
+
+# R2 — content-addressed package blobs (incl. the engine: the `life` package's
+# files, like every other module — there is no separate static engine asset).
+[[r2_buckets]]
+binding = "KNOWN_R2"
+bucket_name = "known-life-known-r2"
+
+# Secrets (ANTHROPIC_API_KEY, etc.) come from `wrangler secret put` — not
+# checked in. The deploy workflow doesn't manage them; rotate via the CLI.
+#
+# MCP OAuth bridge (see src/registry/routes/mcp-oauth.ts):
+#   wrangler secret put KNOWN_OAUTH_CLIENT_ID
+#   wrangler secret put KNOWN_OAUTH_CLIENT_SECRET
+# (or set the matching GH Actions secrets and let deploy-site.yml sync them.)
+# The deploy workflow also flips `accounts.is_admin = 1` for the github_login
+# named in the `KNOWN_ADMIN_LOGIN` Actions secret (NOT a worker secret) — that
+# row controls who can publish over any name. No shared bearer.

@@ -1,0 +1,98 @@
+---
+import Docs from "../../layouts/Docs.astro";
+---
+
+<Docs title="Interface">
+  <h1>The .life file</h1>
+  <p class="lead">Every <code>.life</code> file has the same shape. YAML frontmatter for the interface; a Markdown body that is the directory's README for agents. One format for every cell.</p>
+
+  <h2>Example</h2>
+  <pre><code>name: blog
+summary: "Astro essay site with scroll-driven illustrations"
+
+requires:
+  - infra.compute
+  - infra.route
+
+provides:
+  - blog.preview
+
+route: secure
+allow:
+  - your-github-login
+
+commands:
+  preview:
+    desc: Build and deploy a preview
+    run: bash scripts/preview.sh
+  publish:
+    desc: Merge to main and deploy
+    run: bash scripts/publish.sh
+    requires_approval: true
+
+tests:
+  - bash scripts/check-links.sh
+
+---
+
+# Blog
+
+A static essay site. Before editing,
+run `life ask blog/` to understand what
+governs this path.</code></pre>
+  <p><strong>Always quote <code>summary:</code></strong> (and any scalar containing <code>": "</code>) — the strict parser rejects it unquoted, and an unparseable head silently drops the cell's hooks downstream.</p>
+
+  <h2>Fields</h2>
+  <p>The cardinal rule of the schema: <strong>a key does nothing until code reads it.</strong> There is no central validator — each consumer (the engine, the harness compiler, an infra adapter) pulls the keys it knows, and unknown keys are silently ignored. The main ones:</p>
+  <table>
+    <tbody>
+      <tr><td><code>name</code></td><td>The cell's name — the genepool slug if published, and the default prefix for deployed resource names.</td></tr>
+      <tr><td><code>summary</code></td><td>One quoted sentence. Powers <code>life status</code> and the command library.</td></tr>
+      <tr><td><code>requires</code></td><td>Capabilities this cell needs. <code>infra.*</code> entries also drive the infra adapter at deploy time.</td></tr>
+      <tr><td><code>provides</code></td><td>Capabilities this cell offers — lets another cell require it without naming it.</td></tr>
+      <tr><td><code>imports</code></td><td>Direct dependency on a specific gene (<code>known.life/&lt;name&gt;</code>, optionally <code>@&lt;version&gt;</code>) or a local cell (<code>./path</code>). Vendored into <code>.genome/</code>, pinned in <code>.life.lock</code>.</td></tr>
+      <tr><td><code>commands</code></td><td>The verbs this cell adds — <code>name: {'{'}run:, desc:, args:{'}'}</code>. Gate irreversible ones with <code>requires_approval: true</code>.</td></tr>
+      <tr><td><code>skills</code></td><td>Agent skill directories to mount into the harness.</td></tr>
+      <tr><td><code>surfaces</code></td><td>Portable harness surfaces — <code>commands:</code> (slash commands) and <code>scripts:</code> (helper scripts) compiled into the harness layer.</td></tr>
+      <tr><td><code>hooks</code></td><td>Lifecycle hooks by event (<code>session_start</code>, <code>user_prompt_submit</code>, <code>pre_tool_use</code>, <code>stop</code>) compiled into the harness.</td></tr>
+      <tr><td><code>mcp</code></td><td>Full MCP server definitions, emitted to the harness's MCP config.</td></tr>
+      <tr><td><code>harness</code></td><td>Portable harness config (permissions, MCP enable-list, plugins) the adapter maps to each harness.</td></tr>
+      <tr><td><code>tests</code></td><td>Shell commands run by <code>life test</code> — and as the pre-publish gate: a non-zero exit refuses <code>life mutate</code>.</td></tr>
+      <tr><td><code>checks</code></td><td>Environment assertions (a needed binary or file exists here) — verified by <code>life test</code>, never gating publish.</td></tr>
+      <tr><td><code>inputs</code></td><td>Config values a gene accepts from its consumer.</td></tr>
+      <tr><td><code>local</code></td><td>Consumer-owned paths inside an imported gene that survive re-vendoring.</td></tr>
+      <tr><td><code>path</code></td><td>Directories appended to <code>PATH</code> for the session.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Deploy fields</h2>
+  <p>A cell becomes a running service by declaring infra. The portable surface is provider-neutral; the adapter owns the translation.</p>
+  <table>
+    <tbody>
+      <tr><td><code>route</code></td><td>Exposure: <code>public</code> (open), <code>secure</code> (owner-gated), a hostname (custom domain, secure by default), or absent (private — service-binding only).</td></tr>
+      <tr><td><code>allow</code></td><td>GitHub logins permitted through the <code>route: secure</code> gate.</td></tr>
+      <tr><td><code>build</code></td><td>Pre-deploy build command.</td></tr>
+      <tr><td><code>artifact</code></td><td>Path to the service entry point (default <code>src/worker.js</code>); omit for a static-only deploy.</td></tr>
+      <tr><td><code>assets</code></td><td>Static directory served beside the service.</td></tr>
+      <tr><td><code>vars</code></td><td>Plain (non-secret) env vars. Secrets are set out of band — <code>life data &lt;dir&gt; secret set</code> — never here.</td></tr>
+      <tr><td><code>schedule</code></td><td>Cron trigger for scheduled execution.</td></tr>
+      <tr><td><code>deploy</code></td><td>CI deploy tier — <code>ci-auto</code> (default: ships from CI on merge), <code>ci-manual</code>, <code>session</code>, or <code>none</code>. See the <a href="/docs/adapters/storage">repo adapter</a>.</td></tr>
+    </tbody>
+  </table>
+  <p>Everything is private by default. <code>life test</code> catches exposure mismatches — an open route on a state-bearing service, a public surface over an approval-gated command.</p>
+
+  <h2>Commands</h2>
+  <pre><code>commands:
+  preview:
+    desc: Build and deploy a preview
+    run: bash scripts/preview.sh
+
+  publish:
+    desc: Merge to main and deploy
+    run: bash scripts/publish.sh
+    requires_approval: true</code></pre>
+  <p>Run one with <code>life &lt;cell&gt; &lt;command&gt;</code>; <code>life</code> alone lists every command in the library. A command marked <code>requires_approval: true</code> refuses to run without an explicit <code>--approve</code> — this is the entire policy layer, and it lives on the command, not in a separate system.</p>
+
+  <h2>Installable by anyone</h2>
+  <p>Any cell is independently installable by another .life through its <code>imports:</code> — as a published <code>known.life/&lt;name&gt;</code> gene, pinned in <code>.life.lock</code>. That is all a gene is: a cell, published. If a concept cannot fit this file, it belongs in normal code.</p>
+</Docs>

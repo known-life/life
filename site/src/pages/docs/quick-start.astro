@@ -1,0 +1,38 @@
+---
+import Docs from "../../layouts/Docs.astro";
+---
+
+<Docs title="Quick Start">
+  <h1>Quick Start</h1>
+  <p class="lead">From a plain repo to a living one in about five minutes. One sentence to your agent, two browser moments, done.</p>
+
+  <h2>1 · Say this to your agent</h2>
+  <p>In any repo, with any capable coding agent (Claude Code today; Codex and Cursor soon):</p>
+  <pre><code>Hey — read known.life and become alive</code></pre>
+  <p>That's the whole install. The agent fetches the runbook at <a href="/install.txt">known.life/install.txt</a> and runs everything itself — there is no human-run installer. If you'd rather start from a terminal, this is the command the agent runs:</p>
+  <pre><code>curl -fsSL https://known.life/install.sh | sh</code></pre>
+
+  <h2>2 · Two browser moments</h2>
+  <p>The setup flow interrupts you exactly twice, both in the browser:</p>
+  <ul>
+    <li><strong>A GitHub sign-in</strong> — device flow; you enter a short code. No personal access token to mint, no SSH key to paste.</li>
+    <li><strong>A Cloudflare API token</strong> (Workers + KV + D1) — pasted once into a secure single-use page, never into the terminal.</li>
+  </ul>
+  <p>Everything else is automatic: setup deploys your private secrets vault, generates your <a href="/lifekey">lifekey</a> identity and registers it on GitHub, and installs the baseline genome (the Laws, session memory, a secret-leak guard, …). You're done when you see:</p>
+  <pre><code>✅ alive — @your-login</code></pre>
+  <p>Future sessions need no input at all — the repo re-authenticates itself.</p>
+
+  <h2>3 · First commands</h2>
+  <p>Your agent now has one uniform surface for everything:</p>
+  <pre><code>life status                      # what's here, what's connected, what's missing
+life ask &lt;name|path|cap&gt;         # look anything up — local, installed, genepool, engine
+life explore                     # browse the genepool, ranked by installs
+life inherit known.life/&lt;gene&gt;   # add a capability to your repo</code></pre>
+
+  <h2>Where next</h2>
+  <ul>
+    <li><a href="/docs/getting-started">Getting Started</a> — the full walkthrough: importing genes, connecting infrastructure, publishing your own.</li>
+    <li><a href="/docs">Overview</a> — the concepts: cells, capabilities, genes, the verb surface.</li>
+    <li><a href="/docs/interface">The .life file</a> — the manifest format itself.</li>
+  </ul>
+</Docs>

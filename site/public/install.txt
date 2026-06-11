@@ -1,0 +1,156 @@
+LIFE — INSTALL INSTRUCTIONS FOR AN AGENT
+========================================
+
+You are an AI coding agent. A human asked you to "set up known.life", "install
+known.life", "install life", "add life to this repo", "make this repo
+Life-aware", "update known.life", "life setup", "go alive", or similar. This
+file is your runbook — there's no human-run installer; you do the whole thing.
+The human is interrupted exactly twice, both in the browser: a GitHub sign-in
+(device flow — they enter a short code) and a Cloudflare API token pasted into
+a single-use drop page. Nothing is pasted into the terminal, and no SSH-key
+paste: setup auto-registers your identity key on GitHub via the sign-in.
+
+FIRST — IS THIS AN INSTALL OR AN UPDATE?
+  Check for `./.life.engine` in the repo root.
+  - ABSENT → this is a fresh install. Follow this runbook top to bottom.
+  - PRESENT → the repo is already Life-aware; "update"/"upgrade" means run
+    `life evolve` (pulls a newer engine, re-pins floating imports, regenerates
+    the harness). You do NOT re-run ARC 1 or ARC 2 — `life evolve` is the whole
+    job. Stop here once it reports clean.
+
+The flow has two arcs:
+
+  ARC 1  (no user input, seconds): make the repo Life-aware.
+  ARC 2  (two tokens, then fully automatic): become alive.
+
+
+================================================================================
+ARC 1 — MAKE THE REPO LIFE-AWARE
+================================================================================
+
+STEP 1 — Cold-start the engine
+------------------------------
+One out-of-band command fetches the engine (the `life` gene; its
+binary is files["life"] in the resolve response) and a harness adapter, and
+writes a stub `.life` if the repo has none:
+
+    curl -fsSL https://known.life/install.sh | sh
+
+The engine lands at `./.life.engine` in the repo root (sibling to `.life` and
+`.life.lock`). Node must be on PATH. After this first fetch the engine
+self-updates: `life evolve` reads resolve/life/latest, verifies the content_hash,
+and swaps in a newer binary — no curl needed again.
+
+STEP 2 — Orient
+---------------
+    ./.life.engine status                  # what's here, connected, missing + the graph
+    ./.life.engine ask <name|path|cap>      # look anything up: local / installed / genepool / engine
+    ./.life.engine --help                   # every command
+
+After the first `evolve` (automatic on session start) the engine is also on PATH
+as bare `life`; until then call it as `./.life.engine`.
+
+That's ARC 1. The repo is Life-aware. The harness layer (`.claude/`, `AGENTS.md`,
+`.cursor/`) is compiled output — `evolve` writes it and it's gitignored; never
+hand-edit or commit it.
+
+
+CHECKPOINT — ask the user before ARC 2
+--------------------------------------
+Tell the user, in your own voice:
+
+    "<repo> is Life-aware and the engine runs. To go fully alive — your own
+     lifekey identity, a private secrets vault, and the default toolset — I
+     need you twice, both in the browser: a GitHub sign-in and a Cloudflare
+     API token pasted into a secure one-time page. Want to do that now?"
+
+If they say no, stop here.
+
+
+================================================================================
+ARC 2 — BECOME ALIVE (one command, two browser moments)
+================================================================================
+
+STEP 3 — Run setup; relay each NEED: block verbatim
+---------------------------------------------------
+    ./.life.engine setup
+
+`setup` is a resumable state machine. It never blocks: whenever it needs the
+human it exits 0 with a `NEED:` block — relay that text to the user verbatim,
+wait for their "done", and re-run `./.life.engine setup`. The interaction is:
+
+  1. GitHub device flow — setup prints a URL + short code; the user signs in
+     in the browser. No personal access token is ever created or pasted.
+  2. Cloudflare drop-box — setup mints a single-use https URL; the user
+     creates an API token (Account permissions: Workers Scripts, D1, Workers
+     KV Storage, R2 — scoped to ONE account) and pastes it into that page.
+     The Account ID is derived automatically; nothing enters the terminal.
+
+NEVER echo a credential back; NEVER commit one. Credentials are one-way data:
+into the vault, never out. (The `leak-guard` gene, installed by default,
+blocks env/argv-dumping commands so a token can't spill into the transcript.)
+
+STEP 4 — What setup provisions
+------------------------------
+The hosted flow at https://known.life/setup does the same thing with the
+sign-in + drop collected up front (it splices the credentials into the
+install command server-side) — point the user there if they'd rather start
+in the browser. Either path lands in the same provisioning code:
+
+What setup does (8 idempotent stages, each announced; re-run after fixing
+anything and it converges):
+
+  1. preflight   — validate the Cloudflare token + account and the GitHub
+                   grant BEFORE touching anything irreversible.
+  2. adapters    — install the cloudflare + github adapter genes.
+  3. cloudflare  — connect the infra adapter.
+  4. vault       — install + deploy the secrets vault (a public Worker), opted
+                   into tokenless /exchange.
+  5. lifekey     — generate an Ed25519 identity, AUTO-REGISTER it on
+                   github.com/<login>.keys via the sign-in's token (no SSH
+                   paste), and flush the private half to the vault.
+  6. root .life  — write `secrets_worker_url:` + `proxy_hosts:` so future
+                   sessions hydrate identity from the vault automatically.
+  7. defaults    — install the baseline genome (laws, sessions, kb,
+                   mcp-credentials, book-of-life, leak-guard, cloudflare,
+                   git-sync, planning, secrets).
+  8. evolve + self-test — compile the harness, then exercise the tokenless
+                   /exchange round-trip future sessions will use.
+
+On any `✗`, pass the message to the user verbatim — each names the exact
+problem and remediation. After they fix it, re-run.
+
+STEP 5 — Confirm
+----------------
+After the final `✅ alive — @<login>` line, tell the user their identity
+(@login, lifekey on github.com/<login>.keys) and the vault URL, and that
+future sessions need no further input: the vault re-opens via the tokenless
+/exchange (the session proves it can push the repo) and the lifekey signs
+every genepool publish (`life mutate`). Suggest:
+
+    life status
+    life explore
+
+
+================================================================================
+RECOVERY
+================================================================================
+
+Each `✗` line names its remediation. Common cases:
+
+- Cloudflare account not reachable — recheck the Account ID (dashboard sidebar)
+  and that the token covers it.
+- Vault not reachable after ~60s — the account's workers.dev subdomain isn't
+  enabled; enable it
+  (https://dash.cloudflare.com/?to=/:account/workers/onboarding) and re-run.
+- GitHub grant missing — re-run setup to restart the device flow; the
+  sign-in covers key registration and lets the vault verifier read back the
+  /exchange nonce from the repo.
+- Self-test fails — usually GitHub's published-keys propagation catching up;
+  wait ~30s and re-run.
+
+Re-running `setup` is safe and idempotent — it checks "already done?" per stage.
+The vault is per-repo (named `<repo>-vault`); a second .life on the same account
+reuses the lifekey but gets its own vault.
+
+The full spec is at https://known.life/docs.

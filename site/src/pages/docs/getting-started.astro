@@ -1,0 +1,97 @@
+---
+import Docs from "../../layouts/Docs.astro";
+---
+
+<Docs title="Getting Started">
+  <h1>Getting Started</h1>
+  <p class="lead">You don't install Life by hand — you tell your coding agent to become it. Everything below is something the agent does; the human just talks.</p>
+
+  <h2>0 · The one move</h2>
+  <p>In any repo, with any capable coding agent (Claude Code, Codex, …), say:</p>
+  <pre><code>Read known.life and make this repo Life-aware.</code></pre>
+  <p>The agent fetches <a href="/install.txt">/install.txt</a> and does the rest. (In a hurry? The <a href="/docs/quick-start">Quick Start</a> is the five-minute version.) The rest of this page is what that means — and how to go from "Life-aware" to fully <em>alive</em>.</p>
+
+  <h2>1 · Make the repo Life-aware</h2>
+  <p>The agent drops the engine in and writes a root <code>.life</code> manifest. The engine is the <a href="/life"><code>life</code></a> gene — and it's <em>minimal</em>: it bundles no adapters, so the installer also pulls a harness adapter (e.g. <a href="/claude-code"><code>claude-code</code></a>) so the first <code>evolve</code> can compile <code>.claude/</code>. One command does it:</p>
+  <pre><code>curl -fsSL https://known.life/install.sh | sh</code></pre>
+  <p>(Fully inspectable at that URL — it fetches <code>files["life"]</code> from <code>resolve/life/latest</code> and the harness adapter from <code>resolve/claude-code/latest</code>, both with <code>node</code>.)</p>
+  <p>The footprint is tiny — the root holds the <code>.life</code> manifest, the engine, and a <code>.life.lock</code> once you import genes; everything compiled lives under <code>.genome/</code>:</p>
+  <pre><code>.life                          # the root manifest (YAML for machines, Markdown for agents)
+.life.lock                     # the install lock, once you import genes
+.life.engine                   # the engine binary (loads adapters, bundles none)
+.genome/
+  claude-code/                 # the harness adapter — a gene, like any other
+  &lt;gene&gt;/                      # imported genes</code></pre>
+
+  <h2>2 · Orient</h2>
+  <p>The engine is the agent's map. The first command is always:</p>
+  <pre><code>life status      # what's here, what's connected, what's missing</code></pre>
+  <pre><code>life ask &lt;path&gt;   # what governs a directory
+life test            # verify the repo against reality
+life evolve          # pull engine + deps + compile the harness (.claude/, AGENTS.md, .cursor/)</code></pre>
+  <p>The harness layer is <strong>compiled output</strong> — gitignore it and let <code>evolve</code> rebuild it each session. <code>evolve</code> runs automatically on session start and after every <code>inherit</code>, so you rarely invoke it by hand. Commit <code>.life</code> and <code>.life.engine</code>; never hand-edit <code>.claude/</code>.</p>
+
+  <h2>3 · Add capabilities — import from the genepool</h2>
+  <p>Capabilities (a secrets vault, session memory, the Laws, …) are genes on <a href="/explore">known.life</a>. Inherit one by name — like <code>npm install --save</code>, it vendors the gene into <code>.genome/</code>, pins it in <code>.life.lock</code>, <strong>records it in your <code>.life</code> <code>imports:</code></strong>, and wires its hooks/skills into the harness:</p>
+  <pre><code>life inherit known.life/markdown-memory   # vendored, saved to .life, and wired in one step</code></pre>
+  <p>Recording the import is what makes the inherit <em>durable</em>: a session-start <code>evolve</code> reconciles the module tree against <code>imports:</code> (plus the baseline genome), so a gene that only pinned the lock would be pruned next session — the declared import is what survives. To pin a version or stage several at once, declare them by hand and inherit everything declared:</p>
+  <pre><code># .life
+imports:
+  - known.life/markdown-memory
+  - known.life/sessions@1.2.3        # pin a version to freeze it</code></pre>
+  <pre><code>life inherit     # fetch every declared import into .genome/, pin in .life.lock, wire the harness</code></pre>
+  <p>Browse and inspect before importing — every gene page is agent-readable:</p>
+  <pre><code>life ask &lt;name|path|cap&gt;   # one verb spans local / installed / genepool / engine
+life explore                # browse the commons, ranked by installs</code></pre>
+
+  <h2>4 · Connect infrastructure</h2>
+  <p>An infra adapter is a gene the engine loads (it bundles none). Inherit the one you use, then connect it once; the agent never names a vendor product — it requires capabilities (<code>infra.compute</code>, <code>infra.datastore</code>, …) and the adapter translates.</p>
+  <pre><code>life inherit cloudflare
+life connect cloudflare
+life deploy &lt;dir&gt;      # provision + ship a living directory</code></pre>
+
+  <h2>5 · Become alive (the full setup)</h2>
+  <p>"Life-aware" is an engine and a manifest. <strong>Alive</strong> is a repo with its own cryptographic identity, a private secrets vault, and a baseline genome installed. One verb does the whole onboarding:</p>
+  <pre><code>life setup</code></pre>
+  <p>Tell the agent <em>"set up known.life"</em> (or "bring this repo to life") and it follows the runbook at <a href="/install.txt">/install.txt</a>. It stops the user exactly once, for two credentials:</p>
+  <ul>
+    <li><strong>A GitHub sign-in</strong> — the hosted <a href="/setup">known.life/setup</a> page uses an OAuth grant; the raw terminal path uses GitHub's device flow. No personal access token to mint. <strong>No SSH paste to do by hand either:</strong> setup generates an Ed25519 lifekey and auto-registers its public half on <code>github.com/&lt;login&gt;.keys</code>. That key then signs every genepool write you publish.</li>
+    <li><strong>A Cloudflare API token</strong> (Workers + KV + D1) — <a href="https://dash.cloudflare.com/profile/api-tokens">create token</a>, pasted once into the setup form (or the browser drop-box the terminal path mints).</li>
+  </ul>
+  <p>The flow's contract:</p>
+  <ul>
+    <li><strong>Preflight first</strong> — validates both credentials (Cloudflare token scope/account, GitHub grant) before doing anything irreversible. A missing scope fails fast with the exact name and a create-token URL.</li>
+    <li><strong>Every stage announces</strong> — one ✓ or ✗ per stage; no silent failures. The eight stages: preflight, adapters, cloudflare connect, vault deploy, lifekey (generate + auto-register + flush to vault), root <code>.life</code>, baseline genome, evolve + self-test.</li>
+    <li><strong>Idempotent</strong> — re-run after fixing a token; it picks up where it left off.</li>
+    <li><strong>Self-tests re-entry</strong> — runs the same tokenless <code>/exchange</code> future sessions will use against the fresh vault (the session proves it can push the repo; the lifekey is not involved); if it passes, future sessions authenticate with no input at all.</li>
+  </ul>
+  <p>After the final ✅ line: the repo is alive. Future sessions re-enter automatically — you'll never paste those tokens again.</p>
+
+  <p>There's nothing special about the baseline genome — it's just a list of ordinary genepool genes (the Laws, session memory, a secret-leak guard, …) that <code>setup</code> installs for you. Browse them on <a href="/explore">known.life</a>, add or drop any from your <code>.life</code>, and publish your own the same way. The engine itself is just another gene too: <a href="/life"><code>life</code></a>.</p>
+
+  <h2>6 · Publish your own gene</h2>
+  <p>Publishing is signed by your <a href="/lifekey">lifekey</a> — an Ed25519 key whose public half is on <code>github.com/&lt;login&gt;.keys</code> (your existing git SSH key, or the dedicated key <code>setup</code> registered for you). No password, no API key: a key GitHub already vouches for is the whole credential.</p>
+  <pre><code>life mutate &lt;dir&gt;      # claims the name on first publish, then cuts an immutable version</code></pre>
+  <p>Names are owned by GitHub identities; versions are immutable; every publish is scanned for secrets/PII before it goes live. There's no publish key to lose — your lifekey (your GitHub identity) is the only credential, so you can publish from any machine that can sign with it.</p>
+
+  <h2>7 · Update an owned gene</h2>
+  <p><strong>The genepool holds the source — there is no separate "source repo" for a gene.</strong> To change one you own, fetch its current files into a scratch directory, edit, and republish. The new version is a new immutable cut; consumers on a floating import pick it up automatically on their next session (<code>evolve</code> re-pins floats to latest), or on demand with <code>life inherit --refresh</code>.</p>
+  <pre><code># 1. Fetch the gene source into a scratch dir.
+life fetch &lt;name&gt; /tmp/edit-&lt;name&gt;
+
+# 2. Edit.
+
+# 3. Republish — same lifekey that originally claimed the name. Bumps patch by default.
+life mutate /tmp/edit-&lt;name&gt;                     # 1.0.2 → 1.0.3
+life mutate /tmp/edit-&lt;name&gt; --bump minor        # 1.0.2 → 1.1.0
+life mutate /tmp/edit-&lt;name&gt; --version 2.0.0     # explicit pin</code></pre>
+  <p>Rules of the road:</p>
+  <ul>
+    <li><strong>Versions are immutable</strong> — you cannot overwrite <code>1.0.2</code>. Cut a new version every edit. Nothing is ever removed: <code>life mutate --withdraw &lt;name&gt;@&lt;ver&gt;</code> yanks a version (flagged; old locks still resolve it) and <code>life mutate --deprecate &lt;name&gt;@&lt;ver&gt;</code> soft-deprecates it — new installs skip both.</li>
+    <li><strong>Scan blocks secrets and PII</strong> before publish. A blocked publish doesn't burn a version number.</li>
+    <li><strong>Floats auto-upgrade; pins freeze.</strong> A <code>known.life/&lt;name&gt;</code> import without <code>@&lt;ver&gt;</code> floats — <code>evolve</code> re-pins it to the latest version each session, recording the resolved version in <code>.life.lock</code>. Pin a version (<code>known.life/&lt;name&gt;@1.2.3</code>) to freeze it; pinned imports never move.</li>
+  </ul>
+
+  <h2>The loop</h2>
+  <p><strong>declare → inherit → test</strong> — with <code>evolve</code> keeping the engine, dependencies, and harness current underneath, automatically each session. Source wins; generated files are outputs; the failing test tells the agent exactly what to do next.</p>
+</Docs>

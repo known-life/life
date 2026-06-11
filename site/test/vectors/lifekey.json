@@ -1,0 +1,9 @@
+{
+  "_comment": "Known-answer Ed25519 conformance vector for lib/verify.mjs. THIS gene is the canonical source; every vendored copy (the known.life registry worker's src/registry/lib/lifekey-verify.mjs, the secrets vault) must verify signature_b64 as valid and reject tampered_signature_b64. A consumer vendors THIS file alongside verify.mjs (scripts/vendor-lifekey.sh), so a drift in any copy fails that copy's own suite against the same fixed answer. Regenerate: generate an ed25519 keypair, pack the raw pubkey into the ssh-ed25519 wire blob, sign the nonce, base64 everything, and flip one byte of the signature for tampered_signature_b64.",
+  "openssh_pubkey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuqKjR/H+EOBvlSi7a0Ia6tqlObp1QIhOvcRPw63MaB known-answer@known.life",
+  "raw_pubkey_b64": "S6oqNH8f4Q4G+VKLtrQhrq2qU5unVAiE69xE/DrcxoE=",
+  "nonce": "known.life:test-nonce:v1",
+  "signature_b64": "FWrsAKbfjzW45kd25INTNoN9sZUq9F5PGrdi1ygWaO4uEQNtyYh67SyVDmbrdCsrRJEBfsN6KClg95ub+eWiAA==",
+  "tampered_signature_b64": "FGrsAKbfjzW45kd25INTNoN9sZUq9F5PGrdi1ygWaO4uEQNtyYh67SyVDmbrdCsrRJEBfsN6KClg95ub+eWiAA==",
+  "expect_valid": true
+}

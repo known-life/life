@@ -1,0 +1,31 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+---
+
+<Docs title="Repo Adapters">
+  <h1>Repo</h1>
+  <p class="lead">The repo adapter connects a .life to where it lives: the git host. Its main job is the deploy convention — infra ships from CI on merge, never by hand from a session.</p>
+
+  <h2>GitHub</h2>
+  <p>The first repo adapter — a gene like any other (<code>setup</code> installs it by default):</p>
+  <pre><code>life inherit github</code></pre>
+  <p>It compiles <code>.github/workflows/deploy.yml</code> from the <code>deploy:</code> declarations in your cells' <code>.life</code> files. The emitted workflow is compiled-but-tracked build output — a header sentinel names its source, and the engine blocks direct edits.</p>
+
+  <h2>The deploy convention</h2>
+  <p><strong>You don't deploy infra from a session — you commit, and CI deploys.</strong> Every cell that requires <code>infra.compute</code> is a deployable unit, and its <code>deploy:</code> field picks a tier:</p>
+  <table>
+    <tbody>
+      <tr><td><code>ci-auto</code></td><td>The default. Deploys on push to the default branch when its files changed.</td></tr>
+      <tr><td><code>ci-manual</code></td><td>Boot-critical units: deploys only via a confirmed manual workflow dispatch.</td></tr>
+      <tr><td><code>session</code></td><td>CI never touches it — deployed by hand from a session (the Law-8 experiment tier).</td></tr>
+      <tr><td><code>none</code></td><td>Never deployed.</td></tr>
+    </tbody>
+  </table>
+  <p>Change detection is the engine's own <code>life deploy --changed</code>, which re-applies the tier filter — policy lives in one place, and the workflow stays dumb.</p>
+
+  <h2>Credentials</h2>
+  <p>CI deploy credentials are never guessed: the infra adapter gene declares the env it needs (e.g. <code>CLOUDFLARE_API_TOKEN</code>), and the generated workflow references each name as a repo secret. The root <code>.life</code>'s <code>deploy:</code> block configures the branch, any setup step, and extra env.</p>
+
+  <h2>Identity</h2>
+  <p>GitHub is also where a .life's identity is anchored: setup signs you in once (device flow — no personal access token), and your <a href="/lifekey">lifekey</a>'s public half is registered on <code>github.com/&lt;login&gt;.keys</code>. That key signs every genepool publish — a key GitHub already vouches for is the whole credential.</p>
+</Docs>

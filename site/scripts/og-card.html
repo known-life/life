@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  Source for public/og.jpg — the square social-share card (og:image).
+  Regenerate: serve this dir next to public/aviators.png, screenshot at
+  1200x1200 (scale 1), then compress:
+
+    cp public/aviators.png /tmp/og/ && cp scripts/og-card.html /tmp/og/card.html
+    (cd /tmp/og && python3 -m http.server 8742 &)
+    node <screenshot-skill>/scripts/shot.mjs localhost:8742/card.html \
+      --size 1200x1200 --scale 1 --wait 800 -o /tmp/og/og.png
+    node -e "require('sharp')('/tmp/og/og.png').jpeg({quality:82,mozjpeg:true}).toFile('site/public/og.jpg')"
+-->
+<html><head><meta charset="utf-8"><style>
+  html,body{margin:0;padding:0;width:1200px;height:1200px;overflow:hidden}
+  body{background:#fff;display:flex;align-items:center;justify-content:center}
+  /* the homepage's blush sunset wash, recentred for a square card */
+  .bg{position:fixed;inset:0;background:
+    radial-gradient(ellipse 75% 75% at 62% 40%, rgba(239,159,106,.48), transparent 62%),
+    radial-gradient(ellipse 85% 85% at 40% 60%, rgba(225,116,160,.34), transparent 66%),
+    radial-gradient(ellipse 65% 65% at 72% 26%, rgba(242,162,95,.30), transparent 70%),
+    linear-gradient(180deg, rgba(255,236,224,.55), rgba(255,242,234,.25))}
+  img{position:relative;width:76%;height:auto;filter:saturate(1.05)}
+</style></head><body><div class="bg"></div><img src="aviators.png"></body></html>

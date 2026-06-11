@@ -1,0 +1,556 @@
+---
+import Base from "../layouts/Base.astro";
+import { topPackages } from "../registry/lib/db";
+
+// On-demand (not prerendered): this page is also the genepool overview, so it
+// reads live "popular genes" from D1 at request time. Without the Cloudflare
+// runtime (preview / plain build) the binding is absent and the panel hides.
+export const prerender = false;
+let packages: Array<{ name: string; summary: string | null; latest_version: string | null; install_count: number; verified_state: string }> = [];
+try {
+  const env = (Astro.locals as any).runtime?.env;
+  if (env?.DB) packages = (await topPackages(env, 8)) as any;
+} catch { /* genepool not bound — panel hides itself */ }
+
+// Dev-only preview data so the genepool table is designable with `npm run dev`
+// (no D1 binding locally). Tree-shaken out of the production build — prod always
+// reads live D1 above, and falls back to hiding the panel, never to this.
+if (import.meta.env.DEV && packages.length === 0) {
+  packages = [
+    { name: "life", summary: "The engine — resolver, package manager, hooks, lifekey.", latest_version: "2.6.1", install_count: 4821, verified_state: "blessed" },
+    { name: "laws", summary: "The universal constitution injected at the top of every session.", latest_version: "1.4.0", install_count: 3940, verified_state: "blessed" },
+    { name: "claude-code", summary: "Harness adapter for Claude Code — compiles .claude/ from your .life.", latest_version: "1.3.2", install_count: 3122, verified_state: "verified" },
+    { name: "sessions", summary: "Durable session memory — transcribe, search, and recall past work.", latest_version: "1.1.1", install_count: 2680, verified_state: "verified" },
+    { name: "secrets", summary: "Vault-backed env: hydrate credentials from your account at session start.", latest_version: "2.0.1", install_count: 2410, verified_state: "verified" },
+    { name: "markdown-memory", summary: "Plain-markdown long-term memory the agent reads and writes.", latest_version: "1.1.1", install_count: 1987, verified_state: "verified" },
+    { name: "lifekey", summary: "Ed25519 identity — sign publishes and prove who you are, tokenless.", latest_version: "1.2.0", install_count: 1640, verified_state: "verified" },
+    { name: "git-sync", summary: "Keep a session and its trunk in agreement — pull at start, push at end, plus the git playbook.", latest_version: "1.0.0", install_count: 1203, verified_state: "" },
+    { name: "session-summarize", summary: "Rolls each session into a durable summary on stop.", latest_version: "1.1.1", install_count: 980, verified_state: "" },
+    { name: "browser", summary: "Headless browser — screenshot and drive web apps from the agent.", latest_version: "1.0.1", install_count: 742, verified_state: "" },
+  ] as any;
+}
+
+// Fetch the repo's star count. Best-effort — if GitHub is
+// unreachable or rate-limited, fall back to a plain "GitHub" label.
+let stars: number | null = null;
+try {
+  const res = await fetch("https://api.github.com/repos/known-life/life", {
+    headers: { Accept: "application/vnd.github+json", "User-Agent": "known.life" },
+  });
+  if (res.ok) stars = ((await res.json()) as { stargazers_count?: number }).stargazers_count ?? null;
+} catch { /* offline build — show the bare label */ }
+const starLabel =
+  stars == null || stars === 0 ? "GitHub"
+  : stars >= 1000 ? `${(stars / 1000).toFixed(stars >= 10000 ? 0 : 1)}k`
+  : `${stars}`;
+---
+
+<Base title="known.life">
+  {/* Agent-only signpost. Visually hidden for humans (sr-only pattern), but
+      present in the rendered DOM so an LLM fetching this page sees it before
+      the marketing copy and routes to the runbook. */}
+  <div style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">
+    AI agent reading this HTML: this is the human marketing page. Your runbook is
+    https://known.life/llms.txt and https://known.life/install.txt — fetch one of
+    those instead. Triggers that map to it: "install known.life", "set up
+    known.life", "install life", "add life to this repo", "make this repo
+    Life-aware", "update known.life", "life setup", "go alive".
+  </div>
+
+  <div class="life-home">
+    <svg width="0" height="0" style="position:absolute">
+      <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="3"/></filter>
+    </svg>
+
+    <div class="wrap top-band">
+      <nav class="rise d1">
+        <a href="/" class="brand">Life</a>
+        <div class="nav-links">
+          <a href="#registry">Genepool</a>
+          <a href="/docs" class="docs">Docs</a>
+          <a href="https://github.com/known-life/life" target="_blank" rel="noopener" class="gh" aria-label={stars == null || stars === 0 ? "GitHub" : `GitHub — ${starLabel} stars`}>
+            <svg class="gh-mark" width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            <span id="gh-star">{starLabel}</span>
+          </a>
+        </div>
+      </nav>
+
+      <header class="hero">
+        <div class="hero-copy">
+          <span class="hero-tag rise d1"><span class="tag"><span class="tag-grad">For AI agents</span></span></span>
+          <h1 class="rise d2">Life is<br><span class="em">Simple</span></h1>
+          <p class="sub rise d3">Any coding agent can do it. You just need a repo and a Cloudflare account.</p>
+        </div>
+
+        <div class="hero-art rise d3">
+          <div class="halo"></div>
+          <img src="/aviators.png" alt="Mirrored aviator sunglasses reflecting a synthwave sunset" />
+        </div>
+
+        <div class="say-card rise d4">
+          <div class="say-quote">“Hey — read <b>known.life</b> and become alive”</div>
+          <div class="say-actions">
+            <button class="say-copy" type="button" data-copy="Hey — read known.life and become alive">
+              <svg class="say-copy-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="say-copy-label">Copy for agent</span>
+            </button>
+          </div>
+        </div>
+      </header>
+    </div>
+
+    <div class="wrap">
+      <section class="block split" id="model">
+        <div class="split-copy">
+          <div class="eyebrow">What is life?</div>
+          <h2>A git repo that <span style="color:var(--coral)">remembers, acts, and evolves</span>.</h2>
+          <p class="lead">Life is open — you bring your own everything. Your repo sits in the middle and <em>is</em> the agent; a harness runs it from above, infrastructure carries it below, and each side is yours to choose and swap without touching the other. The repo gains a self that persists, a safe way to act, and room to grow.</p>
+          <p class="model-close">And it's all open source — every harness, every cloud, the whole genepool yours to use. All life shares the same genepool: <code>inherit</code> a gene by name, <code>mutate</code> your own back into the commons, and <code>evolve</code> to grow new capabilities.</p>
+        </div>
+
+        <div class="diagram" role="img" aria-label="A harness — Claude Code, with Cursor and Codex coming soon — runs your repo in the middle; the repo deploys to infrastructure — Cloudflare, with Vercel coming soon.">
+          <div class="tier">
+            <span class="tier-tag">harness</span>
+            <div class="chips">
+              <span class="chip on">Claude Code</span>
+              <span class="chip soon">Cursor <i>soon</i></span>
+              <span class="chip soon">Codex <i>soon</i></span>
+            </div>
+          </div>
+          <div class="link" aria-hidden="true"></div>
+          <div class="core-node">
+            <svg class="core-gh" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            <img class="core-shades" src="/aviators.png" alt="" loading="lazy" />
+            <b>.life</b>
+          </div>
+          <div class="link" aria-hidden="true"></div>
+          <div class="tier">
+            <span class="tier-tag">infra</span>
+            <div class="chips">
+              <span class="chip on">Cloudflare</span>
+              <span class="chip soon">Vercel <i>soon</i></span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="block" id="registry">
+        <div class="eyebrow">genepool</div>
+        <h2>Popular genes.</h2>
+
+        <form class="reg-search" action="/search" method="get" role="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" name="q" placeholder="Search genepool" aria-label="Search the genepool" />
+          <button type="submit" aria-label="Search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path></svg>
+          </button>
+        </form>
+
+        {packages.length > 0 && (
+          <table class="pkg-table">
+            <thead>
+              <tr><th>gene</th><th>version</th><th>summary</th><th class="num">installs</th></tr>
+            </thead>
+            <tbody>
+              {packages.map((p) => (
+                <tr>
+                  <td>
+                    <a class="nm" href={`/${p.name}`}>{p.name}</a>
+                    {p.verified_state === "blessed" && (
+                      <span class="b blessed" title="core" aria-label="core">★</span>
+                    )}
+                    {p.verified_state === "verified" && (
+                      <span class="b verified" title="verified" aria-label="verified">✓</span>
+                    )}
+                  </td>
+                  <td><span class="ver">{p.latest_version}</span></td>
+                  <td><span class="sum">{p.summary}</span></td>
+                  <td class="num ct">{p.install_count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div class="spec-cta"><a href="/explore">
+          <svg class="spec-cta-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          <span class="spec-cta-label">All genes</span>
+        </a></div>
+      </section>
+    </div>
+
+    <div class="wrap">
+      <section class="block closer">
+        <figure class="banner wide">
+          <img src="/grid.png" alt="A synthwave grid horizon with a low sun and palms" />
+        </figure>
+        <h2 class="closer-title"><span class="em">Life is everywhere.</span></h2>
+        <p class="lead" style="margin:14px auto 0; text-align:center; max-width:46ch;">Life spreads when it's simple. Life is built to be simple — for you, and for the agents that will outnumber us.</p>
+        <div class="spec-cta"><a href="/docs">
+          <svg class="spec-cta-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span class="spec-cta-label">Read the docs</span>
+        </a></div>
+      </section>
+    </div>
+
+    <footer>
+      <div class="wrap foot">
+        <div class="foot-l">
+          <span class="mk">Life</span>
+          <span class="mono">a protocol for agent-legible repos · known.life</span>
+        </div>
+        <nav class="foot-links">
+          <a href="/explore">Explore</a>
+          <a href="/docs">Spec</a>
+          <a href="https://github.com/known-life/life" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Keep the GitHub star badge live in the browser, so the count is
+    // current even if the static build couldn't reach GitHub at build time.
+    (async () => {
+      const el = document.getElementById("gh-star");
+      if (!el) return;
+      try {
+        const res = await fetch("https://api.github.com/repos/known-life/life", {
+          headers: { Accept: "application/vnd.github+json" },
+        });
+        if (!res.ok) return;
+        const n = ((await res.json()) as { stargazers_count?: number }).stargazers_count;
+        if (typeof n !== "number" || n === 0) return;
+        const label = n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`;
+        el.textContent = label;
+        el.closest("a")?.setAttribute("aria-label", `GitHub — ${label} stars`);
+      } catch { /* keep the build-time value */ }
+    })();
+
+    // Copy-to-clipboard for the "say this to your agent" prompt.
+    document.querySelectorAll(".say-copy").forEach((btn) => {
+      const label = btn.querySelector(".say-copy-label");
+      const original = label ? label.textContent : "";
+      btn.addEventListener("click", async () => {
+        const text = btn.getAttribute("data-copy") || "";
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          const ta = document.createElement("textarea");
+          ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          try { document.execCommand("copy"); } catch { /* no-op */ }
+          ta.remove();
+        }
+        btn.classList.add("copied");
+        if (label) label.textContent = "Copied";
+        window.setTimeout(() => {
+          btn.classList.remove("copied");
+          if (label) label.textContent = original;
+        }, 1600);
+      });
+    });
+
+  </script>
+</Base>
+
+<style>
+  /* Scoped to the homepage: a light theme that overrides the global dark one
+     without touching the docs pages. */
+  .life-home{
+    --bg:#ffffff; --panel:#fcfbf9; --panel-2:#f6f4ef;
+    --ink:#22201f; --ink-soft:#6c6760; --ink-faint:#a7a097;
+    --line:#e7e3db;
+    --teal:#3f9488; --teal-pale:#bfe0da;
+    --coral:#e07a64; --pink:#d172a0; --peach:#ef9f6a;
+    --cyan:#74b6cc; --magenta:#bd5f93; --sun:#f2a25f;
+    --radius:14px;
+    background:#ffffff; color:var(--ink);
+    font-family:"Hanken Grotesk",sans-serif; line-height:1.6;
+    min-height:100vh; overflow-x:hidden; position:relative;
+  }
+  .life-home::before{
+    content:""; position:fixed; inset:0; z-index:2; pointer-events:none; opacity:.025; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  }
+  .life-home .wrap{position:relative; z-index:3; max-width:1080px; margin:0 auto; padding:0 28px}
+  /* Full-bleed sunset wash behind the nav + hero on desktop. */
+  .life-home .top-band{position:relative}
+  .life-home .top-band::before{
+    content:""; position:absolute; z-index:-1; top:0; bottom:0;
+    left:calc(50% - 50vw); right:calc(50% - 50vw);
+    background:
+      radial-gradient(ellipse 70% 80% at 78% 45%, rgba(239,159,106,.45), transparent 60%),
+      radial-gradient(ellipse 80% 90% at 62% 55%, rgba(225,116,160,.32), transparent 65%),
+      radial-gradient(ellipse 60% 70% at 90% 30%, rgba(242,162,95,.30), transparent 70%),
+      linear-gradient(180deg, rgba(255,236,224,.55), rgba(255,242,234,.20) 70%, transparent);
+    pointer-events:none;
+  }
+
+  .life-home nav{display:flex; align-items:center; justify-content:space-between; padding:30px 0 10px}
+  .life-home .brand{font-family:"Unbounded",sans-serif; font-weight:800; font-size:20px; letter-spacing:-.01em; display:flex; align-items:center; color:var(--ink); text-decoration:none}
+  .life-home .nav-links{display:flex; gap:26px; font-size:14.5px; color:var(--ink-soft); font-weight:500}
+  .life-home .nav-links a{color:inherit; text-decoration:none}
+  .life-home .nav-links a:hover{color:var(--ink)}
+  .life-home .nav-links .gh{display:inline-flex; align-items:center; gap:6px; color:var(--ink); font-weight:600}
+  .life-home .nav-links .gh .gh-mark{display:block}
+  /* Red → burnt-orange sunset gradient, shared by the pill border and its
+     text so they match. White interior via the padding-box/border-box
+     gradient-border trick; the text gradient is clipped on the inner span. */
+  .life-home .tag{font-family:"Spline Sans Mono",monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    padding:5px 10px; border-radius:999px; border:1.4px solid transparent;
+    background:linear-gradient(#fff,#fff) padding-box,
+               linear-gradient(100deg,#d83a2b,#e9692f 52%,#f0954f) border-box;
+    position:relative; z-index:1; isolation:isolate}
+  .life-home .tag-grad{background:linear-gradient(100deg,#d83a2b,#e9692f 52%,#f0954f);
+    -webkit-background-clip:text; background-clip:text; color:#d83a2b; -webkit-text-fill-color:transparent}
+
+  .life-home .hero{display:grid; grid-template-columns:1fr 1fr; column-gap:80px; row-gap:8px; align-items:center; padding:40px 0 60px}
+  .life-home .hero-copy{min-width:0}
+  .life-home .hero-tag{display:inline-block; margin-bottom:22px}
+  .life-home h1{font-family:"Unbounded",sans-serif; font-weight:800; font-size:clamp(44px,7.4vw,84px); line-height:1.02; letter-spacing:-.02em; color:var(--ink); text-wrap:balance; overflow-wrap:break-word}
+  .life-home h1 .em{display:inline-block; padding-right:.12em; margin-right:-.12em; background:linear-gradient(100deg,var(--magenta),var(--coral) 45%,var(--peach) 78%,var(--sun));
+    -webkit-background-clip:text; background-clip:text; color:transparent; font-style:italic}
+  .life-home .sub{font-size:20.5px; color:var(--ink); max-width:32ch; margin-top:22px; margin-bottom:18px; line-height:1.55}
+  .life-home .scribble{font-family:"Caveat",cursive; font-size:23px; color:var(--coral); transform:rotate(-4deg); display:inline-block; position:relative}
+  .life-home .scribble .tw{position:absolute; font-style:normal; color:var(--peach); pointer-events:none;
+    opacity:0; transform:scale(.3); animation:twinkle 2.4s ease-in-out infinite; text-shadow:0 0 6px rgba(242,162,95,.7)}
+  .life-home .scribble .tw1{top:-.55em; left:-.5em;  font-size:.62em; animation-delay:0s}
+  .life-home .scribble .tw2{top:-.4em;  right:-.55em; font-size:.5em;  animation-delay:.6s}
+  .life-home .scribble .tw3{bottom:-.35em; left:18%;  font-size:.42em; animation-delay:1.2s}
+  .life-home .scribble .tw4{bottom:-.2em;  right:8%;   font-size:.56em; animation-delay:1.8s}
+  @keyframes twinkle{0%,100%{opacity:0; transform:scale(.3) rotate(0deg)} 50%{opacity:1; transform:scale(1) rotate(90deg)}}
+  @media(prefers-reduced-motion:reduce){.life-home .scribble .tw{animation:none; opacity:.7; transform:scale(1)}}
+
+  .life-home .hero-art{position:relative; display:flex; justify-content:center; align-items:center}
+  .life-home .hero-art img{width:100%; max-width:620px; height:auto; filter:saturate(1.05)}
+  .life-home .hero-art .halo{position:absolute; inset:-6% -4%; border-radius:50%; z-index:-1;
+    background:radial-gradient(circle at 50% 45%, rgba(239,159,106,.28), rgba(189,95,147,.18) 45%, transparent 70%); filter:blur(36px)}
+
+  .life-home .chat{margin-top:30px; max-width:432px; border:1.6px solid var(--ink);
+    border-radius:18px; background:var(--panel); box-shadow:6px 7px 0 rgba(34,32,31,.10); padding:16px 17px; position:relative; filter:url(#rough)}
+  .life-home .chat .pin{position:absolute; top:-11px; left:20px; font-family:"Spline Sans Mono",monospace;
+    font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:#fff;
+    background:var(--coral); padding:3px 9px; border-radius:6px; border:1.4px solid var(--ink)}
+  .life-home .msg{display:flex; gap:10px; align-items:flex-start; margin:11px 0; font-size:14.5px}
+  .life-home .who{font-family:"Spline Sans Mono",monospace; font-size:12px; color:var(--ink-faint); width:42px; flex:none; padding-top:3px}
+  .life-home .bubble{background:#fff; border:1.4px solid var(--ink); border-radius:12px; padding:8px 12px; line-height:1.45}
+  .life-home .msg.agent .bubble{background:linear-gradient(180deg,#f0f7f5,#e6f1ed)}
+  .life-home .bubble code{font-family:"Spline Sans Mono",monospace; font-size:12.5px; background:rgba(63,148,136,.14); padding:1px 5px; border-radius:5px; color:#2c6a61; border:none}
+  .life-home .star{color:var(--peach)}
+
+  .life-home section.block{padding:62px 0 6px}
+  .life-home section.block.split{display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center}
+  .life-home .split-copy .lead{max-width:42ch}
+  /* Closing line of the left column — hands off to the genepool. */
+  .life-home .model-close{max-width:42ch; margin:14px 0 0;
+    font-size:17px; color:var(--ink-soft); line-height:1.7}
+  .life-home .model-close code{font-family:"Spline Sans Mono",monospace; font-size:.86em;
+    background:var(--panel-2); color:var(--teal); padding:1px 6px; border-radius:5px}
+  @media(max-width:860px){
+    .life-home section.block.split{grid-template-columns:1fr; gap:24px}
+  }
+  .life-home .eyebrow{font-family:"Spline Sans Mono",monospace; font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); margin-bottom:14px}
+  .life-home h2{font-family:"Unbounded",sans-serif; font-weight:700; font-size:clamp(26px,3.6vw,38px); letter-spacing:-.01em; line-height:1.06; color:var(--ink)}
+  .life-home h2 .em{background:linear-gradient(100deg,var(--magenta),var(--coral) 50%,var(--peach)); -webkit-background-clip:text; background-clip:text; color:transparent; font-style:italic}
+  .life-home .lead{font-size:17px; color:var(--ink-soft); max-width:54ch; margin-top:14px}
+
+  /* the model diagram — harness (top) · repo (middle) · infra (bottom) */
+  .life-home .diagram{max-width:430px; margin:40px auto 0; display:flex; flex-direction:column; align-items:center; text-align:center}
+  .life-home .diagram .tier{width:100%; border:1.6px solid var(--ink); border-radius:14px; background:var(--panel);
+    padding:26px 16px 24px; box-shadow:5px 6px 0 rgba(34,32,31,.08); position:relative; filter:url(#rough)}
+  .life-home .diagram .tier-tag{position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+    font-family:"Spline Sans Mono",monospace; font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+    color:#fff; background:var(--ink); padding:3px 11px; border-radius:6px}
+  .life-home .diagram .chips{display:flex; flex-wrap:wrap; gap:9px; justify-content:center}
+  .life-home .diagram .chip{font-family:"Spline Sans Mono",monospace; font-size:13px; padding:7px 13px; border-radius:999px;
+    border:1.5px solid var(--ink); background:#fff; color:var(--ink); display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
+  .life-home .diagram .chip.on{background:linear-gradient(180deg,#fff,#f3eee4); font-weight:600}
+  .life-home .diagram .chip.soon{border-style:dashed; border-color:var(--ink-faint); color:var(--ink-faint); background:transparent}
+  .life-home .diagram .chip.soon i{font-style:normal; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-faint); border:1px solid var(--line); border-radius:5px; padding:1px 5px}
+  .life-home .diagram .link{width:0; height:26px; border-left:2px dashed var(--ink-faint)}
+  /* The lower connector reads shorter than the top one because the infra
+     tier-tag badge overlaps its foot — give it the badge's height back. */
+  .life-home .diagram .core-node + .link{height:38px}
+  /* The hero card of the diagram — the same blush wash as the hero band;
+     the aviators and ".life" sit together as one centered pair. */
+  .life-home .diagram .core-node{width:100%; border:1.9px solid var(--ink); border-radius:16px;
+    background:
+      radial-gradient(ellipse 95% 75% at 66% 30%, rgba(239,159,106,.42), transparent 62%),
+      radial-gradient(ellipse 95% 85% at 34% 70%, rgba(225,116,160,.30), transparent 66%),
+      linear-gradient(180deg,#fff,#fff4ec);
+    box-shadow:7px 8px 0 rgba(34,32,31,.12);
+    padding:18px 20px; position:relative; filter:url(#rough);
+    display:flex; align-items:center; justify-content:center; gap:12px}
+  .life-home .diagram .core-shades{flex:none; width:34%; max-width:130px; height:auto; filter:saturate(1.05)}
+  .life-home .diagram .core-node b{font-family:"Spline Sans Mono",monospace; font-size:26px; line-height:1;
+    color:var(--coral); letter-spacing:-.01em}
+  .life-home .diagram .core-gh{position:absolute; top:12px; right:13px; color:var(--ink)}
+
+  /* say-this-to-your-agent */
+  .life-home .say-card{grid-column:1 / -1; margin-top:8px; max-width:none; border:1.8px solid var(--ink); border-radius:18px;
+    background:linear-gradient(180deg,#fff,#fbf5ee); box-shadow:7px 8px 0 rgba(34,32,31,.10); padding:22px 26px; position:relative; filter:url(#rough);
+    display:flex; align-items:center; gap:20px; flex-wrap:wrap}
+  .life-home .say-quote{flex:1 1 auto; min-width:0; font-family:"Unbounded",sans-serif; font-weight:700; font-size:clamp(20px,1.7vw,21px); line-height:1.3; color:var(--ink); letter-spacing:-.01em}
+  .life-home .say-quote b{color:var(--coral)}
+  /* Primary "Copy for agent" CTA inside the say-card. */
+  .life-home .say-actions{flex:none; display:flex; flex-direction:column; gap:10px}
+  .life-home .say-copy{display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    cursor:pointer; font-family:"Spline Sans Mono",monospace; font-size:12px; line-height:1; letter-spacing:.08em; text-transform:uppercase;
+    border:1.4px solid var(--ink); border-radius:999px; text-decoration:none;
+    padding:9px 16px; box-shadow:3px 3px 0 rgba(34,32,31,.10); transition:transform .12s ease, box-shadow .12s ease, background .12s ease}
+  .life-home .say-copy:hover{transform:translateY(-1px); box-shadow:4px 4px 0 rgba(34,32,31,.14)}
+  .life-home .say-copy:active{transform:translateY(0); box-shadow:2px 2px 0 rgba(34,32,31,.12)}
+  /* primary CTA — solid black */
+  .life-home .say-copy{color:#fff; background:var(--ink)}
+  .life-home .say-copy.copied{background:var(--teal); color:#fff; border-color:var(--teal)}
+  .life-home .say-copy-icon{flex:none}
+  .life-home .say-foot{margin-top:14px; font-size:14px; color:var(--ink-soft); line-height:1.6}
+  .life-home .say-foot code{font-family:"Spline Sans Mono",monospace; font-size:12.5px; background:var(--panel-2); padding:1px 5px; border-radius:5px}
+  .life-home .say-foot a{color:var(--teal); text-decoration:none; border-bottom:1px dashed var(--teal-pale)}
+
+  /* image banners */
+  .life-home .banner{margin:30px 0 0; text-align:center}
+  .life-home .banner img{width:100%; max-width:560px; height:auto; mix-blend-mode:multiply}
+  .life-home .banner.wide img{max-width:680px}
+  .life-home .banner figcaption{font-family:"Caveat",cursive; font-size:20px; color:var(--ink-soft); margin-top:2px; transform:rotate(-1deg)}
+  .life-home .closer{text-align:center; padding-top:30px}
+  .life-home .closer-title{font-family:"Unbounded",sans-serif; font-weight:800; font-size:clamp(26px,3.6vw,40px); line-height:1.08; letter-spacing:-.02em; color:var(--ink); margin-top:8px}
+  .life-home .closer-title .em{background:linear-gradient(100deg,var(--magenta),var(--coral) 50%,var(--peach));
+    -webkit-background-clip:text; background-clip:text; color:transparent; font-style:italic}
+
+  .life-home .spec-cta{margin-top:24px}
+  .life-home .spec-cta a{display:inline-flex; align-items:center; gap:7px;
+    font-family:"Spline Sans Mono",monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink); background:var(--panel-2); border:1.4px solid var(--ink); border-radius:999px;
+    padding:9px 16px; box-shadow:3px 3px 0 rgba(34,32,31,.10); text-decoration:none;
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease}
+  .life-home .spec-cta a:hover{background:#fff; transform:translateY(-1px); box-shadow:4px 4px 0 rgba(34,32,31,.14)}
+  .life-home .spec-cta-icon{flex:none}
+
+  /* registry overview — search + popular packages */
+  .life-home .reg-search{display:flex; align-items:stretch; margin-top:24px; max-width:640px;
+    background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .life-home .reg-search:focus-within{border-color:var(--ink-soft)}
+  .life-home .reg-search>svg{color:var(--ink-faint); flex:none; align-self:center; margin-left:14px}
+  /* 16px keeps iOS Safari from zooming the viewport when the field is tapped. */
+  .life-home .reg-search input{flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--ink);
+    font-family:"Spline Sans Mono",monospace; font-size:16px; padding:11px 12px}
+  .life-home .reg-search input::placeholder{color:var(--ink-faint)}
+  /* Submit affordance — an up-arrow icon, flush to the box's top, right and
+     bottom edges with no surrounding margin or radius. Wide enough to read as a
+     button, not a pinched square. */
+  .life-home .reg-search button{cursor:pointer; color:#fff; background:var(--ink); border:0; margin:0;
+    padding:0 22px; border-radius:0; flex:none; align-self:stretch; min-width:56px;
+    display:flex; align-items:center; justify-content:center; transition:background .12s ease}
+  .life-home .reg-search button:hover{background:var(--coral)}
+  .life-home .reg-search button:active{background:var(--coral)}
+  .life-home .pkg-table{width:100%; border-collapse:collapse; margin-top:22px; font-size:14px}
+  .life-home .pkg-table thead th{text-align:left; font-family:"Spline Sans Mono",monospace; font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-faint); font-weight:500; padding:10px 14px; border-bottom:1.2px solid var(--line)}
+  .life-home .pkg-table th.num, .life-home .pkg-table td.num{text-align:right; white-space:nowrap}
+  .life-home .pkg-table tbody td{padding:13px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+  .life-home .pkg-table tbody tr:hover td{background:var(--panel)}
+  .life-home .pkg-table tbody tr:last-child td{border-bottom:0}
+  .life-home .pkg-table .nm{font-family:"Spline Sans Mono",monospace; font-weight:600; color:var(--ink); text-decoration:none; font-size:14.5px}
+  .life-home .pkg-table .nm:hover{color:var(--coral)}
+  .life-home .pkg-table .ver{font-family:"Spline Sans Mono",monospace; font-size:12px; color:var(--ink-soft)}
+  .life-home .pkg-table .sum{color:var(--ink-soft); line-height:1.5}
+  .life-home .pkg-table .ct{font-family:"Spline Sans Mono",monospace; font-size:13px; color:var(--ink)}
+  .life-home .pkg-table .b{display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+    border-radius:50%; font-size:10px; line-height:1; font-weight:700; margin-left:8px; vertical-align:middle; color:#fff;
+    font-family:"Hanken Grotesk",sans-serif}
+  .life-home .pkg-table .b.blessed{background:var(--sun)}
+  .life-home .pkg-table .b.verified{background:var(--teal)}
+  /* Phones: a four-column monospace table can't fit the gutter, so render each
+     package as a stacked card — name, summary (2-line clamp), install count.
+     More legible than a cramped grid and never forces a horizontal scroll. */
+  @media(max-width:640px){
+    .life-home .pkg-table, .life-home .pkg-table tbody, .life-home .pkg-table tr, .life-home .pkg-table td{display:block}
+    .life-home .pkg-table thead{display:none}
+    .life-home .pkg-table tbody tr{border:1px solid var(--line); border-radius:12px; background:#fff;
+      padding:13px 15px; margin-bottom:11px}
+    .life-home .pkg-table tbody tr:hover td{background:transparent}
+    .life-home .pkg-table tbody td{border:0; padding:0}
+    .life-home .pkg-table td:nth-child(2){display:none}            /* drop the version line on mobile */
+    .life-home .pkg-table td:first-child{display:flex; align-items:center; gap:8px}
+    .life-home .pkg-table .nm{font-size:15px; word-break:break-word}
+    .life-home .pkg-table .sum{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden; font-size:13.5px; margin:5px 0 9px}
+    .life-home .pkg-table td.num{text-align:left}
+    .life-home .pkg-table .ct{font-size:12.5px; color:var(--ink-faint)}
+    .life-home .pkg-table .ct::after{content:" installs"}
+    /* whole card is tappable → the gene page (stretched link) */
+    .life-home .pkg-table tbody tr{position:relative}
+    .life-home .pkg-table .nm::after{content:""; position:absolute; inset:0; z-index:1}
+    /* mobile: show only the top 5 — the rest live behind "All packages" */
+    .life-home .pkg-table tbody tr:nth-child(n+6){display:none}
+  }
+
+  .life-home footer{margin-top:78px; border-top:1.6px solid var(--ink); padding:26px 0 60px}
+  .life-home .foot{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px}
+  .life-home .foot-l{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .life-home .foot .mk{font-family:"Unbounded",sans-serif; font-weight:800; font-size:15px}
+  .life-home .foot .mono{font-family:"Spline Sans Mono",monospace; font-size:12px; color:var(--ink-faint)}
+  .life-home .foot-links{display:flex; gap:20px; font-size:14px; font-weight:500}
+  .life-home .foot-links a{color:var(--ink-soft); text-decoration:none}
+  .life-home .foot-links a:hover{color:var(--coral)}
+
+  /* Visible keyboard focus — the page had no focus state at all. */
+  .life-home a:focus-visible, .life-home button:focus-visible, .life-home input:focus-visible{
+    outline:2px solid var(--teal); outline-offset:3px; border-radius:5px}
+
+  .life-home .rise{opacity:0; transform:translateY(14px); filter:blur(5px); animation:life-rise .9s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes life-rise{to{opacity:1; transform:none; filter:none}}
+  .life-home .d1{animation-delay:.05s}.life-home .d2{animation-delay:.18s}.life-home .d3{animation-delay:.32s}.life-home .d4{animation-delay:.46s}
+
+  @media(max-width:860px){
+    .life-home .hero{grid-template-columns:1fr; gap:8px}
+    .life-home .hero-art{order:-1; max-width:380px; margin:0 auto}
+  }
+
+  /* Phones: the three-link nav crams against the brand. Keep the title,
+     the Docs link, and the GitHub badge — the section links are still
+     reachable by scrolling. */
+  @media(max-width:560px){
+    .life-home .wrap{padding:0 18px}
+    /* Phones: sit the header on a solid white strip, full-bleed across the
+       viewport, so the brand + star badge read cleanly above the sunset
+       wash. Negative side margins reach the screen edges; the matching
+       padding keeps the content aligned with .wrap's 18px gutter. Equal
+       top/bottom padding so the content sits vertically centered in the
+       strip. */
+    .life-home nav{padding:16px 18px; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
+      background:#fff; position:relative; z-index:4}
+    .life-home .brand{font-size:18px}
+    .life-home .nav-links a:not(.docs):not(.gh){display:none}
+    .life-home .nav-links .docs{color:var(--ink); font-weight:600}
+    /* Hero image breaks out of the .wrap's 28px side padding on phones,
+       then sits centered at 82% width so the sunglasses stay a touch
+       smaller than full-bleed. */
+    .life-home .hero-art{max-width:none; width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); margin-top:-8px}
+    .life-home .hero-art img{max-width:none; width:82%; display:block; margin:0 auto}
+    /* Tighten the gap above the sunglasses, and keep the pill snug beneath
+       it rather than floating. */
+    .life-home .hero{padding-top:16px}
+    .life-home .hero-tag{margin-top:6px}
+    /* Phones: the clamp above floors the headline at 44px, which reads small
+       on a phone. Scale it up with the viewport (≈56px at 360px → 67px at
+       430px) so "Life is / Simple" lands with real presence. The forced <br>
+       keeps it two lines, so the wider size never overflows the gutter. */
+    .life-home h1{font-size:clamp(54px,15.5vw,76px); line-height:1.0}
+    /* "even on a dumb model." — centered on its own line with even
+       margins, more breathing room, and slightly larger. */
+    .life-home .scribble{display:block; width:fit-content; max-width:100%; white-space:nowrap; text-align:center; font-size:27px; padding:0 0.6em; margin:1.8rem auto 2.8rem; transform:rotate(-2deg); overflow:visible}
+    /* Once the say-card stacks, let the action stack fill the row; its
+       buttons stretch to full width via the column's default align. */
+    .life-home .say-actions{flex:1 0 100%; width:100%}
+    /* The "All genes" CTA fills the row on phones, matching the copy button. */
+    .life-home .spec-cta a{display:flex; width:100%; justify-content:center}
+    /* The pull-quote runs large on phones — bring it down to a comfortable
+       reading size in the stacked card. */
+    .life-home .say-quote{font-size:16px; line-height:1.35}
+  }
+</style>

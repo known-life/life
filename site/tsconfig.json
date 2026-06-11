@@ -1,0 +1,11 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    // The lifekey verifier is vendored VERBATIM from the lifekey gene as
+    // src/registry/lib/lifekey-verify.mjs (no hand-port). allowJs lets TS
+    // resolve it and infer the exported types from the source itself;
+    // checkJs:false keeps the gene's JS out of our strict error surface.
+    "allowJs": true,
+    "checkJs": false
+  }
+}
