@@ -611,7 +611,7 @@ export function packageMarkdown(v: PackageView, publicUrl: string): string {
 // Keep the hero blurb short: prefer the first sentence, hard-capped. The
 // long-form description lives in the readme / .life body, not the hero.
 const MAX_SUMMARY = 160;
-function shortDesc(s: string | null | undefined): string {
+export function shortDesc(s: string | null | undefined): string {
   if (!s) return "";
   const t = s.trim().replace(/\s+/g, " ");
   const sentence = t.match(/^(.+?[.!?])(\s|$)/);

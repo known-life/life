@@ -1,6 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import { topPackages } from "../registry/lib/db";
+import { shortDesc } from "../registry/lib/pages";
 
 // On-demand (not prerendered): this page is also the genepool overview, so it
 // reads live "popular genes" from D1 at request time. Without the Cloudflare
@@ -136,17 +137,21 @@ const starLabel =
       </section>
 
       <section class="block" id="registry">
-        <div class="eyebrow">genepool</div>
-        <h2>Popular genes.</h2>
-        <p class="reg-intro">All life shares the same genepool: <code>inherit</code> a gene by name, <code>mutate</code> your own back into the commons, and <code>evolve</code> to grow new capabilities.</p>
+        <div class="reg-head">
+          <div class="reg-head-copy">
+            <div class="eyebrow">genepool</div>
+            <h2>Popular genes.</h2>
+            <p class="reg-intro">All life shares the same genepool: <code>inherit</code> a gene by name, <code>mutate</code> your own back into the commons, and <code>evolve</code> to grow new capabilities.</p>
+          </div>
 
-        <form class="reg-search" action="/search" method="get" role="search">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input type="search" name="q" placeholder="Search genepool" aria-label="Search the genepool" />
-          <button type="submit" aria-label="Search">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path></svg>
-          </button>
-        </form>
+          <form class="reg-search" action="/search" method="get" role="search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" name="q" placeholder="Search genepool" aria-label="Search the genepool" />
+            <button type="submit" aria-label="Search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path></svg>
+            </button>
+          </form>
+        </div>
 
         {packages.length > 0 && (
           <table class="pkg-table">
@@ -166,7 +171,7 @@ const starLabel =
                     )}
                   </td>
                   <td><span class="ver">{p.latest_version}</span></td>
-                  <td><span class="sum">{p.summary}</span></td>
+                  <td><span class="sum">{shortDesc(p.summary)}</span></td>
                   <td class="num ct">{p.install_count.toLocaleString()}</td>
                 </tr>
               ))}
@@ -343,8 +348,13 @@ const starLabel =
   .life-home section.block{padding:62px 0 6px}
   .life-home section.block.split{display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center}
   .life-home .split-copy .lead{max-width:42ch}
+  /* Genepool header: copy on the left, search aligned to its baseline on the
+     right; they share one row on desktop and stack on narrow screens. */
+  .life-home .reg-head{display:flex; flex-wrap:wrap; align-items:flex-end;
+    justify-content:space-between; gap:18px 48px}
+  .life-home .reg-head-copy{flex:1 1 440px; min-width:0}
   /* Intro line under the genepool heading — names the three core verbs. */
-  .life-home .reg-intro{max-width:60ch; margin:12px 0 0;
+  .life-home .reg-intro{max-width:54ch; margin:12px 0 0;
     font-size:17px; color:var(--ink-soft); line-height:1.7}
   .life-home .reg-intro code{font-family:"Spline Sans Mono",monospace; font-size:.86em;
     background:var(--panel-2); color:var(--teal); padding:1px 6px; border-radius:5px}
@@ -431,7 +441,7 @@ const starLabel =
   .life-home .spec-cta-icon{flex:none}
 
   /* registry overview — search + popular packages */
-  .life-home .reg-search{display:flex; align-items:stretch; margin-top:24px; max-width:640px;
+  .life-home .reg-search{display:flex; align-items:stretch; flex:1 1 320px; max-width:380px;
     background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden}
   .life-home .reg-search:focus-within{border-color:var(--ink-soft)}
   .life-home .reg-search>svg{color:var(--ink-faint); flex:none; align-self:center; margin-left:14px}
@@ -552,5 +562,7 @@ const starLabel =
     /* The pull-quote runs large on phones — bring it down to a comfortable
        reading size in the stacked card. */
     .life-home .say-quote{font-size:16px; line-height:1.35}
+    /* Stacked genepool header: let the search fill the row under the copy. */
+    .life-home .reg-search{max-width:none}
   }
 </style>
