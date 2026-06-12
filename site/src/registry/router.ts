@@ -48,6 +48,11 @@ import {
   handleCfDropSubmit,
   handleAgentRedeem,
 } from "./routes/setup";
+import {
+  handleAppManifestStart,
+  handleAppManifestCallback,
+  handleExchangeVerify,
+} from "./routes/github-app";
 import { handleSkill } from "./routes/skill";
 import { isValidName } from "./lib/id";
 
@@ -97,6 +102,11 @@ export async function registryFetch(
   if (path === "/api/setup/session" && method === "POST") return handleCreateSession(req, env);
   const setupMatch = path.match(/^\/setup\/([a-f0-9]+)$/);
   if (setupMatch && method === "GET") return handleRedeemSession(req, env, setupMatch[1]);
+
+  // --- durable verifier: the known.life GitHub App (central half) ---
+  if (path === "/setup/github-app" && method === "GET") return handleAppManifestStart(req, env);
+  if (path === "/setup/github-app/callback" && method === "GET") return handleAppManifestCallback(req, env);
+  if (path === "/exchange/verify" && method === "POST") return handleExchangeVerify(req, env);
 
   // --- agent-driven setup: CF drop-box + redeem ---
   if (path === "/api/setup/cf-drop" && method === "POST") return handleCreateCfDrop(req, env);

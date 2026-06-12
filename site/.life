@@ -80,6 +80,9 @@ single SSR Worker plus edge static assets:
   mutate surface), `maintainers` (account-level publish delegation — logins the
   owner trusts to publish all their genes), `auth` + `mcp-oauth` + `mcp`
   (lifekey-proven auth, the MCP bridge), `setup` (the hosted cold-start flow),
+  `github-app` (the durable-verifier central half — the one-click GitHub App
+  manifest registration + `POST /exchange/verify`, the delegated nonce read the
+  secrets vault calls instead of holding a GitHub credential of its own),
   `skill`; plus `/api/provides/<cap>` (reverse capability lookup, ranked by
   installs — how the engine resolves an unmet `requires:`), handled in the
   router itself. The pre-publish secret/PII scan is not a route: it runs inside
