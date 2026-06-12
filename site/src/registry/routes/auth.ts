@@ -48,11 +48,12 @@ export async function handleAuthProve(req: Request, env: Env): Promise<Response>
   if (!rl.ok) return json(429, { error: "rate_limited", retry_after_s: rl.retryAfter });
 
   const body = (await req.json().catch(() => null)) as
-    | { login?: string; signature?: string; signatures?: string[] }
+    | { login?: string; signatures?: string[] }
     | null;
   const login = body?.login?.trim();
-  // Accept a single `signature` (back-compat) or a `signatures` array.
-  const signatures = (body?.signatures ?? (body?.signature ? [body.signature] : []))
+  // ONE canonical shape: a `signatures` array (the engine sends every available
+  // key's signature; any match proves identity). No singular `signature` back-compat.
+  const signatures = (Array.isArray(body?.signatures) ? body!.signatures : [])
     .map((s) => (typeof s === "string" ? s.trim() : ""))
     .filter(Boolean);
   if (!login || signatures.length === 0) return json(400, { error: "missing_fields" });
