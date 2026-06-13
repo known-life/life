@@ -167,6 +167,52 @@ export async function handleCfOAuthStatus(req: Request, env: Env): Promise<Respo
   }
 }
 
+// POST /api/setup/cf-oauth/token  (Bearer known.life JWT)
+//
+// The broker's MINT surface — the short-lived-token model (Option A): a caller
+// proving the owner's lifekey-bound bearer gets a freshly-minted, short-lived CF
+// access token (+ the deploy-target account_id) to provision the vault and run
+// ordinary deploys. The durable REFRESH token never leaves this worker; only the
+// ephemeral access token crosses the wire, and the grant is revocable at any time
+// (revoke the OAuth grant → mint fails → ready:false). This is what setup.sh and
+// CI deploys call instead of holding a long-lived CLOUDFLARE_API_TOKEN. It is the
+// one endpoint that returns a CF token, so it is rate-limited tighter than status.
+export async function handleCfOAuthToken(req: Request, env: Env): Promise<Response> {
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+  const rl = await checkRate(env, `cf-oauth-token:${ip}`, 30, 60 * 60);
+  if (!rl.ok) return json(429, { error: "rate_limited", retry_after_s: rl.retryAfter });
+
+  if (!cfOAuthConfigured(env)) {
+    return json(503, { error: "not_configured", hint: "CF_OAUTH_CLIENT_ID/SECRET unset on the worker" });
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const tok = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const subject = tok ? await verifyToken(tok, env) : null;
+  if (!subject || !subject.startsWith("github:")) return json(401, { error: "unauthorized" });
+  const login = subject.slice("github:".length);
+
+  const grant = await getGrant(env, login);
+  if (!grant) return json(409, { error: "not_connected", hint: "no Cloudflare grant — run cf-oauth/start and consent first" });
+
+  let minted;
+  try {
+    minted = await mintAccessToken(env, login);
+  } catch (e) {
+    return json(502, { error: "mint_failed", hint: String((e as Error).message) });
+  }
+  if (!minted) {
+    return json(409, { error: "grant_unusable", hint: "the stored Cloudflare grant could not mint a token — re-consent via cf-oauth/start" });
+  }
+
+  return json(200, {
+    ok: true,
+    access_token: minted.access_token,
+    account_id: minted.account_id ?? grant.account_id,
+    expires_in: minted.expires_in,
+  });
+}
+
 // --- helpers ---
 
 function json(status: number, data: unknown): Response {

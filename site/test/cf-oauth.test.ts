@@ -10,7 +10,7 @@ import {
   CF_OAUTH_SCOPES,
   type CfGrant,
 } from "../src/registry/lib/cf-oauth";
-import { handleCfOAuthStart, handleCfOAuthStatus } from "../src/registry/routes/cloudflare-oauth";
+import { handleCfOAuthStart, handleCfOAuthStatus, handleCfOAuthToken } from "../src/registry/routes/cloudflare-oauth";
 import { issueRegistryToken } from "../src/registry/lib/jwt";
 
 // The CF OAuth flow is the paste-free infra-onboarding credential path: a wrong
@@ -163,5 +163,31 @@ describe("GET /api/setup/cf-oauth/status", () => {
     const res = await get(e, { Authorization: `Bearer ${bearer}` });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ connected: false });
+  });
+});
+
+describe("POST /api/setup/cf-oauth/token (the brokered mint surface)", () => {
+  const post = (e: any, headers: Record<string, string> = {}) =>
+    handleCfOAuthToken(new Request("https://known.life/api/setup/cf-oauth/token", { method: "POST", headers }), e);
+
+  it("503 when the CF client is not configured", async () => {
+    const res = await post(env({ CF_OAUTH_CLIENT_ID: undefined, CF_OAUTH_CLIENT_SECRET: undefined }));
+    expect(res.status).toBe(503);
+  });
+
+  it("401 without a bearer", async () => {
+    expect((await post(env())).status).toBe(401);
+  });
+
+  it("401 with an invalid bearer", async () => {
+    expect((await post(env(), { Authorization: "Bearer not-a-real-jwt" })).status).toBe(401);
+  });
+
+  it("409 not_connected for a valid github bearer with no stored grant (no network)", async () => {
+    const e = env();
+    const bearer = await issueRegistryToken("github:octocat", e);
+    const res = await post(e, { Authorization: `Bearer ${bearer}` });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe("not_connected");
   });
 });
