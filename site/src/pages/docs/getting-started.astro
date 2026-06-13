@@ -56,16 +56,16 @@ life deploy &lt;dir&gt;      # provision + ship a living directory</code></pre>
   <p>Tell the agent <em>"set up known.life"</em> (or "bring this repo to life") and it follows the runbook at <a href="/install.txt">/install.txt</a>. It stops the user exactly once, for two credentials:</p>
   <ul>
     <li><strong>A GitHub sign-in</strong> — the agent runs GitHub's device flow (it shows a short code, the user approves it in the browser). No personal access token to mint. <strong>No SSH paste to do by hand either:</strong> setup generates an Ed25519 lifekey and auto-registers its public half on <code>github.com/&lt;login&gt;.keys</code>. That key then signs every genepool write you publish.</li>
-    <li><strong>A Cloudflare API token</strong> (Workers + KV + D1) — <a href="https://dash.cloudflare.com/profile/api-tokens">create token</a>, pasted once into the single-use browser drop-box setup mints.</li>
+    <li><strong>A Cloudflare consent</strong> (Workers · KV · D1 · R2) — the agent hands you one <a href="https://dash.cloudflare.com">dash.cloudflare.com</a> link; you sign in and click Authorize, choosing the account to deploy into. No token to create, nothing to paste, no account-id. known.life keeps the refresh token and brokers a short-lived deploy token per need — the container never holds a long-lived Cloudflare credential.</li>
   </ul>
   <p>The flow's contract:</p>
   <ul>
-    <li><strong>Preflight first</strong> — validates both credentials (Cloudflare token scope/account, GitHub grant) before doing anything irreversible. A missing scope fails fast with the exact name and a create-token URL.</li>
-    <li><strong>Every stage announces</strong> — one ✓ or ✗ per stage; no silent failures. The eight stages: preflight, adapters, cloudflare connect, vault deploy, lifekey (generate + auto-register + flush to vault), root <code>.life</code>, baseline genome, evolve + self-test.</li>
-    <li><strong>Idempotent</strong> — re-run after fixing a token; it picks up where it left off.</li>
+    <li><strong>Preflight first</strong> — revalidates the brokered Cloudflare access and the GitHub grant before doing anything irreversible.</li>
+    <li><strong>Every stage announces</strong> — one ✓ or ✗ per stage; no silent failures. The stages: preflight, adapters, cloudflare connect, vault deploy, lifekey (generate + auto-register + flush to vault), root <code>.life</code>, baseline genome, evolve + self-test.</li>
+    <li><strong>Idempotent</strong> — re-run any time; it resumes where it left off (an existing Cloudflare consent is reused, not re-prompted).</li>
     <li><strong>Self-tests re-entry</strong> — runs the same tokenless <code>/exchange</code> future sessions will use against the fresh vault (the session proves it can push the repo; the lifekey is not involved); if it passes, future sessions authenticate with no input at all.</li>
   </ul>
-  <p>After the final ✅ line: the repo is alive. Future sessions re-enter automatically — you'll never paste those tokens again.</p>
+  <p>After the final ✅ line: the repo is alive. Future sessions re-enter automatically — no credential to paste, ever again.</p>
 
   <p>There's nothing special about the baseline genome — it's just a list of ordinary genepool genes (the Laws, session memory, a secret-leak guard, …) that <code>setup</code> installs for you. Browse them on <a href="/explore">known.life</a>, add or drop any from your <code>.life</code>, and publish your own the same way. The engine itself is just another gene too: <a href="/life"><code>life</code></a>.</p>
 

@@ -82,11 +82,11 @@ echo ""
 # bin/setup.sh, which is a resumable state machine:
 #
 #   - env has CLOUDFLARE_API_TOKEN + GITHUB_TOKEN + CLOUDFLARE_ACCOUNT_ID
-#     (browser /setup handoff, or hosted flow pre-populated env) → fast-path
-#     straight to provisioning.
-#   - env empty (raw curl from an agent) → device flow for GitHub → browser
-#     drop-box for Cloudflare → redeem → provision. Each step exits 0 with
-#     a `NEED:` block the agent relays to the user; user acts; agent re-runs.
+#     (CI / pre-populated env) → fast-path straight to provisioning.
+#   - env empty (raw curl from an agent) → device flow for GitHub → one
+#     Cloudflare OAuth consent (known.life brokers a short-lived deploy token;
+#     no token paste) → provision. Each step exits 0 with a `NEED:` block the
+#     agent relays to the user; user acts; agent re-runs.
 #
 # Either path lands at the same provisioning code and ends with the literal
 # sentinel `LIFE_ALIVE: <login>` on success.

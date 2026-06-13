@@ -16,7 +16,7 @@ import Docs from "../../layouts/Docs.astro";
   <p>The setup flow interrupts you exactly twice, both in the browser:</p>
   <ul>
     <li><strong>A GitHub sign-in</strong> — device flow; you enter a short code. No personal access token to mint, no SSH key to paste.</li>
-    <li><strong>A Cloudflare API token</strong> (Workers + KV + D1) — pasted once into a secure single-use page, never into the terminal.</li>
+    <li><strong>A Cloudflare consent</strong> (Workers · KV · D1 · R2) — one OAuth Authorize at dash.cloudflare.com. No token to create or paste, no account-id; known.life brokers a short-lived deploy token per need.</li>
   </ul>
   <p>Everything else is automatic: setup deploys your private secrets vault, generates your <a href="/lifekey">lifekey</a> identity and registers it on GitHub, and installs the baseline genome (the Laws, session memory, a secret-leak guard, …). You're done when you see:</p>
   <pre><code>✅ alive — @your-login</code></pre>
