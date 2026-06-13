@@ -472,7 +472,7 @@ describe("verifyCaller — enrolled-key path (org-owned .life support)", () => {
 // ── POST /exchange/enroll — store the .life's lifekey pubkey, authenticated by a
 // GitHub user token that proves identity (GET /user) + push access (GET /repos).
 function enrollMock(opts: { push?: boolean; repoOk?: boolean; tokenOk?: boolean; login?: string } = {}) {
-  const { push = true, repoOk = true, tokenOk = true, login = "domvinyard" } = opts;
+  const { push = true, repoOk = true, tokenOk = true, login = "octocat" } = opts;
   const calls: string[] = [];
   const fetchMock = vi.fn(async (url: any) => {
     const u = String(url);
@@ -511,7 +511,7 @@ describe("handleExchangeEnroll", () => {
     const env = enrollEnv();
     const r = await handleExchangeEnroll(ENROLLPOST({ repo: "known-life/foo", pubkey: OWNER_OPENSSH }), env);
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ ok: true, repo: "known-life/foo", login: "domvinyard" });
+    expect(await r.json()).toMatchObject({ ok: true, repo: "known-life/foo", login: "octocat" });
     expect((await env.KNOWN_KV.get("lifekey:pub:known-life/foo"))?.trim()).toBe(OWNER_OPENSSH);
   });
 

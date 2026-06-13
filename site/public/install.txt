@@ -6,9 +6,10 @@ known.life", "install life", "add life to this repo", "make this repo
 Life-aware", "update known.life", "life setup", "go alive", or similar. This
 file is your runbook — there's no human-run installer; you do the whole thing.
 The human is interrupted exactly twice, both in the browser: a GitHub sign-in
-(device flow — they enter a short code) and a Cloudflare API token pasted into
-a single-use drop page. Nothing is pasted into the terminal, and no SSH-key
-paste: setup auto-registers your identity key on GitHub via the sign-in.
+(device flow — they enter a short code) and one Cloudflare OAuth consent (they
+click "Authorize" — known.life brokers a short-lived deploy token; no token to
+create, nothing pasted into the terminal). No SSH-key paste either: setup
+auto-registers your identity key on GitHub via the sign-in.
 
 FIRST — IS THIS AN INSTALL OR AN UPDATE?
   Check for `./.life.engine` in the repo root.
@@ -21,7 +22,7 @@ FIRST — IS THIS AN INSTALL OR AN UPDATE?
 The flow has two arcs:
 
   ARC 1  (no user input, seconds): make the repo Life-aware.
-  ARC 2  (two tokens, then fully automatic): become alive.
+  ARC 2  (two browser moments, then fully automatic): become alive.
 
 
 ================================================================================
@@ -61,8 +62,8 @@ Tell the user, in your own voice:
 
     "<repo> is Life-aware and the engine runs. To go fully alive — your own
      lifekey identity, a private secrets vault, and the default toolset — I
-     need you twice, both in the browser: a GitHub sign-in and a Cloudflare
-     API token pasted into a secure one-time page. Want to do that now?"
+     need you twice, both in the browser: a GitHub sign-in and one Cloudflare
+     consent click. No tokens to create or paste. Want to do that now?"
 
 If they say no, stop here.
 
@@ -81,10 +82,11 @@ wait for their "done", and re-run `./.life.engine setup`. The interaction is:
 
   1. GitHub device flow — setup prints a URL + short code; the user signs in
      in the browser. No personal access token is ever created or pasted.
-  2. Cloudflare drop-box — setup mints a single-use https URL; the user
-     creates an API token (Account permissions: Workers Scripts, D1, Workers
-     KV Storage, R2 — scoped to ONE account) and pastes it into that page.
-     The Account ID is derived automatically; nothing enters the terminal.
+  2. Cloudflare OAuth consent — setup prints an authorize URL; the user clicks
+     "Authorize known.life" and picks the target account in the consent screen.
+     known.life stores the grant and brokers a short-lived, scoped deploy token
+     per need — no token is created, pasted, or stored, and there's no Account
+     ID to find. Nothing enters the terminal.
 
 NEVER echo a credential back; NEVER commit one. Credentials are one-way data:
 into the vault, never out. (The `leak-guard` gene, installed by default,
@@ -95,8 +97,8 @@ STEP 4 — What setup provisions
 What setup does (8 idempotent stages, each announced; re-run after fixing
 anything and it converges):
 
-  1. preflight   — validate the Cloudflare token + account and the GitHub
-                   grant BEFORE touching anything irreversible.
+  1. preflight   — confirm the Cloudflare consent and the GitHub grant are
+                   live BEFORE touching anything irreversible.
   2. adapters    — install the cloudflare + github adapter genes.
   3. cloudflare  — connect the infra adapter.
   4. vault       — install + deploy the secrets vault (a public Worker), opted
@@ -106,9 +108,8 @@ anything and it converges):
                    paste), and flush the private half to the vault.
   6. root .life  — write `secrets_worker_url:` + `proxy_hosts:` so future
                    sessions hydrate identity from the vault automatically.
-  7. defaults    — install the baseline genome (laws, sessions, kb,
-                   mcp-credentials, book-of-life, leak-guard, cloudflare,
-                   git-sync, planning, secrets).
+  7. defaults    — install the baseline genome (the Laws, session memory, the
+                   knowledge base, a secret-leak guard, the book of life, …).
   8. evolve + self-test — compile the harness, then exercise the tokenless
                    /exchange round-trip future sessions will use.
 
@@ -133,8 +134,8 @@ RECOVERY
 
 Each `✗` line names its remediation. Common cases:
 
-- Cloudflare account not reachable — recheck the Account ID (dashboard sidebar)
-  and that the token covers it.
+- Cloudflare account not reachable — re-run setup to re-open the consent link
+  and re-authorize known.life for the target account.
 - Vault not reachable after ~60s — the account's workers.dev subdomain isn't
   enabled; enable it
   (https://dash.cloudflare.com/?to=/:account/workers/onboarding) and re-run.
