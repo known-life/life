@@ -297,12 +297,12 @@ describe("handleExchangeDeleteBranch", () => {
   });
 });
 
-// A GitHub mock for merge-pr: installation/token, check-runs for the head SHA,
-// and the squash-merge PUT. `checks` drives the green gate; `mergeStatus` the
-// merge outcome.
+// A GitHub mock for merge-pr: installation/token and the squash-merge PUT.
+// Central no longer reads check-runs — green-gating is the agent's job (MCP) —
+// so the mock only needs the merge surface. `mergeStatus` drives the outcome.
 const MSHA = "abc1234".padEnd(40, "0"); // 40-hex
-function mergeMock(opts: { installed?: boolean; checks?: Array<{ status: string; conclusion: string | null; name?: string }> | null; mergeStatus?: number } = {}) {
-  const { installed = true, checks = [{ status: "completed", conclusion: "success", name: "worker-unit" }], mergeStatus = 200 } = opts;
+function mergeMock(opts: { installed?: boolean; mergeStatus?: number } = {}) {
+  const { installed = true, mergeStatus = 200 } = opts;
   let mergeCall: { url: string; body: any } | null = null;
   const fetchMock = vi.fn(async (url: any, init: any = {}) => {
     const u = String(url);
@@ -312,10 +312,6 @@ function mergeMock(opts: { installed?: boolean; checks?: Array<{ status: string;
     }
     if (/\/app\/installations\/[^/]+\/access_tokens$/.test(u) && init.method === "POST") {
       return new Response(JSON.stringify({ token: "merge-tok" }), { status: 200 });
-    }
-    if (/\/commits\/[0-9a-f]+\/check-runs$/.test(u)) {
-      const arr = checks ?? [];
-      return new Response(JSON.stringify({ total_count: arr.length, check_runs: arr }), { status: 200 });
     }
     if (/\/pulls\/\d+\/merge$/.test(u) && init.method === "PUT") {
       mergeCall = { url: u, body: JSON.parse(init.body) };
@@ -332,31 +328,13 @@ const MERGEPOST = (body: unknown) =>
 const mergeBody = (over: Record<string, unknown> = {}) => ({ repo: "o/r", pr: 497, branch: "claude/feature", sha: MSHA, ...sign("merge-pr", "o/r", MSHA), ...over });
 
 describe("handleExchangeMergePR", () => {
-  it("merges a green claude/* PR, pinned to the gated SHA", async () => {
+  it("squash-merges a claude/* PR pinned to the caller-verified SHA", async () => {
     const m = mergeMock();
     const r = await handleExchangeMergePR(MERGEPOST(mergeBody()), baseEnv());
     expect(r.status).toBe(200);
     expect(await r.json()).toMatchObject({ ok: true, merged: true });
     const mc = m.getMerge()!;
     expect(mc.body).toMatchObject({ merge_method: "squash", sha: MSHA }); // SHA-pinned, squash
-  });
-  it("pending while a check is still running — no merge", async () => {
-    const m = mergeMock({ checks: [{ status: "in_progress", conclusion: null }] });
-    const r = await handleExchangeMergePR(MERGEPOST(mergeBody()), baseEnv());
-    expect(await r.json()).toMatchObject({ ok: false, pending: true });
-    expect(m.getMerge()).toBeNull(); // never merged with CI in flight
-  });
-  it("pending when zero check-runs have reported yet (race) — no merge", async () => {
-    const m = mergeMock({ checks: [] });
-    const r = await handleExchangeMergePR(MERGEPOST(mergeBody()), baseEnv());
-    expect(await r.json()).toMatchObject({ ok: false, pending: true });
-    expect(m.getMerge()).toBeNull();
-  });
-  it("refuses on a red check (failed) — never merges", async () => {
-    const m = mergeMock({ checks: [{ status: "completed", conclusion: "failure", name: "worker-unit" }] });
-    const r = await handleExchangeMergePR(MERGEPOST(mergeBody()), baseEnv());
-    expect(await r.json()).toMatchObject({ ok: false, failed: true, checks: ["worker-unit"] });
-    expect(m.getMerge()).toBeNull();
   });
   it("refuses a non-claude/* head (403, before any GitHub call)", async () => {
     const m = mergeMock();
@@ -380,7 +358,7 @@ describe("handleExchangeMergePR", () => {
     const r = await handleExchangeMergePR(MERGEPOST({ repo: "o/r", pr: 497, branch: "claude/feature", sha: MSHA, ...sign("merge-pr", "o/r", other) }), baseEnv());
     expect(r.status).toBe(401);
   });
-  it("409 when the head moved since the gate (merge 409) — never lands ungated code", async () => {
+  it("409 when the head moved since the caller verified it (merge sha-pin) — never lands an unverified commit", async () => {
     mergeMock({ mergeStatus: 409 });
     const r = await handleExchangeMergePR(MERGEPOST(mergeBody()), baseEnv());
     expect(r.status).toBe(409);
