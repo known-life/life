@@ -258,11 +258,72 @@ export async function getGrant(env: Env, login: string): Promise<CfGrant | null>
   return raw ? (JSON.parse(raw) as CfGrant) : null;
 }
 
-// --- mint a fresh access token on demand (refresh + persist rotation) ---
+// --- access-token cache (KV `cf:token:<login>`, encrypted at rest) ---
 //
-// The broker entrypoint: given a github login with a stored grant, refresh the
-// access token. Cloudflare rotates the refresh token, so re-encrypt + persist the
-// new one. Returns null if the user has no grant (never connected, or revoked).
+// WHY this exists — concurrency. The refresh token CF returns is single-use and
+// ROTATED on every refresh, and there is exactly ONE per login at central. Before
+// caching, every `life deploy` / `life data` minted afresh, so N parallel sessions
+// of one self (a `.life` routinely runs several at once) raced that single rotating
+// refresh token: CF's refresh-token reuse-detection revoked tokens out from under
+// each other mid-deploy — the intermittent `10000 "Authentication error"` at random
+// deploy stages, diagnosed live 2026-06-14 (a token that listed workers then died
+// seconds later, untouched). Caching collapses N mints-per-minute into ONE refresh
+// per token lifetime: every session reads the SAME still-valid access token, so the
+// rotating exchange is rare and parallel deploys stop stomping each other.
+//
+// The access token is short-lived (vs the account-powerful refresh token) but still
+// encrypted at rest, same AES-GCM key as the grant.
+const TOKEN_KEY = (login: string) => `cf:token:${login.toLowerCase()}`;
+const LOCK_KEY = (login: string) => `cf:token:lock:${login.toLowerCase()}`;
+const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh this long before CF's own expiry
+
+interface CachedToken {
+  access_token_enc: string;
+  expires_at: number;
+  account_id: string | null;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const remainingSecs = (expires_at: number) => Math.max(60, Math.floor((expires_at - Date.now()) / 1000));
+
+// Read the cached token if present and not within REFRESH_MARGIN of expiry.
+export async function getCachedToken(
+  env: Env,
+  login: string,
+): Promise<{ access_token: string; expires_at: number; account_id: string | null } | null> {
+  const raw = await env.KNOWN_KV.get(TOKEN_KEY(login));
+  if (!raw) return null;
+  let c: CachedToken;
+  try {
+    c = JSON.parse(raw) as CachedToken;
+  } catch {
+    return null;
+  }
+  if (c.expires_at - Date.now() < REFRESH_MARGIN_MS) return null; // (near-)expired → refresh
+  try {
+    return { access_token: await decryptSecret(env, c.access_token_enc), expires_at: c.expires_at, account_id: c.account_id };
+  } catch {
+    return null;
+  }
+}
+
+export async function putCachedToken(env: Env, login: string, access_token: string, expires_in: number, account_id: string | null): Promise<void> {
+  const c: CachedToken = {
+    access_token_enc: await encryptSecret(env, access_token),
+    expires_at: Date.now() + expires_in * 1000,
+    account_id,
+  };
+  // KV TTL a minute past the token's own expiry so a stale entry self-evicts.
+  await env.KNOWN_KV.put(TOKEN_KEY(login), JSON.stringify(c), { expirationTtl: Math.max(60, expires_in + 60) });
+}
+
+// --- mint an access token on demand (cache-first; refresh + persist rotation) ---
+//
+// The broker entrypoint: given a github login with a stored grant, return a valid
+// access token — from the shared cache when possible, else by refreshing (which
+// rotates the refresh token, so re-encrypt + persist the new one). Returns null if
+// the user has no grant (never connected, or revoked).
 
 export async function mintAccessToken(
   env: Env,
@@ -270,12 +331,51 @@ export async function mintAccessToken(
 ): Promise<{ access_token: string; expires_in: number; account_id: string | null } | null> {
   const grant = await getGrant(env, login);
   if (!grant) return null;
-  const refresh = await decryptSecret(env, grant.refresh_token_enc);
-  const tok = await refreshAccessToken(env, refresh);
-  if (tok.refresh_token && tok.refresh_token !== refresh) {
-    grant.refresh_token_enc = await encryptSecret(env, tok.refresh_token);
-    grant.updated_at = Date.now();
-    await putGrant(env, login, grant);
+
+  // 1 · Serve a cached, still-valid access token — the common path, shared across
+  //     all of this self's concurrent sessions (no refresh-token touch → no race).
+  const cached = await getCachedToken(env, login);
+  if (cached) {
+    return { access_token: cached.access_token, expires_in: remainingSecs(cached.expires_at), account_id: cached.account_id ?? grant.account_id };
   }
-  return { access_token: tok.access_token, expires_in: tok.expires_in ?? 3600, account_id: grant.account_id };
+
+  // 2 · Cache miss/expiry → refresh. Best-effort lock so a thundering herd of
+  //     simultaneous expiries doesn't fire many concurrent refreshes at the one
+  //     rotating refresh token. If another session holds the lock, briefly wait for
+  //     it to populate the cache and reuse that. (KV has no atomic CAS, so this is
+  //     best-effort — but it shrinks the refresh race from once-per-deploy to the
+  //     once-per-token-lifetime boundary, where a rare double-refresh is recovered
+  //     by re-reading the cache below.)
+  if (await env.KNOWN_KV.get(LOCK_KEY(login))) {
+    for (let i = 0; i < 10; i++) {
+      await sleep(150);
+      const c = await getCachedToken(env, login);
+      if (c) return { access_token: c.access_token, expires_in: remainingSecs(c.expires_at), account_id: c.account_id ?? grant.account_id };
+    }
+  }
+  await env.KNOWN_KV.put(LOCK_KEY(login), "1", { expirationTtl: 20 });
+
+  try {
+    const refresh = await decryptSecret(env, grant.refresh_token_enc);
+    let tok: CfTokenResponse;
+    try {
+      tok = await refreshAccessToken(env, refresh);
+    } catch (e) {
+      // A concurrent session may have rotated the refresh token out from under us;
+      // if it populated the cache meanwhile, prefer that over surfacing the error.
+      const c = await getCachedToken(env, login);
+      if (c) return { access_token: c.access_token, expires_in: remainingSecs(c.expires_at), account_id: c.account_id ?? grant.account_id };
+      throw e;
+    }
+    if (tok.refresh_token && tok.refresh_token !== refresh) {
+      grant.refresh_token_enc = await encryptSecret(env, tok.refresh_token);
+      grant.updated_at = Date.now();
+      await putGrant(env, login, grant);
+    }
+    const expires_in = tok.expires_in ?? 3600;
+    await putCachedToken(env, login, tok.access_token, expires_in, grant.account_id);
+    return { access_token: tok.access_token, expires_in, account_id: grant.account_id };
+  } finally {
+    await env.KNOWN_KV.delete(LOCK_KEY(login)).catch(() => {});
+  }
 }

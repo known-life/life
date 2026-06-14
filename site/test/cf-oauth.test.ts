@@ -7,6 +7,9 @@ import {
   decryptSecret,
   putGrant,
   getGrant,
+  putCachedToken,
+  getCachedToken,
+  mintAccessToken,
   CF_OAUTH_SCOPES,
   type CfGrant,
 } from "../src/registry/lib/cf-oauth";
@@ -125,6 +128,56 @@ describe("per-user grant store", () => {
     await putGrant(e, "Octocat", grant);
     expect(await getGrant(e, "octocat")).toEqual(grant);
     expect(await getGrant(e, "OCTOCAT")).toEqual(grant);
+  });
+});
+
+describe("access-token cache (parallel-deploy stomping fix)", () => {
+  const grant: CfGrant = {
+    refresh_token_enc: "iv.ct",
+    account_id: "acc1",
+    account_name: "Acme",
+    accounts: [{ id: "acc1", name: "Acme" }],
+    updated_at: 1,
+  };
+
+  it("round-trips a cached token, encrypted at rest", async () => {
+    const e = env();
+    await putCachedToken(e, "octocat", "cf-access-xyz", 3600, "acc1");
+    const raw = await e.KNOWN_KV.get("cf:token:octocat");
+    expect(raw).toBeTruthy();
+    expect(raw).not.toContain("cf-access-xyz"); // not stored in the clear
+    const c = await getCachedToken(e, "octocat");
+    expect(c?.access_token).toBe("cf-access-xyz");
+    expect(c?.account_id).toBe("acc1");
+  });
+
+  it("treats a (near-)expired cached token as a miss", async () => {
+    const e = env();
+    await putCachedToken(e, "octocat", "cf-access-old", 60, "acc1"); // within the 5-min margin
+    expect(await getCachedToken(e, "octocat")).toBeNull();
+  });
+
+  it("is login-case-insensitive (a token cached under one casing is found under another)", async () => {
+    const e = env();
+    await putCachedToken(e, "Octocat", "cf-access-xyz", 3600, "acc1");
+    expect((await getCachedToken(e, "octocat"))?.access_token).toBe("cf-access-xyz");
+  });
+
+  it("mintAccessToken serves the cached token WITHOUT a refresh-token exchange (no network)", async () => {
+    // The crux of the fix: with a fresh cache, a mint never touches CF's token
+    // endpoint — so N concurrent sessions never race the rotating refresh token.
+    // refreshAccessToken would throw here (no live CF); a cache hit avoids it.
+    const e = env();
+    await putGrant(e, "octocat", grant);
+    await putCachedToken(e, "octocat", "cf-access-cached", 3600, "acc1");
+    const minted = await mintAccessToken(e, "octocat");
+    expect(minted?.access_token).toBe("cf-access-cached");
+    expect(minted?.account_id).toBe("acc1");
+    expect(minted!.expires_in).toBeGreaterThan(0);
+  });
+
+  it("mintAccessToken returns null with no grant, before any cache work", async () => {
+    expect(await mintAccessToken(env(), "nobody")).toBeNull();
   });
 });
 

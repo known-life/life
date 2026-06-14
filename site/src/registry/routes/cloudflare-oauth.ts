@@ -28,8 +28,10 @@ import {
  *   GET  /oauth/cf/callback          (the user's browser lands here post-consent)
  *     Validate `state`, exchange `code` at /oauth2/token (confidential client +
  *     PKCE verifier), record which account(s) the grant can see, and persist the
- *     REFRESH token (encrypted) under the user at central. The access token is
- *     never stored — it's minted on demand by lib/cf-oauth mintAccessToken.
+ *     REFRESH token (encrypted) under the user at central. Access tokens are minted
+ *     on demand by lib/cf-oauth mintAccessToken, which caches the short-lived token
+ *     (encrypted) so concurrent sessions of one self share it instead of each
+ *     racing the single rotating refresh token (the parallel-deploy stomping fix).
  *
  * The CF credential never reaches the agent transcript or the container: it lives
  * only in this worker (KV, encrypted) and is brokered. Mirrors the cf-drop auth
