@@ -75,19 +75,12 @@ of the repo is a .life that happens to use the genepool this worker hosts.
 An [Astro](https://astro.build) app with the Cloudflare adapter, deployed as a
 single SSR Worker plus edge static assets:
 
-- **The registry API** (`src/registry/`) — `router.ts` dispatches to
-  `routes/`: `publish` · `resolve` · `package` · `claim` · `lifecycle` (the
-  mutate surface), `maintainers` (account-level publish delegation — logins the
-  owner trusts to publish all their genes), `auth` + `mcp-oauth` + `mcp`
-  (lifekey-proven auth, the MCP bridge), `setup` (the hosted cold-start flow),
-  `github-app` (the durable-verifier central half — the one-click GitHub App
-  manifest registration + `POST /exchange/verify`, the delegated nonce read the
-  secrets vault calls instead of holding a GitHub credential of its own),
-  `skill`; plus `/api/provides/<cap>` (reverse capability lookup, ranked by
-  installs — how the engine resolves an unmet `requires:`), handled in the
-  router itself. The pre-publish secret/PII scan is not a route: it runs inside
-  the publish pipeline (`lib/scan.ts`). The security spine has a credential-free
-  vitest suite (`npm test`, CI job `worker-unit`).
+- **The registry API** (`src/registry/`) — the genepool's request-handling
+  core: `router.ts` dispatches to `routes/` + `lib/` (`publish` · `resolve` ·
+  `package` · `claim` · `lifecycle` · `maintainers` · `auth` · `mcp` · `setup`
+  · `github-app` · `skill`). This is its own child cell — `life ask
+  site/src/registry` owns the surface map; its credential-free vitest suite
+  (`npm test`, CI job `worker-unit`) lives in `site/test/`.
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
   to static assets.
 - **The installer** — `install.sh` (repo root) is copied into `public/` at build
