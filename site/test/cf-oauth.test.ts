@@ -21,13 +21,18 @@ import { issueRegistryToken } from "../src/registry/lib/jwt";
 // mints a consent URL for an unauthenticated caller would each be a security
 // hole. These tests pin the pure logic credential-free (no live Cloudflare).
 
-// Minimal in-memory KV mock — get/put/delete, TTL ignored (tests don't wait).
+// Minimal in-memory KV mock — get/put/delete. Mirrors Cloudflare KV's real
+// constraint that expirationTtl must be >= 60 (a sub-60 TTL is a 400 at the edge,
+// which once shipped a broker regression that broke every CF mint — caught here now).
 class MockKV {
   private m = new Map<string, string>();
   async get(k: string): Promise<string | null> {
     return this.m.has(k) ? this.m.get(k)! : null;
   }
-  async put(k: string, v: string): Promise<void> {
+  async put(k: string, v: string, opts?: { expirationTtl?: number }): Promise<void> {
+    if (opts?.expirationTtl !== undefined && opts.expirationTtl < 60) {
+      throw new Error(`Invalid expiration_ttl of ${opts.expirationTtl}. Expiration TTL must be at least 60.`);
+    }
     this.m.set(k, v);
   }
   async delete(k: string): Promise<void> {
@@ -178,6 +183,23 @@ describe("access-token cache (parallel-deploy stomping fix)", () => {
 
   it("mintAccessToken returns null with no grant, before any cache work", async () => {
     expect(await mintAccessToken(env(), "nobody")).toBeNull();
+  });
+
+  it("the refresh-path lock uses a CF-valid TTL (>=60) — guards the live regression", async () => {
+    // Cache miss → the refresh path runs, which acquires a KV lock FIRST. A sub-60
+    // lock TTL is a 400 at real CF KV (which once broke every mint); the strict
+    // MockKV now throws that same error. The grant's refresh_token_enc is bogus, so
+    // the mint fails — but it must fail at decrypt, NOT at the lock's TTL.
+    const e = env();
+    await putGrant(e, "octocat", grant); // refresh_token_enc "iv.ct" → decrypt throws after the lock
+    let err: unknown;
+    try {
+      await mintAccessToken(e, "octocat");
+    } catch (x) {
+      err = x;
+    }
+    expect(err).toBeTruthy();
+    expect(String((err as Error).message)).not.toContain("expiration_ttl");
   });
 });
 

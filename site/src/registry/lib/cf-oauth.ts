@@ -353,7 +353,7 @@ export async function mintAccessToken(
       if (c) return { access_token: c.access_token, expires_in: remainingSecs(c.expires_at), account_id: c.account_id ?? grant.account_id };
     }
   }
-  await env.KNOWN_KV.put(LOCK_KEY(login), "1", { expirationTtl: 20 });
+  await env.KNOWN_KV.put(LOCK_KEY(login), "1", { expirationTtl: 60 }); // CF KV minimum is 60s
 
   try {
     const refresh = await decryptSecret(env, grant.refresh_token_enc);
