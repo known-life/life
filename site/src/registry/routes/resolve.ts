@@ -105,6 +105,7 @@ export async function handleResolve(
     yanked: !!v.yanked,
     yanked_reason: v.yanked_reason ?? null,
     verified_state: pkg.verified_state,
+    superseded_by: pkg.superseded_by ?? null,
     requires: JSON.parse(v.requires_json ?? "[]"),
     provides: JSON.parse(v.provides_json ?? "[]"),
     inputs: JSON.parse(v.inputs_json ?? "[]"),
