@@ -58,6 +58,7 @@ export async function handlePackage(req: Request, env: Env, name: string): Promi
         repository: pkg.repository,
         latest_version: pkg.latest_version,
         verified_state: pkg.verified_state,
+        superseded_by: pkg.superseded_by,
         install_count: pkg.install_count,
         install: `known.life/${pkg.name}`,
         versions: versions.map((v) => ({

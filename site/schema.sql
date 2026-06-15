@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS packages (
   homepage        TEXT,                 -- project URL
   repository      TEXT,                 -- source repo URL
   readme          TEXT,                 -- README.md of the latest version
+  superseded_by   TEXT,                 -- a successor gene name: this package is renamed/replaced by it. Owner-set via /api/supersede; sinks the row in explore + badges it. NULL = live.
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL
 );
@@ -117,6 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_deps_depname ON deps(dep_name);
 
 -- migration (idempotent via the adapter's duplicate-column skip):
 ALTER TABLE versions ADD COLUMN yanked_reason TEXT;
+ALTER TABLE packages ADD COLUMN superseded_by TEXT;
 
 -- embeddings — the semantic-search cache (lib/semantic.ts): one bge-base
 -- vector per package, keyed to the latest_version it was computed from.

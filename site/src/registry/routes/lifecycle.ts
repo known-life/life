@@ -1,5 +1,5 @@
 import type { Env } from "../lib/types";
-import { getName, getPackage, resolveAccountFromSubject, getVersion, deprecateVersion, unpublishVersion, wipeName, canManageName } from "../lib/db";
+import { getName, getPackage, resolveAccountFromSubject, getVersion, deprecateVersion, unpublishVersion, wipeName, canManageName, setSuperseded } from "../lib/db";
 import { verifyToken } from "../lib/jwt";
 import { UNPUBLISH_WINDOW_MS, UNPUBLISH_WINDOW_LABEL } from "../lib/config";
 
@@ -16,7 +16,13 @@ import { UNPUBLISH_WINDOW_MS, UNPUBLISH_WINDOW_LABEL } from "../lib/config";
  *     window, deprecate instead. Immutability holds for anything anyone may
  *     already depend on.
  *
- * Both authorize on the caller's lifekey identity owning the name — same as
+ *   POST /api/supersede  { name, successor | null }   (Bearer auth)
+ *     Mark a whole package renamed/replaced by a successor gene (package-level,
+ *     unlike per-version deprecate). It still resolves; explore sinks it below
+ *     every live gene and badges it "→ superseded by <successor>". A null
+ *     successor clears the pointer (un-retire). Never deletes.
+ *
+ * All authorize on the caller's lifekey identity owning the name — same as
  * publish. No publish key.
  */
 
@@ -74,6 +80,33 @@ export async function handleUnpublish(req: Request, env: Env): Promise<Response>
 
   await unpublishVersion(env, body.name!, body.version!);
   return json(200, { ok: true, name: body.name, version: body.version, unpublished: true });
+}
+
+export async function handleSupersede(req: Request, env: Env): Promise<Response> {
+  const body = await req.json().catch(() => null) as
+    | { name?: string; successor?: string | null }
+    | null;
+  if (!body) return json(400, { error: "bad_json" });
+  const auth = await authOwner(req, env, body.name);
+  if (!auth.ok) return json(auth.status, { error: auth.error });
+
+  const pkg = await getPackage(env, body.name!);
+  if (!pkg) return json(404, { error: "no_such_package" });
+
+  // A null/empty successor clears the pointer (un-retire). A non-empty one must
+  // name a real, different gene — pointing a gene at itself or at a typo would
+  // make the badge lie.
+  const successor = body.successor ? String(body.successor).trim() : null;
+  if (successor) {
+    if (successor === body.name) return json(400, { error: "self_supersede", hint: "a gene cannot supersede itself" });
+    const target = await getPackage(env, successor);
+    if (!target || !target.latest_version) {
+      return json(400, { error: "unknown_successor", hint: `no live gene named '${successor}' to supersede '${body.name}' with` });
+    }
+  }
+
+  await setSuperseded(env, body.name!, successor);
+  return json(200, { ok: true, name: body.name, superseded_by: successor });
 }
 
 /**

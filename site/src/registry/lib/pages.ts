@@ -72,6 +72,14 @@ code,pre,.mono{font-family:var(--mono)}
   font-family:var(--body)}
 .b.blessed{background:var(--sun)}
 .b.verified{background:var(--teal)}
+.superseded-by{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:10px;border:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;color:var(--coral);text-decoration:none;vertical-align:middle;white-space:nowrap}
+.superseded-by:hover{border-color:var(--coral)}
+tr.superseded{opacity:.55}
+tr.superseded:hover{opacity:1}
+.superseded-banner{margin:8px 0 0;padding:6px 12px;border-left:3px solid var(--coral);background:var(--panel);
+  font-size:13px;color:var(--ink)}
+.superseded-banner a{color:var(--coral);font-family:var(--mono);font-weight:600}
 /* hero variant: slightly larger so it reads next to a 40px+ headline */
 .hero .b{width:22px;height:22px;font-size:13px;margin-left:14px;vertical-align:0.18em}
 
@@ -335,6 +343,13 @@ function stateIcon(state: string | null | undefined): string {
   return "";
 }
 
+// A package renamed/replaced by a successor: a small inline pill linking to it,
+// so a reader of the listing or the gene page sees the live gene to use instead.
+function supersededBadge(successor: string | null | undefined): string {
+  if (!successor) return "";
+  return ` <a class="superseded-by" title="superseded by ${esc(successor)}" href="/${esc(successor)}">⤳ ${esc(successor)}</a>`;
+}
+
 function fmtDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
@@ -589,6 +604,7 @@ export function packageMarkdown(v: PackageView, publicUrl: string): string {
     `# ${pkg.name}`,
     pkg.description ? `\n> ${pkg.description}` : pkg.summary ? `\n> ${pkg.summary}` : "",
     `\n**install:** \`imports:\\n  - known.life/${pkg.name}\`  _(npm semantics: bare name floats to latest)_`,
+    pkg.superseded_by ? `\n> ⤳ **Superseded by [${pkg.superseded_by}](/${pkg.superseded_by})** — inherit that instead.` : "",
     `\n- badge: **${pkg.verified_state}**`,
     `- latest: ${pkg.latest_version}`,
     `- total installs: ${pkg.install_count}`,
@@ -667,6 +683,7 @@ export function packageHtml(v: PackageView): string {
   <div class="row">
     <div>
       <h1>${esc(pkg.name)}${stateIcon(pkg.verified_state)}</h1>
+      ${pkg.superseded_by ? `<p class="superseded-banner">⤳ Superseded by <a href="/${esc(pkg.superseded_by)}">${esc(pkg.superseded_by)}</a> — inherit that instead.</p>` : ""}
       ${heroSum ? `<p class="sum">${esc(heroSum)}</p>` : ""}
       ${keywords.length ? `<div class="pills">${keywords.map((k) => `<span class="pill kw">${esc(k)}</span>`).join("")}</div>` : ""}
     </div>
@@ -734,8 +751,8 @@ export function listHtml(title: string, rows: PackageRecord[], query = ""): stri
     : `${rows.length} gene${rows.length === 1 ? "" : "s"}, ranked by installs.`;
   const rowsHtml = rows.length === 0
     ? `<tr class="empty-row"><td colspan="4">no genes match.</td></tr>`
-    : rows.map((p) => `<tr>
-        <td data-label="gene"><a class="nm" href="/${esc(p.name)}">${esc(p.name)}</a>${stateIcon(p.verified_state)}</td>
+    : rows.map((p) => `<tr${p.superseded_by ? ' class="superseded"' : ""}>
+        <td data-label="gene"><a class="nm" href="/${esc(p.name)}">${esc(p.name)}</a>${stateIcon(p.verified_state)}${supersededBadge(p.superseded_by)}</td>
         <td data-label="version"><span class="ver">${esc(p.latest_version ?? "")}</span></td>
         <td data-label="summary"><span class="sum">${esc(shortDesc(p.summary ?? p.description))}</span></td>
         <td class="num ct" data-label="installs">${p.install_count.toLocaleString()}</td>
@@ -760,7 +777,10 @@ export function listMarkdown(title: string, rows: PackageRecord[]): string {
   return (
     `# ${title}\n\n` +
     rows
-      .map((p) => `- **${p.name}**@${p.latest_version} — ${p.install_count} installs — ${p.summary ?? ""}`)
+      .map((p) => {
+        const tag = p.superseded_by ? ` — ⤳ superseded by **${p.superseded_by}**` : "";
+        return `- **${p.name}**@${p.latest_version} — ${p.install_count} installs${tag} — ${p.summary ?? ""}`;
+      })
       .join("\n") +
     (rows.length ? "" : "\n_(empty)_")
   );

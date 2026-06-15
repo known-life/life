@@ -42,6 +42,9 @@ export interface PackageRecord {
   homepage: string | null;
   repository: string | null;
   readme: string | null;
+  // The successor gene this package was renamed/replaced by, or null if live.
+  // Owner-set via /api/supersede; sinks the row in explore and badges it.
+  superseded_by: string | null;
 }
 
 export interface VersionRecord {
@@ -289,12 +292,23 @@ export async function listPackagesByOwner(env: Env, accountId: string): Promise<
 }
 
 export async function topPackages(env: Env, limit = 100, offset = 0): Promise<PackageRecord[]> {
+  // Live genes first, superseded ones sunk to the bottom; each tier still
+  // install-ranked. So a legacy gene with more historical installs (book-of-life
+  // @9) no longer outranks its live successor (life-guide @3).
   const res = await env.DB.prepare(
-    "SELECT * FROM packages WHERE latest_version IS NOT NULL ORDER BY install_count DESC LIMIT ? OFFSET ?",
+    "SELECT * FROM packages WHERE latest_version IS NOT NULL ORDER BY (superseded_by IS NOT NULL) ASC, install_count DESC LIMIT ? OFFSET ?",
   )
     .bind(limit, offset)
     .all<PackageRecord>();
   return res.results ?? [];
+}
+
+/** Set or clear a package's successor pointer. `successor = null` clears it
+ *  (a gene un-retired). The owner/auth check lives in the route. */
+export async function setSuperseded(env: Env, name: string, successor: string | null): Promise<void> {
+  await env.DB.prepare("UPDATE packages SET superseded_by = ?, updated_at = ? WHERE name = ?")
+    .bind(successor, Date.now(), name)
+    .run();
 }
 
 export async function countLivePackages(env: Env): Promise<number> {

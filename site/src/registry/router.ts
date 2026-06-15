@@ -15,6 +15,7 @@
  *   POST /api/publish              the publish pipeline (auth → scan → fit → cut)
  *   POST /api/deprecate            deprecate a version (owner auth)
  *   POST /api/unpublish            hard-remove a recent version (owner auth)
+ *   POST /api/supersede            mark a package renamed/replaced by a successor (owner auth)
  *   POST /api/wipe                 delete a name + all attached rows (admin auth)
  *   GET|POST /api/maintainers      list / grant / revoke account-level publish delegation (owner auth)
  *   GET  /api/resolve/:name/:ver   engine install endpoint (manifest + blobs)
@@ -28,7 +29,7 @@ import { handlePublish } from "./routes/publish";
 import { handleResolve, handleProvides } from "./routes/resolve";
 import { handleClaim } from "./routes/claim";
 import { handleAuthChallenge, handleAuthProve } from "./routes/auth";
-import { handleDeprecate, handleUnpublish, handleWipe } from "./routes/lifecycle";
+import { handleDeprecate, handleUnpublish, handleWipe, handleSupersede } from "./routes/lifecycle";
 import { handleMaintainers } from "./routes/maintainers";
 import { handlePackage, handleExplore, handleSearch, handleOwner } from "./routes/package";
 import { handleMcp } from "./routes/mcp";
@@ -122,6 +123,7 @@ export async function registryFetch(
   if (path === "/api/publish" && method === "POST") return handlePublish(req, env);
   if (path === "/api/deprecate" && method === "POST") return handleDeprecate(req, env);
   if (path === "/api/unpublish" && method === "POST") return handleUnpublish(req, env);
+  if (path === "/api/supersede" && method === "POST") return handleSupersede(req, env);
   if (path === "/api/wipe" && method === "POST") return handleWipe(req, env);
   if (path === "/api/maintainers" && (method === "GET" || method === "POST")) return handleMaintainers(req, env);
 
