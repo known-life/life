@@ -225,6 +225,10 @@ export async function wipeName(env: Env, name: string): Promise<void> {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM deps WHERE package = ?").bind(name),
     env.DB.prepare("DELETE FROM install_lives WHERE package = ?").bind(name),
+    // embeddings.package REFERENCES packages(name) — must go before the package
+    // row or the FK constraint fails the whole batch (the wipe 500 a delete of
+    // a searched-and-cached gene hit).
+    env.DB.prepare("DELETE FROM embeddings WHERE package = ?").bind(name),
     env.DB.prepare("DELETE FROM versions WHERE package = ?").bind(name),
     env.DB.prepare("DELETE FROM packages WHERE name = ?").bind(name),
     env.DB.prepare("DELETE FROM names WHERE name = ?").bind(name),
