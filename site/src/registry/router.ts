@@ -14,7 +14,7 @@
  *   POST /api/claim                claim a name (Bearer/lifekey auth)
  *   POST /api/publish              the publish pipeline (auth → scan → fit → cut)
  *   POST /api/deprecate            deprecate a version (owner auth)
- *   POST /api/unpublish            hard-remove a recent version (owner auth)
+ *   POST /api/unpublish            hard-remove a version of your own gene, any age (owner auth; refused only if in use)
  *   POST /api/supersede            mark a package renamed/replaced by a successor (owner auth)
  *   POST /api/wipe                 delete a name + all attached rows (admin auth)
  *   GET|POST /api/maintainers      list / grant / revoke account-level publish delegation (owner auth)

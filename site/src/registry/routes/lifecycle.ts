@@ -1,7 +1,6 @@
 import type { Env } from "../lib/types";
-import { getName, getPackage, resolveAccountFromSubject, getVersion, deprecateVersion, unpublishVersion, wipeName, canManageName, setSuperseded } from "../lib/db";
+import { getName, getPackage, resolveAccountFromSubject, getVersion, deprecateVersion, unpublishVersion, wipeName, canManageName, setSuperseded, downloadsByVersion, dependentsOf } from "../lib/db";
 import { verifyToken } from "../lib/jwt";
-import { UNPUBLISH_WINDOW_MS, UNPUBLISH_WINDOW_LABEL } from "../lib/config";
 
 /**
  * Gene lifecycle endpoints — the publisher verbs beyond publish:
@@ -11,10 +10,14 @@ import { UNPUBLISH_WINDOW_MS, UNPUBLISH_WINDOW_LABEL } from "../lib/config";
  *     (reproducibility) but the engine warns on install. Never deletes.
  *
  *   POST /api/unpublish  { name, version }            (Bearer auth)
- *     Hard-remove a version, but only within a short safety window after it was
- *     published (genuine mistakes — a leaked file, a broken cut). Outside the
- *     window, deprecate instead. Immutability holds for anything anyone may
- *     already depend on.
+ *     Hard-remove a version of your own gene — at ANY age. You own your genes;
+ *     there is no arbitrary time window. The ONE guard left is the only one that
+ *     isn't arbitrary: a version someone else is actually standing on can't be
+ *     yanked from under them — if another life has it locked (an install of that
+ *     exact version) or another gene imports the package, unpublish refuses and
+ *     points at deprecate (which keeps it resolvable). Deleting a version nobody
+ *     uses is free; deleting one others depend on is deleting THEIR gene, not
+ *     yours, so that path stays deprecate. Reversible either way: republish.
  *
  *   POST /api/supersede  { name, successor | null }   (Bearer auth)
  *     Mark a whole package renamed/replaced by a successor gene (package-level,
@@ -70,11 +73,21 @@ export async function handleUnpublish(req: Request, env: Env): Promise<Response>
   const v = await getVersion(env, body.name!, body.version!);
   if (!v) return json(404, { error: "no_such_version" });
 
-  const age = Date.now() - v.published_at;
-  if (age > UNPUBLISH_WINDOW_MS) {
+  // The only non-arbitrary guard: refuse to yank a version someone else is
+  // standing on. A live install of this EXACT version = a life whose lock pins
+  // it; a dependent gene = a composition that resolves it. Either way a hard
+  // delete would break a third party — that's deleting their gene, not yours, so
+  // route it to deprecate (still resolvable). No installs + no dependents → free.
+  const installs = (await downloadsByVersion(env, body.name!))[body.version!] ?? 0;
+  const dependents = await dependentsOf(env, body.name!);
+  if (installs > 0 || dependents.length > 0) {
+    const who = [
+      installs > 0 ? `${installs} life(s) have it locked` : null,
+      dependents.length > 0 ? `gene(s) depend on it: ${dependents.join(", ")}` : null,
+    ].filter(Boolean).join("; ");
     return json(409, {
-      error: "outside_window",
-      hint: `unpublish is only allowed within ${UNPUBLISH_WINDOW_LABEL} of publishing; use /api/deprecate instead`,
+      error: "in_use",
+      hint: `${body.name}@${body.version} is in use (${who}); a hard unpublish would break them. Use /api/deprecate (keeps it resolvable), or remove the dependents first.`,
     });
   }
 

@@ -98,7 +98,7 @@ const WRITE_TOOLS = [
   },
   {
     name: "known.unpublish",
-    description: "Hard-remove a recent version (within 72h). Requires write auth (OAuth).",
+    description: "Hard-remove a version of your own gene (any age) — refused only if another life has it locked or a gene depends on it (use deprecate then). Requires write auth (OAuth).",
     inputSchema: {
       type: "object",
       properties: {
