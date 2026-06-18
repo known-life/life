@@ -119,7 +119,17 @@ function manifest(env: Env) {
     url: env.PUBLIC_URL,
     hook_attributes: { url: `${env.PUBLIC_URL}/setup/github-app/webhook`, active: false },
     redirect_url: `${env.PUBLIC_URL}/setup/github-app/callback`,
-    public: false, // owner-only to start; flip to true (+ domain verification) to serve every .life
+    // PUBLIC: any GitHub user can install the verifier App on their own repo —
+    // the prerequisite for onboarding a .life under someone else's account. A
+    // PRIVATE App is installable ONLY on the owner's account, so a third party's
+    // repo never appears in the install list (the single-tenant onboarding scar —
+    // durable-github-verifier.md). The /exchange endpoints stay safe regardless:
+    // they are caller-authed by the owner's lifekey signature, so a stranger
+    // installing the App can't make central act on a repo whose lifekey they don't
+    // hold. NB: this manifest only shapes a FRESH registration; an already-
+    // registered App is made public in its GitHub settings (no API), and a public
+    // App should carry domain verification to drop the "unverified" install banner.
+    public: true,
     default_permissions: MANIFEST_PERMS,
     default_events: [] as string[],
   };
