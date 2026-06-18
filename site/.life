@@ -61,6 +61,15 @@ cloudflare:
   compatibility_flags:
     - nodejs_compat
 
+# The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
+# (the auth root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
+# /api/auth/prove). Pure WebCrypto/jose/node:sqlite, the one fetch stubbed, no
+# network — a genuinely self-contained ARTIFACT test (the one the unified-CI
+# `life test --changed` rail runs for site/, replacing the hand-kept worker-unit
+# job). cwd is this dir, so no `cd site`.
+tests:
+  - npm ci && npm run test:coverage
+
 ---
 
 # site — the known.life genepool
