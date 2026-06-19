@@ -22,9 +22,10 @@ it's absent, this is a fresh install — follow the two arcs below.
    gitignore the harness output (see below). Reversible.
 2. **Become alive** (two browser moments, asked once): run `life setup`. It
    walks the user through a **GitHub sign-in** (device flow — no personal
-   access token to mint) and a **Cloudflare API token** (Workers + KV + D1)
-   pasted into a single-use drop page; the Account ID is derived
-   automatically. Setup validates both, deploys a per-repo secrets vault,
+   access token to mint) and a **Cloudflare OAuth consent** (one Authorize
+   click at dash.cloudflare.com — no token to create or paste, no Account ID
+   to find; known.life brokers a short-lived deploy token per need). Setup
+   validates both, deploys a per-repo secrets vault,
    generates an Ed25519 lifekey and **auto-registers its public half on
    `github.com/<login>.keys`** (no SSH paste by hand), stores the credentials +
    the lifekey private half IN THE VAULT ONLY, installs a baseline genome of
