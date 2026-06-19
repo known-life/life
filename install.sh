@@ -11,6 +11,15 @@ set -eu
 
 REGISTRY="${KNOWN_LIFE_URL:-https://known.life}"
 
+# Silence Node's experimental-API warnings for the whole cold-start chain (the
+# node -e extractors below AND the engine `setup` exec at the end). On a proxied
+# harness — Claude Code on the web, the primary onboarding path — Node eagerly
+# constructs undici's EnvHttpProxyAgent and prints a multi-line UNDICI-EHPA
+# "experimental" warning on every spawn. It's harmless proxy noise, but to a
+# fresh onboarding agent three scary-looking warnings read as "something broke."
+# None of these warnings are user-actionable during install, so suppress them.
+export NODE_NO_WARNINGS=1
+
 echo "Life"
 echo ""
 
