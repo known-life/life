@@ -8,34 +8,21 @@
 > You can do the whole setup yourself — there is no human-run installer. Follow
 > [/install.txt](https://known.life/install.txt).
 
-## Install (for the agent reading this)
+## Install / update (for the agent reading this)
 
-**Install or update?** If `./.life.engine` already exists in the repo, the repo
-is Life-aware — "update"/"upgrade" just means `life evolve` (newer engine,
-re-pinned imports, regenerated harness); you're done when it reports clean. If
-it's absent, this is a fresh install — follow the two arcs below.
+There is no human-run installer — you do the whole thing, and it is **one**
+runbook: **[/install.txt](https://known.life/install.txt)**. Fetch it and follow
+it top to bottom. Don't work from a summary (including this one) — a summary
+drifts out of sync with the real flow; install.txt is the single source of
+truth. One file-existence check tells you which half applies:
 
-[/install.txt](https://known.life/install.txt) is the full runbook. Two arcs:
-
-1. **Make the repo Life-aware** (no tokens, seconds): drop in the engine
-   (`.life.engine`), write a minimal `.life` manifest, run `life status`,
-   gitignore the harness output (see below). Reversible.
-2. **Become alive** (two browser moments, asked once): run `life setup`. It
-   walks the user through a **GitHub sign-in** (device flow — no personal
-   access token to mint) and a **Cloudflare OAuth consent** (one Authorize
-   click at dash.cloudflare.com — no token to create or paste, no Account ID
-   to find; known.life brokers a short-lived deploy token per need). Setup
-   validates both, deploys a per-repo secrets vault,
-   generates an Ed25519 lifekey and **auto-registers its public half on
-   `github.com/<login>.keys`** (no SSH paste by hand), stores the credentials +
-   the lifekey private half IN THE VAULT ONLY, installs a baseline genome of
-   [genes](https://known.life/explore), and self-tests re-entry. After that
-   every future session re-authenticates by hydrating the vault over a tokenless
-   `/exchange` (the session proves it can push the repo) — no input again.
-
-   The lifekey signs every genepool write (**`life mutate`**, a signed
-   challenge verified against `github.com/<login>.keys`). One identity, set up
-   once, forever.
+- **`./.life.engine` absent** → fresh install. install.txt walks two arcs: make
+  the repo Life-aware (drop in the engine, no tokens), then `life setup` to
+  become alive — a GitHub sign-in and one Cloudflare OAuth consent in the
+  browser, no tokens pasted, every later session re-entering automatically.
+- **`./.life.engine` present** → already Life-aware; "update"/"upgrade" is just
+  `life evolve` (newer engine, re-pinned imports, regenerated harness). Done
+  when it reports clean.
 
 ## What's tracked vs gitignored
 
