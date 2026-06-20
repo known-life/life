@@ -376,6 +376,17 @@ export async function putCachedToken(env: Env, login: string, access_token: stri
   await env.KNOWN_KV.put(TOKEN_KEY(login), JSON.stringify(c), { expirationTtl: Math.max(60, expires_in + 60) });
 }
 
+// Drop the cached access token for a login. The cache is DERIVED from the grant
+// (it holds a token minted from the grant's refresh token, tagged with the grant's
+// account), so any write that can change the grant's account — a re-consent — must
+// purge it, else the next mint serves the pre-change token from cache for up to its
+// full lifetime. 2026-06-20 incident: a poisoning re-consent flipped the grant to
+// the correct account but `mintAccessToken` kept returning the wrong-account cached
+// token for ~16h, masking the fix fleet-wide until the key was hand-deleted.
+export async function clearCachedToken(env: Env, login: string): Promise<void> {
+  await env.KNOWN_KV.delete(TOKEN_KEY(login));
+}
+
 // --- mint an access token on demand (cache-first; refresh + persist rotation) ---
 //
 // The broker entrypoint: given a github login with a stored grant, return a valid

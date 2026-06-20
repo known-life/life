@@ -9,6 +9,7 @@ import {
   getGrant,
   putCachedToken,
   getCachedToken,
+  clearCachedToken,
   mintAccessToken,
   chooseGrantAccount,
   CF_OAUTH_SCOPES,
@@ -201,6 +202,50 @@ describe("access-token cache (parallel-deploy stomping fix)", () => {
     }
     expect(err).toBeTruthy();
     expect(String((err as Error).message)).not.toContain("expiration_ttl");
+  });
+});
+
+describe("clearCachedToken — a re-consent must not be masked by the token cache", () => {
+  // 2026-06-20 incident: a poisoning re-consent flipped cf:grant to the correct
+  // account, but mintAccessToken kept serving the wrong-account token from
+  // cf:token:<login> for ~16h, masking the fix fleet-wide. The callback now purges
+  // the cache on every grant write; these pin that the purge actually un-masks.
+  const staleGrant: CfGrant = {
+    refresh_token_enc: "iv.ct", // bogus → a real refresh would throw (proves no network on a cache hit)
+    account_id: "sauna",
+    account_name: "sauna-growth",
+    accounts: [{ id: "sauna", name: "sauna-growth" }],
+    updated_at: 1,
+  };
+
+  it("removes the cached token", async () => {
+    const e = env();
+    await putCachedToken(e, "octocat", "cf-access-stale", 3600, "sauna");
+    expect(await getCachedToken(e, "octocat")).not.toBeNull();
+    await clearCachedToken(e, "octocat");
+    expect(await getCachedToken(e, "octocat")).toBeNull();
+    expect(await e.KNOWN_KV.get("cf:token:octocat")).toBeNull();
+  });
+
+  it("is login-case-insensitive (purges a token cached under any casing)", async () => {
+    const e = env();
+    await putCachedToken(e, "Octocat", "cf-access-stale", 3600, "sauna");
+    await clearCachedToken(e, "octocat");
+    expect(await getCachedToken(e, "Octocat")).toBeNull();
+  });
+
+  it("after the purge, mintAccessToken no longer serves the pre-consent token", async () => {
+    // With the stale cache present, mint returns it WITHOUT a refresh (the masking
+    // bug). After clearCachedToken, the next mint must fall through to the refresh
+    // path — which here throws on the bogus refresh token — i.e. it is NOT serving
+    // the stale account from cache anymore.
+    const e = env();
+    await putGrant(e, "octocat", staleGrant);
+    await putCachedToken(e, "octocat", "cf-access-stale", 3600, "sauna");
+    expect((await mintAccessToken(e, "octocat"))?.access_token).toBe("cf-access-stale"); // masked
+
+    await clearCachedToken(e, "octocat");
+    await expect(mintAccessToken(e, "octocat")).rejects.toBeTruthy(); // no longer masked → hits refresh
   });
 });
 

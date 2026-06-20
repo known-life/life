@@ -10,6 +10,7 @@ import {
   encryptSecret,
   putGrant,
   getGrant,
+  clearCachedToken,
   mintAccessToken,
   chooseGrantAccount,
   genVerifier,
@@ -151,6 +152,10 @@ export async function handleCfOAuthCallback(req: Request, env: Env): Promise<Res
     updated_at: Date.now(),
   };
   await putGrant(env, pending.login, grant);
+  // The access-token cache is derived from the grant; a re-consent can change the
+  // account, so purge it or the next mint serves the pre-consent token for up to
+  // its full lifetime (the 2026-06-20 poisoning fix was masked ~16h this way).
+  await clearCachedToken(env, pending.login);
 
   const acctNote =
     accounts.length === 1
