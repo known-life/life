@@ -89,13 +89,15 @@ export interface CfTokenResponse {
   scope?: string;
 }
 
-// The per-user grant we persist at central (KV `cf:grant:<login>`). The refresh
-// token is encrypted at rest; the access token is NEVER stored (minted on demand).
+// The per-REPO grant we persist at central (KV `cf:grant:<login>:<repo>`). The
+// refresh token is encrypted at rest; the access token is NEVER stored (minted on
+// demand). Each `.life` repo owns its own grant — see the scope note at GRANT_KEY.
 export interface CfGrant {
   refresh_token_enc: string;
   account_id: string | null;
   account_name: string | null;
   accounts: Array<{ id: string; name: string }>;
+  repo: string; // the owner/repo this grant deploys (the namespace half of the key)
   updated_at: number;
 }
 
@@ -297,22 +299,33 @@ function unb64(s: string) {
   return out;
 }
 
-// --- per-user grant store (KV) ---
+// --- per-repo grant store (KV) ---
 //
-// Keyed by the LOWERCASED login: GitHub logins are case-insensitive, and the JWT
+// Keyed by `cf:grant:<login>:<repo>` — a SCOPE of two halves:
+//   • login — the SECURITY BOUNDARY. Cryptographically proven (lifekey sig vs
+//     github.com/<login>.keys); a caller can only ever prove their own login, so
+//     it can only ever read/write its own `cf:grant:<login>:*` namespace.
+//   • repo — the NAMESPACE within that boundary (`owner/repo`). Self-asserted by
+//     the caller, which is SAFE: user X asserting repo=`Y/foo` writes
+//     `cf:grant:X:Y/foo` (X's own namespace), never Y's grant. This is what makes
+//     two `.life` repos under one GitHub account independent — each owns its own
+//     CF connection + deploy account, and a consent on one never touches another.
+//
+// Both halves LOWERCASED: GitHub logins are case-insensitive and the JWT
 // subject's casing varies by auth path (lifekey /auth/prove preserves what the
-// client sent; the device-flow bridge uses GitHub's canonical casing). Without
-// normalizing, a grant stored via one path is invisible to the other — caught
-// live 2026-06-13 when a device-flow session (Octocat) couldn't see a grant
-// stored by a lifekey session (octocat). One chokepoint fixes both ends.
-const GRANT_KEY = (login: string) => `cf:grant:${login.toLowerCase()}`;
+// client sent; the device-flow bridge uses GitHub's canonical casing); repo
+// slugs are likewise case-insensitive. Without normalizing, a grant stored via
+// one path is invisible to another — caught live 2026-06-13 (device-flow Octocat
+// vs lifekey octocat). One chokepoint fixes both ends.
+const scope = (login: string, repo: string) => `${login.toLowerCase()}:${repo.toLowerCase()}`;
+const GRANT_KEY = (login: string, repo: string) => `cf:grant:${scope(login, repo)}`;
 
-export async function putGrant(env: Env, login: string, grant: CfGrant): Promise<void> {
-  await env.KNOWN_KV.put(GRANT_KEY(login), JSON.stringify(grant));
+export async function putGrant(env: Env, login: string, repo: string, grant: CfGrant): Promise<void> {
+  await env.KNOWN_KV.put(GRANT_KEY(login, repo), JSON.stringify(grant));
 }
 
-export async function getGrant(env: Env, login: string): Promise<CfGrant | null> {
-  const raw = await env.KNOWN_KV.get(GRANT_KEY(login));
+export async function getGrant(env: Env, login: string, repo: string): Promise<CfGrant | null> {
+  const raw = await env.KNOWN_KV.get(GRANT_KEY(login, repo));
   return raw ? (JSON.parse(raw) as CfGrant) : null;
 }
 
@@ -331,8 +344,8 @@ export async function getGrant(env: Env, login: string): Promise<CfGrant | null>
 //
 // The access token is short-lived (vs the account-powerful refresh token) but still
 // encrypted at rest, same AES-GCM key as the grant.
-const TOKEN_KEY = (login: string) => `cf:token:${login.toLowerCase()}`;
-const LOCK_KEY = (login: string) => `cf:token:lock:${login.toLowerCase()}`;
+const TOKEN_KEY = (login: string, repo: string) => `cf:token:${scope(login, repo)}`;
+const LOCK_KEY = (login: string, repo: string) => `cf:token:lock:${scope(login, repo)}`;
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh this long before CF's own expiry
 
 interface CachedToken {
@@ -349,8 +362,9 @@ const remainingSecs = (expires_at: number) => Math.max(60, Math.floor((expires_a
 export async function getCachedToken(
   env: Env,
   login: string,
+  repo: string,
 ): Promise<{ access_token: string; expires_at: number; account_id: string | null } | null> {
-  const raw = await env.KNOWN_KV.get(TOKEN_KEY(login));
+  const raw = await env.KNOWN_KV.get(TOKEN_KEY(login, repo));
   if (!raw) return null;
   let c: CachedToken;
   try {
@@ -366,14 +380,14 @@ export async function getCachedToken(
   }
 }
 
-export async function putCachedToken(env: Env, login: string, access_token: string, expires_in: number, account_id: string | null): Promise<void> {
+export async function putCachedToken(env: Env, login: string, repo: string, access_token: string, expires_in: number, account_id: string | null): Promise<void> {
   const c: CachedToken = {
     access_token_enc: await encryptSecret(env, access_token),
     expires_at: Date.now() + expires_in * 1000,
     account_id,
   };
   // KV TTL a minute past the token's own expiry so a stale entry self-evicts.
-  await env.KNOWN_KV.put(TOKEN_KEY(login), JSON.stringify(c), { expirationTtl: Math.max(60, expires_in + 60) });
+  await env.KNOWN_KV.put(TOKEN_KEY(login, repo), JSON.stringify(c), { expirationTtl: Math.max(60, expires_in + 60) });
 }
 
 // Drop the cached access token for a login. The cache is DERIVED from the grant
@@ -383,8 +397,8 @@ export async function putCachedToken(env: Env, login: string, access_token: stri
 // full lifetime. 2026-06-20 incident: a poisoning re-consent flipped the grant to
 // the correct account but `mintAccessToken` kept returning the wrong-account cached
 // token for ~16h, masking the fix fleet-wide until the key was hand-deleted.
-export async function clearCachedToken(env: Env, login: string): Promise<void> {
-  await env.KNOWN_KV.delete(TOKEN_KEY(login));
+export async function clearCachedToken(env: Env, login: string, repo: string): Promise<void> {
+  await env.KNOWN_KV.delete(TOKEN_KEY(login, repo));
 }
 
 // --- mint an access token on demand (cache-first; refresh + persist rotation) ---
@@ -397,13 +411,14 @@ export async function clearCachedToken(env: Env, login: string): Promise<void> {
 export async function mintAccessToken(
   env: Env,
   login: string,
+  repo: string,
 ): Promise<{ access_token: string; expires_in: number; account_id: string | null } | null> {
-  const grant = await getGrant(env, login);
+  const grant = await getGrant(env, login, repo);
   if (!grant) return null;
 
   // 1 · Serve a cached, still-valid access token — the common path, shared across
   //     all of this self's concurrent sessions (no refresh-token touch → no race).
-  const cached = await getCachedToken(env, login);
+  const cached = await getCachedToken(env, login, repo);
   if (cached) {
     return { access_token: cached.access_token, expires_in: remainingSecs(cached.expires_at), account_id: cached.account_id ?? grant.account_id };
   }
@@ -415,14 +430,14 @@ export async function mintAccessToken(
   //     best-effort — but it shrinks the refresh race from once-per-deploy to the
   //     once-per-token-lifetime boundary, where a rare double-refresh is recovered
   //     by re-reading the cache below.)
-  if (await env.KNOWN_KV.get(LOCK_KEY(login))) {
+  if (await env.KNOWN_KV.get(LOCK_KEY(login, repo))) {
     for (let i = 0; i < 10; i++) {
       await sleep(150);
-      const c = await getCachedToken(env, login);
+      const c = await getCachedToken(env, login, repo);
       if (c) return { access_token: c.access_token, expires_in: remainingSecs(c.expires_at), account_id: c.account_id ?? grant.account_id };
     }
   }
-  await env.KNOWN_KV.put(LOCK_KEY(login), "1", { expirationTtl: 60 }); // CF KV minimum is 60s
+  await env.KNOWN_KV.put(LOCK_KEY(login, repo), "1", { expirationTtl: 60 }); // CF KV minimum is 60s
 
   try {
     const refresh = await decryptSecret(env, grant.refresh_token_enc);
@@ -432,19 +447,19 @@ export async function mintAccessToken(
     } catch (e) {
       // A concurrent session may have rotated the refresh token out from under us;
       // if it populated the cache meanwhile, prefer that over surfacing the error.
-      const c = await getCachedToken(env, login);
+      const c = await getCachedToken(env, login, repo);
       if (c) return { access_token: c.access_token, expires_in: remainingSecs(c.expires_at), account_id: c.account_id ?? grant.account_id };
       throw e;
     }
     if (tok.refresh_token && tok.refresh_token !== refresh) {
       grant.refresh_token_enc = await encryptSecret(env, tok.refresh_token);
       grant.updated_at = Date.now();
-      await putGrant(env, login, grant);
+      await putGrant(env, login, repo, grant);
     }
     const expires_in = tok.expires_in ?? 3600;
-    await putCachedToken(env, login, tok.access_token, expires_in, grant.account_id);
+    await putCachedToken(env, login, repo, tok.access_token, expires_in, grant.account_id);
     return { access_token: tok.access_token, expires_in, account_id: grant.account_id };
   } finally {
-    await env.KNOWN_KV.delete(LOCK_KEY(login)).catch(() => {});
+    await env.KNOWN_KV.delete(LOCK_KEY(login, repo)).catch(() => {});
   }
 }

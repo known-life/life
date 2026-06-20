@@ -45,12 +45,23 @@ const STATE_TTL_S = 600; // 10 min — user has to click through the CF consent
 
 interface PendingCfOAuth {
   login: string;
+  repo: string; // the owner/repo this consent connects (the per-repo grant namespace)
   code_verifier: string;
   // The cross-account-poisoning guards (2026-06-20), both optional:
   //   expected_account_id — bind the grant to exactly this CF account or refuse.
   //   rebind — allow a re-consent to switch the connected account on purpose.
   expected_account_id?: string;
   rebind?: boolean;
+}
+
+// The grant is keyed `cf:grant:<login>:<repo>` so each `.life` repo owns its own
+// Cloudflare connection (see lib/cf-oauth GRANT_KEY). The bearer proves the login
+// (the security boundary); the repo is supplied as `?repo=owner/repo` and is the
+// namespace within it. REQUIRED — no fallback to a login-only grant — and shape-
+// checked (`owner/repo`) so a malformed value can't key a grant in a stray place.
+function repoParam(req: Request): string | null {
+  const repo = new URL(req.url).searchParams.get("repo");
+  return repo && /^[^/\s]+\/[^/\s]+$/.test(repo) ? repo : null;
 }
 
 // POST /api/setup/cf-oauth/start
@@ -69,6 +80,9 @@ export async function handleCfOAuthStart(req: Request, env: Env): Promise<Respon
   if (!subject || !subject.startsWith("github:")) return json(401, { error: "unauthorized" });
   const login = subject.slice("github:".length);
 
+  const repo = repoParam(req);
+  if (!repo) return json(400, { error: "repo_required", hint: "pass ?repo=owner/repo — the grant is per-repo, not per-login" });
+
   // Optional account-binding hints (the poisoning guards). A caller that knows
   // which CF account this `.life` must deploy to passes expected_account_id so a
   // consent under the wrong login is refused at the callback; rebind opts into a
@@ -86,7 +100,7 @@ export async function handleCfOAuthStart(req: Request, env: Env): Promise<Respon
   const verifier = genVerifier();
   const challenge = await s256(verifier);
   const state = randomToken(24);
-  const pending: PendingCfOAuth = { login, code_verifier: verifier, expected_account_id, rebind };
+  const pending: PendingCfOAuth = { login, repo, code_verifier: verifier, expected_account_id, rebind };
   await env.KNOWN_KV.put(`cf-oauth:pending:${state}`, JSON.stringify(pending), { expirationTtl: STATE_TTL_S });
 
   const authorize_url = buildAuthorizeUrl(env, {
@@ -129,7 +143,7 @@ export async function handleCfOAuthCallback(req: Request, env: Env): Promise<Res
   // grant untouched) a consent that would repoint the `.life` to the wrong
   // account. See knowledge/cf-account-poisoning-incident.md.
   const accounts = await listAccounts(tok.access_token);
-  const prior = await getGrant(env, pending.login);
+  const prior = await getGrant(env, pending.login, pending.repo);
   const choice = chooseGrantAccount({
     accounts,
     priorAccountId: prior?.account_id ?? null,
@@ -149,20 +163,21 @@ export async function handleCfOAuthCallback(req: Request, env: Env): Promise<Res
     account_id: chosen.id,
     account_name: chosen.name,
     accounts,
+    repo: pending.repo,
     updated_at: Date.now(),
   };
-  await putGrant(env, pending.login, grant);
+  await putGrant(env, pending.login, pending.repo, grant);
   // The access-token cache is derived from the grant; a re-consent can change the
   // account, so purge it or the next mint serves the pre-consent token for up to
   // its full lifetime (the 2026-06-20 poisoning fix was masked ~16h this way).
-  await clearCachedToken(env, pending.login);
+  await clearCachedToken(env, pending.login, pending.repo);
 
   const acctNote =
     accounts.length === 1
       ? `Connected account: ${escapeHtml(chosen.name)}.`
       : `Connected ${accounts.length} accounts; deploys will target ${escapeHtml(chosen.name)}.`;
 
-  return htmlResp(200, page("Connected", `Cloudflare is connected for @${escapeHtml(pending.login)}. ${acctNote} Return to your agent — it has everything it needs. You can close this tab.`));
+  return htmlResp(200, page("Connected", `Cloudflare is connected for ${escapeHtml(pending.repo)}. ${acctNote} Return to your agent — it has everything it needs. You can close this tab.`));
 }
 
 // GET /api/setup/cf-oauth/status  (Bearer known.life JWT)
@@ -184,14 +199,17 @@ export async function handleCfOAuthStatus(req: Request, env: Env): Promise<Respo
   if (!subject || !subject.startsWith("github:")) return json(401, { error: "unauthorized" });
   const login = subject.slice("github:".length);
 
-  const grant = await getGrant(env, login);
+  const repo = repoParam(req);
+  if (!repo) return json(400, { error: "repo_required", hint: "pass ?repo=owner/repo — the grant is per-repo, not per-login" });
+
+  const grant = await getGrant(env, login, repo);
   if (!grant) return json(200, { connected: false });
 
   // Prove the grant works by minting from the stored refresh token. Report only
   // status — never the token. A mint failure (revoked grant, rotated-out refresh)
   // surfaces as ready:false so onboarding can prompt a reconnect.
   try {
-    const minted = await mintAccessToken(env, login);
+    const minted = await mintAccessToken(env, login, repo);
     return json(200, {
       connected: true,
       ready: Boolean(minted),
@@ -235,12 +253,15 @@ export async function handleCfOAuthToken(req: Request, env: Env): Promise<Respon
   if (!subject || !subject.startsWith("github:")) return json(401, { error: "unauthorized" });
   const login = subject.slice("github:".length);
 
-  const grant = await getGrant(env, login);
-  if (!grant) return json(409, { error: "not_connected", hint: "no Cloudflare grant — run cf-oauth/start and consent first" });
+  const repo = repoParam(req);
+  if (!repo) return json(400, { error: "repo_required", hint: "pass ?repo=owner/repo — the grant is per-repo, not per-login" });
+
+  const grant = await getGrant(env, login, repo);
+  if (!grant) return json(409, { error: "not_connected", hint: "no Cloudflare grant for this repo — run cf-oauth/start and consent first" });
 
   let minted;
   try {
-    minted = await mintAccessToken(env, login);
+    minted = await mintAccessToken(env, login, repo);
   } catch (e) {
     return json(502, { error: "mint_failed", hint: String((e as Error).message) });
   }

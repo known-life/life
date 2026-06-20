@@ -106,68 +106,103 @@ describe("refresh-token encryption at rest", () => {
   });
 });
 
-describe("per-user grant store", () => {
-  it("round-trips a grant through KV", async () => {
-    const e = env();
-    const grant: CfGrant = {
-      refresh_token_enc: "iv.ct",
-      account_id: "acc1",
-      account_name: "Acme",
-      accounts: [{ id: "acc1", name: "Acme" }],
-      updated_at: 1,
-    };
-    await putGrant(e, "octocat", grant);
-    expect(await getGrant(e, "octocat")).toEqual(grant);
-    expect(await getGrant(e, "nobody")).toBeNull();
+describe("per-repo grant store", () => {
+  const mk = (over: Partial<CfGrant> = {}): CfGrant => ({
+    refresh_token_enc: "iv.ct",
+    account_id: "acc1",
+    account_name: "Acme",
+    accounts: [{ id: "acc1", name: "Acme" }],
+    repo: "octocat/life",
+    updated_at: 1,
+    ...over,
   });
 
-  it("is case-insensitive in the login (GitHub logins are) — a grant stored under one casing is found under another", async () => {
+  it("round-trips a grant through KV, scoped to (login, repo)", async () => {
+    const e = env();
+    const grant = mk();
+    await putGrant(e, "octocat", "octocat/life", grant);
+    expect(await getGrant(e, "octocat", "octocat/life")).toEqual(grant);
+    expect(await getGrant(e, "nobody", "octocat/life")).toBeNull();
+  });
+
+  it("two repos under ONE login are independent — this is the per-repo fix", async () => {
+    // Dom's bug: a CF consent on repo B used to overwrite repo A's grant because
+    // both keyed `cf:grant:<login>`. Now each owns its own grant; writing one must
+    // never be visible as the other.
+    const e = env();
+    const a = mk({ account_id: "accA", account_name: "acct-A", repo: "octocat/life" });
+    const b = mk({ account_id: "accB", account_name: "acct-B", repo: "octocat/other" });
+    await putGrant(e, "octocat", "octocat/life", a);
+    await putGrant(e, "octocat", "octocat/other", b);
+    expect((await getGrant(e, "octocat", "octocat/life"))?.account_id).toBe("accA");
+    expect((await getGrant(e, "octocat", "octocat/other"))?.account_id).toBe("accB");
+    // Re-consenting repo B (rebind to a third account) leaves repo A untouched.
+    await putGrant(e, "octocat", "octocat/other", mk({ account_id: "accC", repo: "octocat/other" }));
+    expect((await getGrant(e, "octocat", "octocat/life"))?.account_id).toBe("accA");
+  });
+
+  it("a different user can NOT reach another login's repo grant (login is the boundary)", async () => {
+    // Self-asserted repo is safe because the login namespaces it: user `evil`
+    // asserting repo=`octocat/life` writes cf:grant:evil:octocat/life, never
+    // octocat's grant.
+    const e = env();
+    await putGrant(e, "octocat", "octocat/life", mk({ account_id: "victim" }));
+    await putGrant(e, "evil", "octocat/life", mk({ account_id: "attacker" }));
+    expect((await getGrant(e, "octocat", "octocat/life"))?.account_id).toBe("victim");
+    expect((await getGrant(e, "evil", "octocat/life"))?.account_id).toBe("attacker");
+  });
+
+  it("is case-insensitive in BOTH login and repo (GitHub slugs are)", async () => {
     // The bug caught live 2026-06-13: a device-flow session (GitHub-canonical
     // "Octocat") couldn't see a grant a lifekey session stored as "octocat".
     const e = env();
-    const grant: CfGrant = {
-      refresh_token_enc: "iv.ct",
-      account_id: "acc1",
-      account_name: "Acme",
-      accounts: [{ id: "acc1", name: "Acme" }],
-      updated_at: 1,
-    };
-    await putGrant(e, "Octocat", grant);
-    expect(await getGrant(e, "octocat")).toEqual(grant);
-    expect(await getGrant(e, "OCTOCAT")).toEqual(grant);
+    const grant = mk();
+    await putGrant(e, "Octocat", "Octocat/Life", grant);
+    expect(await getGrant(e, "octocat", "octocat/life")).toEqual(grant);
+    expect(await getGrant(e, "OCTOCAT", "OCTOCAT/LIFE")).toEqual(grant);
   });
 });
 
 describe("access-token cache (parallel-deploy stomping fix)", () => {
+  const REPO = "octocat/life";
   const grant: CfGrant = {
     refresh_token_enc: "iv.ct",
     account_id: "acc1",
     account_name: "Acme",
     accounts: [{ id: "acc1", name: "Acme" }],
+    repo: REPO,
     updated_at: 1,
   };
 
-  it("round-trips a cached token, encrypted at rest", async () => {
+  it("round-trips a cached token, encrypted at rest, keyed by (login, repo)", async () => {
     const e = env();
-    await putCachedToken(e, "octocat", "cf-access-xyz", 3600, "acc1");
-    const raw = await e.KNOWN_KV.get("cf:token:octocat");
+    await putCachedToken(e, "octocat", REPO, "cf-access-xyz", 3600, "acc1");
+    const raw = await e.KNOWN_KV.get("cf:token:octocat:octocat/life");
     expect(raw).toBeTruthy();
     expect(raw).not.toContain("cf-access-xyz"); // not stored in the clear
-    const c = await getCachedToken(e, "octocat");
+    const c = await getCachedToken(e, "octocat", REPO);
     expect(c?.access_token).toBe("cf-access-xyz");
     expect(c?.account_id).toBe("acc1");
   });
 
-  it("treats a (near-)expired cached token as a miss", async () => {
+  it("two repos' cached tokens don't collide", async () => {
     const e = env();
-    await putCachedToken(e, "octocat", "cf-access-old", 60, "acc1"); // within the 5-min margin
-    expect(await getCachedToken(e, "octocat")).toBeNull();
+    await putCachedToken(e, "octocat", "octocat/life", "tok-A", 3600, "accA");
+    await putCachedToken(e, "octocat", "octocat/other", "tok-B", 3600, "accB");
+    expect((await getCachedToken(e, "octocat", "octocat/life"))?.access_token).toBe("tok-A");
+    expect((await getCachedToken(e, "octocat", "octocat/other"))?.access_token).toBe("tok-B");
   });
 
-  it("is login-case-insensitive (a token cached under one casing is found under another)", async () => {
+  it("treats a (near-)expired cached token as a miss", async () => {
     const e = env();
-    await putCachedToken(e, "Octocat", "cf-access-xyz", 3600, "acc1");
-    expect((await getCachedToken(e, "octocat"))?.access_token).toBe("cf-access-xyz");
+    await putCachedToken(e, "octocat", REPO, "cf-access-old", 60, "acc1"); // within the 5-min margin
+    expect(await getCachedToken(e, "octocat", REPO)).toBeNull();
+  });
+
+  it("is case-insensitive in login and repo (a token cached under one casing is found under another)", async () => {
+    const e = env();
+    await putCachedToken(e, "Octocat", "Octocat/Life", "cf-access-xyz", 3600, "acc1");
+    expect((await getCachedToken(e, "octocat", "octocat/life"))?.access_token).toBe("cf-access-xyz");
   });
 
   it("mintAccessToken serves the cached token WITHOUT a refresh-token exchange (no network)", async () => {
@@ -175,16 +210,16 @@ describe("access-token cache (parallel-deploy stomping fix)", () => {
     // endpoint — so N concurrent sessions never race the rotating refresh token.
     // refreshAccessToken would throw here (no live CF); a cache hit avoids it.
     const e = env();
-    await putGrant(e, "octocat", grant);
-    await putCachedToken(e, "octocat", "cf-access-cached", 3600, "acc1");
-    const minted = await mintAccessToken(e, "octocat");
+    await putGrant(e, "octocat", REPO, grant);
+    await putCachedToken(e, "octocat", REPO, "cf-access-cached", 3600, "acc1");
+    const minted = await mintAccessToken(e, "octocat", REPO);
     expect(minted?.access_token).toBe("cf-access-cached");
     expect(minted?.account_id).toBe("acc1");
     expect(minted!.expires_in).toBeGreaterThan(0);
   });
 
   it("mintAccessToken returns null with no grant, before any cache work", async () => {
-    expect(await mintAccessToken(env(), "nobody")).toBeNull();
+    expect(await mintAccessToken(env(), "nobody", REPO)).toBeNull();
   });
 
   it("the refresh-path lock uses a CF-valid TTL (>=60) — guards the live regression", async () => {
@@ -193,10 +228,10 @@ describe("access-token cache (parallel-deploy stomping fix)", () => {
     // MockKV now throws that same error. The grant's refresh_token_enc is bogus, so
     // the mint fails — but it must fail at decrypt, NOT at the lock's TTL.
     const e = env();
-    await putGrant(e, "octocat", grant); // refresh_token_enc "iv.ct" → decrypt throws after the lock
+    await putGrant(e, "octocat", REPO, grant); // refresh_token_enc "iv.ct" → decrypt throws after the lock
     let err: unknown;
     try {
-      await mintAccessToken(e, "octocat");
+      await mintAccessToken(e, "octocat", REPO);
     } catch (x) {
       err = x;
     }
@@ -210,28 +245,30 @@ describe("clearCachedToken — a re-consent must not be masked by the token cach
   // account, but mintAccessToken kept serving the wrong-account token from
   // cf:token:<login> for ~16h, masking the fix fleet-wide. The callback now purges
   // the cache on every grant write; these pin that the purge actually un-masks.
+  const REPO = "octocat/life";
   const staleGrant: CfGrant = {
     refresh_token_enc: "iv.ct", // bogus → a real refresh would throw (proves no network on a cache hit)
     account_id: "sauna",
     account_name: "sauna-growth",
     accounts: [{ id: "sauna", name: "sauna-growth" }],
+    repo: REPO,
     updated_at: 1,
   };
 
   it("removes the cached token", async () => {
     const e = env();
-    await putCachedToken(e, "octocat", "cf-access-stale", 3600, "sauna");
-    expect(await getCachedToken(e, "octocat")).not.toBeNull();
-    await clearCachedToken(e, "octocat");
-    expect(await getCachedToken(e, "octocat")).toBeNull();
-    expect(await e.KNOWN_KV.get("cf:token:octocat")).toBeNull();
+    await putCachedToken(e, "octocat", REPO, "cf-access-stale", 3600, "sauna");
+    expect(await getCachedToken(e, "octocat", REPO)).not.toBeNull();
+    await clearCachedToken(e, "octocat", REPO);
+    expect(await getCachedToken(e, "octocat", REPO)).toBeNull();
+    expect(await e.KNOWN_KV.get("cf:token:octocat:octocat/life")).toBeNull();
   });
 
-  it("is login-case-insensitive (purges a token cached under any casing)", async () => {
+  it("is case-insensitive (purges a token cached under any casing)", async () => {
     const e = env();
-    await putCachedToken(e, "Octocat", "cf-access-stale", 3600, "sauna");
-    await clearCachedToken(e, "octocat");
-    expect(await getCachedToken(e, "Octocat")).toBeNull();
+    await putCachedToken(e, "Octocat", "Octocat/Life", "cf-access-stale", 3600, "sauna");
+    await clearCachedToken(e, "octocat", "octocat/life");
+    expect(await getCachedToken(e, "Octocat", "Octocat/Life")).toBeNull();
   });
 
   it("after the purge, mintAccessToken no longer serves the pre-consent token", async () => {
@@ -240,12 +277,12 @@ describe("clearCachedToken — a re-consent must not be masked by the token cach
     // path — which here throws on the bogus refresh token — i.e. it is NOT serving
     // the stale account from cache anymore.
     const e = env();
-    await putGrant(e, "octocat", staleGrant);
-    await putCachedToken(e, "octocat", "cf-access-stale", 3600, "sauna");
-    expect((await mintAccessToken(e, "octocat"))?.access_token).toBe("cf-access-stale"); // masked
+    await putGrant(e, "octocat", REPO, staleGrant);
+    await putCachedToken(e, "octocat", REPO, "cf-access-stale", 3600, "sauna");
+    expect((await mintAccessToken(e, "octocat", REPO))?.access_token).toBe("cf-access-stale"); // masked
 
-    await clearCachedToken(e, "octocat");
-    await expect(mintAccessToken(e, "octocat")).rejects.toBeTruthy(); // no longer masked → hits refresh
+    await clearCachedToken(e, "octocat", REPO);
+    await expect(mintAccessToken(e, "octocat", REPO)).rejects.toBeTruthy(); // no longer masked → hits refresh
   });
 });
 
@@ -303,8 +340,12 @@ describe("chooseGrantAccount — the cross-account-poisoning guard", () => {
 });
 
 describe("POST /api/setup/cf-oauth/start", () => {
-  const post = (e: any, headers: Record<string, string> = {}) =>
-    handleCfOAuthStart(new Request("https://known.life/api/setup/cf-oauth/start", { method: "POST", headers }), e);
+  const REPO = "octocat/life";
+  const post = (e: any, headers: Record<string, string> = {}, repo: string | null = REPO) =>
+    handleCfOAuthStart(
+      new Request(`https://known.life/api/setup/cf-oauth/start${repo === null ? "" : `?repo=${encodeURIComponent(repo)}`}`, { method: "POST", headers }),
+      e,
+    );
 
   it("503 when the CF client is not configured", async () => {
     const res = await post(env({ CF_OAUTH_CLIENT_ID: undefined, CF_OAUTH_CLIENT_SECRET: undefined }));
@@ -320,7 +361,14 @@ describe("POST /api/setup/cf-oauth/start", () => {
     expect(bad.status).toBe(401);
   });
 
-  it("200 with a valid github bearer → returns a consent URL whose challenge matches the stashed verifier", async () => {
+  it("400 repo_required when ?repo is absent or malformed (no per-login fallback)", async () => {
+    const e = env();
+    const bearer = await issueRegistryToken("github:octocat", e);
+    expect((await post(e, { Authorization: `Bearer ${bearer}` }, null)).status).toBe(400);
+    expect((await post(e, { Authorization: `Bearer ${bearer}` }, "not-a-slug")).status).toBe(400);
+  });
+
+  it("200 with a valid github bearer + repo → consent URL whose challenge matches the stashed verifier; repo is bound", async () => {
     const e = env();
     const bearer = await issueRegistryToken("github:octocat", e);
     const res = await post(e, { Authorization: `Bearer ${bearer}` });
@@ -330,24 +378,32 @@ describe("POST /api/setup/cf-oauth/start", () => {
     expect(u.searchParams.get("state")).toBe(body.state);
 
     // The pending entry must hold the verifier whose S256 equals the URL challenge,
-    // bound to the proven login.
+    // bound to the proven login AND the requested repo.
     const pendingRaw = await e.KNOWN_KV.get(`cf-oauth:pending:${body.state}`);
     expect(pendingRaw).toBeTruthy();
-    const pending = JSON.parse(pendingRaw!) as { login: string; code_verifier: string };
+    const pending = JSON.parse(pendingRaw!) as { login: string; repo: string; code_verifier: string };
     expect(pending.login).toBe("octocat");
+    expect(pending.repo).toBe(REPO);
     expect(await s256(pending.code_verifier)).toBe(u.searchParams.get("code_challenge"));
   });
 });
 
 describe("GET /api/setup/cf-oauth/status", () => {
-  const get = (e: any, headers: Record<string, string> = {}) =>
-    handleCfOAuthStatus(new Request("https://known.life/api/setup/cf-oauth/status", { headers }), e);
+  const REPO = "octocat/life";
+  const get = (e: any, headers: Record<string, string> = {}, repo: string | null = REPO) =>
+    handleCfOAuthStatus(new Request(`https://known.life/api/setup/cf-oauth/status${repo === null ? "" : `?repo=${encodeURIComponent(repo)}`}`, { headers }), e);
 
   it("401 without a bearer", async () => {
     expect((await get(env())).status).toBe(401);
   });
 
-  it("connected:false for a github bearer with no stored grant (no network)", async () => {
+  it("400 repo_required without ?repo", async () => {
+    const e = env();
+    const bearer = await issueRegistryToken("github:octocat", e);
+    expect((await get(e, { Authorization: `Bearer ${bearer}` }, null)).status).toBe(400);
+  });
+
+  it("connected:false for a github bearer + repo with no stored grant (no network)", async () => {
     const e = env();
     const bearer = await issueRegistryToken("github:octocat", e);
     const res = await get(e, { Authorization: `Bearer ${bearer}` });
@@ -357,8 +413,9 @@ describe("GET /api/setup/cf-oauth/status", () => {
 });
 
 describe("POST /api/setup/cf-oauth/token (the brokered mint surface)", () => {
-  const post = (e: any, headers: Record<string, string> = {}) =>
-    handleCfOAuthToken(new Request("https://known.life/api/setup/cf-oauth/token", { method: "POST", headers }), e);
+  const REPO = "octocat/life";
+  const post = (e: any, headers: Record<string, string> = {}, repo: string | null = REPO) =>
+    handleCfOAuthToken(new Request(`https://known.life/api/setup/cf-oauth/token${repo === null ? "" : `?repo=${encodeURIComponent(repo)}`}`, { method: "POST", headers }), e);
 
   it("503 when the CF client is not configured", async () => {
     const res = await post(env({ CF_OAUTH_CLIENT_ID: undefined, CF_OAUTH_CLIENT_SECRET: undefined }));
@@ -373,7 +430,13 @@ describe("POST /api/setup/cf-oauth/token (the brokered mint surface)", () => {
     expect((await post(env(), { Authorization: "Bearer not-a-real-jwt" })).status).toBe(401);
   });
 
-  it("409 not_connected for a valid github bearer with no stored grant (no network)", async () => {
+  it("400 repo_required without ?repo", async () => {
+    const e = env();
+    const bearer = await issueRegistryToken("github:octocat", e);
+    expect((await post(e, { Authorization: `Bearer ${bearer}` }, null)).status).toBe(400);
+  });
+
+  it("409 not_connected for a valid github bearer + repo with no stored grant (no network)", async () => {
     const e = env();
     const bearer = await issueRegistryToken("github:octocat", e);
     const res = await post(e, { Authorization: `Bearer ${bearer}` });
