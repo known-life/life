@@ -11,10 +11,12 @@ import {
   putGrant,
   getGrant,
   mintAccessToken,
+  chooseGrantAccount,
   genVerifier,
   s256,
   randomToken,
   type CfGrant,
+  type GrantRefusal,
 } from "../lib/cf-oauth";
 
 /**
@@ -43,6 +45,11 @@ const STATE_TTL_S = 600; // 10 min — user has to click through the CF consent
 interface PendingCfOAuth {
   login: string;
   code_verifier: string;
+  // The cross-account-poisoning guards (2026-06-20), both optional:
+  //   expected_account_id — bind the grant to exactly this CF account or refuse.
+  //   rebind — allow a re-consent to switch the connected account on purpose.
+  expected_account_id?: string;
+  rebind?: boolean;
 }
 
 // POST /api/setup/cf-oauth/start
@@ -61,10 +68,24 @@ export async function handleCfOAuthStart(req: Request, env: Env): Promise<Respon
   if (!subject || !subject.startsWith("github:")) return json(401, { error: "unauthorized" });
   const login = subject.slice("github:".length);
 
+  // Optional account-binding hints (the poisoning guards). A caller that knows
+  // which CF account this `.life` must deploy to passes expected_account_id so a
+  // consent under the wrong login is refused at the callback; rebind opts into a
+  // deliberate account switch. Body is optional — a bare start still works.
+  let expected_account_id: string | undefined;
+  let rebind = false;
+  try {
+    const body = (await req.json()) as { expected_account_id?: unknown; rebind?: unknown };
+    if (typeof body?.expected_account_id === "string" && body.expected_account_id) expected_account_id = body.expected_account_id;
+    if (body?.rebind === true) rebind = true;
+  } catch {
+    /* no/!json body → unguarded consent, unchanged */
+  }
+
   const verifier = genVerifier();
   const challenge = await s256(verifier);
   const state = randomToken(24);
-  const pending: PendingCfOAuth = { login, code_verifier: verifier };
+  const pending: PendingCfOAuth = { login, code_verifier: verifier, expected_account_id, rebind };
   await env.KNOWN_KV.put(`cf-oauth:pending:${state}`, JSON.stringify(pending), { expirationTtl: STATE_TTL_S });
 
   const authorize_url = buildAuthorizeUrl(env, {
@@ -101,25 +122,40 @@ export async function handleCfOAuthCallback(req: Request, env: Env): Promise<Res
     return htmlResp(502, page("Couldn't connect", "Cloudflare returned no refresh token (the offline_access scope is required)."));
   }
 
-  // Record which account(s) the grant can reach — the deploy target.
+  // Record which account(s) the grant can reach — the deploy target. The
+  // account-binding policy (chooseGrantAccount) is the cross-account-poisoning
+  // guard: it NEVER blindly takes accounts[0], and it refuses (leaving any prior
+  // grant untouched) a consent that would repoint the `.life` to the wrong
+  // account. See knowledge/cf-account-poisoning-incident.md.
   const accounts = await listAccounts(tok.access_token);
-  const primary = accounts.length > 0 ? accounts[0] : null;
+  const prior = await getGrant(env, pending.login);
+  const choice = chooseGrantAccount({
+    accounts,
+    priorAccountId: prior?.account_id ?? null,
+    expectedAccountId: pending.expected_account_id ?? null,
+    rebind: pending.rebind ?? false,
+  });
+
+  if (!choice.ok) {
+    // Refuse WITHOUT writing the grant — the connected account stays whatever it
+    // was. The minted access+refresh tokens are simply dropped (never persisted).
+    return htmlResp(409, page("Wrong Cloudflare account", refusalMessage(choice.reason!, pending, accounts)));
+  }
+  const chosen = choice.chosen!;
 
   const grant: CfGrant = {
     refresh_token_enc: await encryptSecret(env, tok.refresh_token),
-    account_id: primary?.id ?? null,
-    account_name: primary?.name ?? null,
+    account_id: chosen.id,
+    account_name: chosen.name,
     accounts,
     updated_at: Date.now(),
   };
   await putGrant(env, pending.login, grant);
 
   const acctNote =
-    accounts.length === 0
-      ? "No Cloudflare account was visible to the grant — you may need to re-consent with an account selected."
-      : accounts.length === 1
-        ? `Connected account: ${escapeHtml(primary!.name)}.`
-        : `Connected ${accounts.length} accounts; deploys will target ${escapeHtml(primary!.name)}.`;
+    accounts.length === 1
+      ? `Connected account: ${escapeHtml(chosen.name)}.`
+      : `Connected ${accounts.length} accounts; deploys will target ${escapeHtml(chosen.name)}.`;
 
   return htmlResp(200, page("Connected", `Cloudflare is connected for @${escapeHtml(pending.login)}. ${acctNote} Return to your agent — it has everything it needs. You can close this tab.`));
 }
@@ -216,6 +252,23 @@ export async function handleCfOAuthToken(req: Request, env: Env): Promise<Respon
 }
 
 // --- helpers ---
+
+// The human-facing explanation when chooseGrantAccount refuses a consent. Each
+// case names exactly what went wrong and the one move that fixes it — the grant
+// was NOT changed, so the fix is always "re-consent with the right account".
+function refusalMessage(reason: GrantRefusal, pending: PendingCfOAuth, accounts: Array<{ id: string; name: string }>): string {
+  const saw = accounts.length === 0 ? "no account" : accounts.map((a) => escapeHtml(a.name)).join(", ");
+  switch (reason) {
+    case "no_account_visible":
+      return "That Cloudflare login exposed no account to the grant. Re-run setup in your agent and consent with an account selected. Nothing was changed.";
+    case "expected_account_absent":
+      return `This consent connected ${saw}, but @${escapeHtml(pending.login)} expected account <code>${escapeHtml(pending.expected_account_id ?? "")}</code>. You were likely logged into the wrong Cloudflare account — switch accounts at dash.cloudflare.com and re-run setup. Your existing connection was left untouched.`;
+    case "would_repoint_account":
+      return `@${escapeHtml(pending.login)} is already connected to a different Cloudflare account, and this consent (${saw}) would have repointed every one of your .life deploys to it. Refused — your existing connection is untouched. If you really mean to switch accounts, re-run setup with rebind.`;
+    case "ambiguous_account":
+      return `This consent exposed multiple Cloudflare accounts (${saw}) and none was specified, so the grant can't tell which to deploy to. Re-run setup with the intended account, or pass its expected_account_id. Nothing was changed.`;
+  }
+}
 
 function json(status: number, data: unknown): Response {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });

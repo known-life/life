@@ -10,6 +10,7 @@ import {
   putCachedToken,
   getCachedToken,
   mintAccessToken,
+  chooseGrantAccount,
   CF_OAUTH_SCOPES,
   type CfGrant,
 } from "../src/registry/lib/cf-oauth";
@@ -200,6 +201,59 @@ describe("access-token cache (parallel-deploy stomping fix)", () => {
     }
     expect(err).toBeTruthy();
     expect(String((err as Error).message)).not.toContain("expiration_ttl");
+  });
+});
+
+describe("chooseGrantAccount — the cross-account-poisoning guard", () => {
+  const A = { id: "accA", name: "i@dom.vin" };
+  const B = { id: "accB", name: "sauna-growth" };
+
+  it("the incident shape: a re-consent that drops the connected account is REFUSED, grant untouched", () => {
+    // domvinyard was connected to A (…e134e3); a consent under the wrong login
+    // saw only B (sauna-growth). The old code took B blindly; now it refuses.
+    const c = chooseGrantAccount({ accounts: [B], priorAccountId: A.id });
+    expect(c.ok).toBe(false);
+    expect(c.reason).toBe("would_repoint_account");
+    expect(c.chosen).toBeUndefined();
+  });
+
+  it("a re-consent that still includes the connected account binds to it (not accounts[0])", () => {
+    // Connected to A; consent exposes [B, A] — must pick A, never the first (B).
+    const c = chooseGrantAccount({ accounts: [B, A], priorAccountId: A.id });
+    expect(c.ok).toBe(true);
+    expect(c.chosen).toEqual(A);
+  });
+
+  it("rebind opts into a deliberate account switch", () => {
+    const c = chooseGrantAccount({ accounts: [B], priorAccountId: A.id, rebind: true });
+    expect(c.ok).toBe(true);
+    expect(c.chosen).toEqual(B);
+  });
+
+  it("an expected account must be present in the consent, else refuse", () => {
+    expect(chooseGrantAccount({ accounts: [A], expectedAccountId: A.id }).chosen).toEqual(A);
+    const miss = chooseGrantAccount({ accounts: [B], expectedAccountId: A.id });
+    expect(miss.ok).toBe(false);
+    expect(miss.reason).toBe("expected_account_absent");
+  });
+
+  it("expected account wins even amid multiple visible accounts (no accounts[0] guess)", () => {
+    const c = chooseGrantAccount({ accounts: [B, A], expectedAccountId: A.id });
+    expect(c.chosen).toEqual(A);
+  });
+
+  it("first connect with a single account is unambiguous", () => {
+    expect(chooseGrantAccount({ accounts: [A] }).chosen).toEqual(A);
+  });
+
+  it("first connect with multiple accounts and nothing to disambiguate is REFUSED (no blind accounts[0])", () => {
+    const c = chooseGrantAccount({ accounts: [A, B] });
+    expect(c.ok).toBe(false);
+    expect(c.reason).toBe("ambiguous_account");
+  });
+
+  it("no visible account is refused", () => {
+    expect(chooseGrantAccount({ accounts: [] }).reason).toBe("no_account_visible");
   });
 });
 

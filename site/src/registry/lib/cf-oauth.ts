@@ -103,6 +103,64 @@ export function cfOAuthConfigured(env: Env): boolean {
   return Boolean(env.CF_OAUTH_CLIENT_ID && env.CF_OAUTH_CLIENT_SECRET);
 }
 
+// --- grant account-binding policy (the cross-account-poisoning guard) ---
+//
+// The 2026-06-20 incident: a `domvinyard` consent performed while the browser was
+// logged into the WRONG Cloudflare account (sauna-growth, not i@dom.vin) silently
+// overwrote the correct grant, because the callback blindly recorded accounts[0]
+// with no check that the new account matched the connected one. Every `.life`
+// under that login then deployed to the foreign account, invisibly.
+//
+// This policy is the fix: the callback NEVER blindly trusts accounts[0]. It binds
+// the grant only to an account that is (1) the caller's EXPECTED account, (2) the
+// already-connected account on a re-consent, or (3) the single unambiguous account
+// on a first connect. Anything else is REFUSED with the prior grant left untouched
+// — a wrong-account consent can no longer repoint a `.life`. One canonical path,
+// no silent guess. Pure (no I/O) so it is pinned by the credential-free vitest.
+export type GrantRefusal =
+  | "no_account_visible"
+  | "expected_account_absent"
+  | "would_repoint_account"
+  | "ambiguous_account";
+
+export interface GrantAccountChoice {
+  ok: boolean;
+  chosen?: { id: string; name: string };
+  reason?: GrantRefusal;
+}
+
+export function chooseGrantAccount(opts: {
+  accounts: Array<{ id: string; name: string }>;
+  priorAccountId?: string | null;
+  expectedAccountId?: string | null;
+  rebind?: boolean;
+}): GrantAccountChoice {
+  const { accounts, priorAccountId, expectedAccountId, rebind } = opts;
+
+  if (accounts.length === 0) return { ok: false, reason: "no_account_visible" };
+
+  // 1 · An explicit expected account (the caller's declared CF identity) is the
+  //     strongest bind: the consent MUST include it, else refuse untouched.
+  if (expectedAccountId) {
+    const chosen = accounts.find((a) => a.id === expectedAccountId);
+    return chosen ? { ok: true, chosen } : { ok: false, reason: "expected_account_absent" };
+  }
+
+  // 2 · A re-consent (a grant already exists) must still include the connected
+  //     account — a consent that drops it is the poisoning shape; refuse unless
+  //     the caller explicitly asked to switch accounts (rebind).
+  if (priorAccountId && !rebind) {
+    const chosen = accounts.find((a) => a.id === priorAccountId);
+    return chosen ? { ok: true, chosen } : { ok: false, reason: "would_repoint_account" };
+  }
+
+  // 3 · First connect (or an explicit rebind): a single visible account is
+  //     unambiguous; multiple with nothing to disambiguate is refused rather than
+  //     guessing accounts[0].
+  if (accounts.length === 1) return { ok: true, chosen: accounts[0] };
+  return { ok: false, reason: "ambiguous_account" };
+}
+
 export function cfCallbackUrl(env: Env): string {
   const origin = env.PUBLIC_URL ?? "https://known.life";
   return `${origin}/oauth/cf/callback`;
