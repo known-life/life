@@ -58,7 +58,6 @@ infra.object_store     # files and blobs      (→ R2)
 infra.secret_store     # holds secrets        (→ Worker secrets)
 infra.ai               # model inference      (→ Workers AI)
 infra.email            # outbound email
-infra.sandbox          # isolated execution
 infra.agent            # stateful agents      (→ Durable Objects)</code></pre>
   <p>If a cell requires a capability and nothing provides it, <code>life test</code> fails with a specific next step: inherit this gene, connect this adapter. The failing test is the product — it tells a half-wired project exactly what's left.</p>
   <p>The vocabulary is not closed. Domain capabilities (<code>blog.preview</code>, <code>research.report</code>) are ordinary; new <code>infra.*</code> contracts arrive when an adapter learns to translate them.</p>
