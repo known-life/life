@@ -487,6 +487,107 @@ describe("verifyCaller — enrolled-key path (org-owned .life support)", () => {
   });
 });
 
+// ── the caller-supplied `login` path: the self-serve org boot. The vault sends
+// its lifekey's GitHub USER (LIFEKEY_LOGIN), which for an ORG repo is NOT the repo
+// owner. Central verifies the sig against github.com/<login>.keys AND confirms
+// <login> has push/admin on <repo> via the App's collaborator-permission read
+// (Metadata:read — within-grant). `login` is unsigned, so the signed message is
+// byte-identical; swapping it just fails the keys-check. Both checks are required:
+// the keys-check pins the identity, the push-check closes the confused-deputy gap.
+// github.com/<login>.keys is served PER-LOGIN here so an org owner can be empty
+// while the lifekey user has keys — the whole point of the path.
+function loginMock(opts: { keysByLogin?: Record<string, string>; perm?: string; installed?: boolean; nonceContent?: string | null } = {}) {
+  const { keysByLogin = {}, perm = "admin", installed = true, nonceContent = null } = opts;
+  const deleted: string[] = [];
+  let permChecked: string | null = null;
+  const fetchMock = vi.fn(async (url: any, init: any = {}) => {
+    const u = String(url);
+    const km = u.match(/github\.com\/([^/]+)\.keys$/);
+    if (km) { const k = keysByLogin[decodeURIComponent(km[1])] ?? ""; return new Response(k ? k + "\n" : "", { status: 200 }); }
+    if (/\/repos\/[^?]+\/installation$/.test(u)) {
+      return installed ? new Response(JSON.stringify({ id: 5 }), { status: 200 }) : new Response("", { status: 404 });
+    }
+    if (/\/app\/installations\/[^/]+\/access_tokens$/.test(u) && init.method === "POST") {
+      return new Response(JSON.stringify({ token: "inst-tok" }), { status: 200 });
+    }
+    const pm = u.match(/\/repos\/.+?\/collaborators\/(.+?)\/permission$/);
+    if (pm) { permChecked = decodeURIComponent(pm[1]); return new Response(JSON.stringify({ permission: perm }), { status: 200 }); }
+    const cm = u.match(/\/repos\/(.+?)\/contents\/(.+?)\?ref=(.+)$/);
+    if (cm && (init.method ?? "GET") === "GET") {
+      return nonceContent === null ? new Response("Not Found", { status: 404 }) : new Response(nonceContent, { status: 200 });
+    }
+    if (/\/git\/refs\/heads\//.test(u) && init.method === "DELETE") { deleted.push(u); return new Response(null, { status: 204 }); }
+    return new Response("unexpected", { status: 500 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return { deleted, getPermChecked: () => permChecked };
+}
+describe("verifyCaller — caller-supplied login path (self-serve org-owned .life)", () => {
+  const NONCE = "feedfacecafe0099";
+  const REF = `life-bootstrap/${NONCE}`;
+  const PATH = `.life-exchange/${NONCE}`;
+  // owner "org" has NO keys (orgs serve empty .keys); the lifekey user "lifeuser"
+  // does. The sig is the OWNER keypair (the .life's lifekey), published as lifeuser's.
+  const lpost = (login: string | undefined, repo = "org/r") =>
+    POST({ repo, ref: REF, path: PATH, nonce: NONCE, ...(login !== undefined ? { login } : {}), ...sign("verify", repo, NONCE) });
+
+  it("verifies an ORG repo: sig vs github.com/<login>.keys + App confirms <login> has push", async () => {
+    const m = loginMock({ keysByLogin: { lifeuser: OWNER_OPENSSH }, perm: "admin", nonceContent: NONCE });
+    const r = await handleExchangeVerify(lpost("lifeuser"), baseEnv());
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true });
+    expect(m.getPermChecked()).toBe("lifeuser"); // the push-check actually ran against <login>
+  });
+
+  it("accepts a 'write' (maintain/write) role, not just admin", async () => {
+    const m = loginMock({ keysByLogin: { lifeuser: OWNER_OPENSSH }, perm: "write", nonceContent: NONCE });
+    expect(await (await handleExchangeVerify(lpost("lifeuser"), baseEnv())).json()).toMatchObject({ ok: true });
+    expect(m.getPermChecked()).toBe("lifeuser");
+  });
+
+  it("401 when <login> lacks push on the repo (confused-deputy gap closed)", async () => {
+    // login holds the key (sig matches lifeuser.keys) but only has read → not authorized.
+    // owner "org" .keys is empty, so there's no fall-through false-pass either.
+    const m = loginMock({ keysByLogin: { lifeuser: OWNER_OPENSSH }, perm: "read", nonceContent: NONCE });
+    const r = await handleExchangeVerify(lpost("lifeuser"), baseEnv());
+    expect(r.status).toBe(401);
+    expect(m.getPermChecked()).toBe("lifeuser");
+  });
+
+  it("401 when the claimed login's .keys don't verify the sig (can't impersonate a login)", async () => {
+    // login=lifeuser but the sig was made by a DIFFERENT key not on lifeuser.keys.
+    loginMock({ keysByLogin: { lifeuser: OWNER_OPENSSH }, perm: "admin", nonceContent: NONCE });
+    const wrong = generateKeyPairSync("ed25519").privateKey;
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = nodeSign(null, Buffer.from(callerAuthMessage("verify", "org/r", NONCE, ts)), wrong).toString("base64");
+    const r = await handleExchangeVerify(POST({ repo: "org/r", ref: REF, path: PATH, nonce: NONCE, login: "lifeuser", sig, ts }), baseEnv());
+    expect(r.status).toBe(401);
+  });
+
+  it("401 for an org repo when no login is supplied (the unfixed gap without the login path)", async () => {
+    const m = loginMock({ keysByLogin: { lifeuser: OWNER_OPENSSH }, perm: "admin", nonceContent: NONCE });
+    const r = await handleExchangeVerify(lpost(undefined), baseEnv());
+    expect(r.status).toBe(401);
+    expect(m.getPermChecked()).toBeNull(); // login path never entered
+  });
+
+  it("opportunistically enrols the matched key on a login-path verify (next boot takes the free path)", async () => {
+    const kv = makeKV({ ...APP_SEED });
+    loginMock({ keysByLogin: { lifeuser: OWNER_OPENSSH }, perm: "admin", nonceContent: NONCE });
+    const r = await handleExchangeVerify(lpost("lifeuser"), { KNOWN_KV: kv, PUBLIC_URL: "https://known.life" } as any);
+    expect(await r.json()).toMatchObject({ ok: true });
+    expect((await kv.get("lifekey:pub:org/r"))?.trim()).toBe(OWNER_OPENSSH);
+  });
+
+  it("ignores a malformed login and falls through to the owner-.keys path (user repo unaffected)", async () => {
+    // login is junk → skipped; owner "o" has the key → the original user path still verifies.
+    const m = loginMock({ keysByLogin: { o: OWNER_OPENSSH }, perm: "admin", nonceContent: NONCE });
+    const r = await handleExchangeVerify(lpost("not a/valid login", "o/r"), baseEnv());
+    expect(await r.json()).toMatchObject({ ok: true });
+    expect(m.getPermChecked()).toBeNull(); // never ran the App push-check (login was invalid)
+  });
+});
+
 // ── POST /exchange/enroll — store the .life's lifekey pubkey, authenticated by a
 // GitHub user token that proves identity (GET /user) + push access (GET /repos).
 function enrollMock(opts: { push?: boolean; repoOk?: boolean; tokenOk?: boolean; login?: string } = {}) {

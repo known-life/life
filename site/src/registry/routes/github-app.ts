@@ -248,39 +248,74 @@ const repoOk = (repo: unknown): repo is string =>
 // beyond the skew window — time. MUST byte-match the vault signer (secrets gene
 // src/worker.js `callerAuthMessage`).
 //
-// Two key sources, in order:
+// Three key sources, in order:
 //   1. The ENROLLED pubkey at central, keyed by repo (K_LIFEKEY) — written by
-//      /exchange/enroll at onboarding. The ONLY source that works for an org-owned
-//      repo (orgs expose no github.com/<owner>.keys), and it survives the owner
-//      rotating/removing their GitHub keys.
-//   2. Fallback: github.com/<owner>.keys (user repos). On a match we opportunistically
-//      enrol the matched key for the repo, so subsequent boots take path 1 — fewer
-//      github.com fetches, robust to later key removal, and self-healing across a
-//      lifekey rotation (a new key fails path 1, matches path 2, re-enrols).
+//      /exchange/enroll or opportunistically by paths 2/3. Free (KV), owner-agnostic,
+//      and survives the owner rotating/removing their GitHub keys.
+//   2. Caller-supplied `login` (the self-serve ORG path): verify the sig against
+//      github.com/<login>.keys AND confirm <login> has push/admin on <repo> via the
+//      central App. The vault sends its lifekey's GitHub USER (LIFEKEY_LOGIN), which
+//      for an org repo is NOT the repo owner — so this is the only path that
+//      authenticates an un-enrolled org repo without a stateful prior enrol. `login`
+//      is UNSIGNED (swapping it just fails the keys-check, since the sig was made by
+//      the real lifekey on the real login's .keys), so callerAuthMessage stays
+//      byte-identical and the push-check closes the confused-deputy gap.
+//   3. github.com/<owner>.keys (the original user-repo path; login unset).
+// Paths 2 and 3 opportunistically enrol the matched key (→ path 1 next boot).
 const CALLER_AUTH_SKEW_S = 300;
 export function callerAuthMessage(action: string, repo: string, subject: string, ts: number): string {
   return `known.life/exchange/${action}\n${repo}\n${subject}\n${ts}`;
 }
-async function verifyCaller(env: Env, action: string, repo: string, subject: string, sig: unknown, ts: unknown): Promise<boolean> {
+// A GitHub login: 1–39 chars, alphanumeric or hyphen. The strict shape also keeps
+// it injection-safe in the collaborator-permission URL below.
+const LOGIN_RE = /^[A-Za-z0-9-]{1,39}$/;
+// Confirm <login> holds push (write or admin) on <repo>, using the central App's
+// installation token. GitHub serves GET /repos/{owner}/{repo}/collaborators/{login}/
+// permission under the fine-grained "Metadata: read" permission — which the App
+// already holds (APP_PERMS) — so this is WITHIN-GRANT: no new App permission, no
+// owner re-accept (Law 3). Returns false on not-installed / any non-2xx / a role
+// below push. Logged (Law 13) so `wrangler tail` shows the live App-check outcome.
+async function loginHasRepoPush(env: Env, repo: string, login: string): Promise<boolean> {
+  const tok = await installationToken(env, repo);
+  if (!tok || "notInstalled" in tok) return false;
+  const rr = await fetch(`${GH}/repos/${repo}/collaborators/${encodeURIComponent(login)}/permission`, { headers: ghHeaders(tok.token) });
+  if (!rr.ok) { console.log("loginHasRepoPush non-ok", { repo, login, status: rr.status }); return false; }
+  const permission = ((await rr.json().catch(() => ({}))) as { permission?: string }).permission;
+  console.log("loginHasRepoPush", { repo, login, permission });
+  return permission === "admin" || permission === "write";
+}
+async function verifyCaller(env: Env, action: string, repo: string, subject: string, sig: unknown, ts: unknown, login?: unknown): Promise<boolean> {
   if (typeof sig !== "string" || !sig) return false;
   if (typeof ts !== "number" || !Number.isFinite(ts)) return false;
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - ts) > CALLER_AUTH_SKEW_S) return false;
   const msg = callerAuthMessage(action, repo, subject, ts);
 
-  // 1. Enrolled-key path (the only one that works for org-owned repos).
+  // 1. Enrolled-key path (free, owner-agnostic).
   const stored = await env.KNOWN_KV.get(K_LIFEKEY(repo));
   if (stored) {
     const raw = rawFromOpenSsh(stored);
     if (raw) {
-      try { if (await verifyRaw(raw, msg, sig)) return true; } catch { /* fall through to .keys */ }
+      try { if (await verifyRaw(raw, msg, sig)) return true; } catch { /* fall through */ }
     }
     // The stored key didn't verify — fall through so a rotated lifekey can re-enrol.
   }
 
-  // 2. github.com/<owner>.keys fallback (user repos). matchedKey is necessarily a
-  // key the signer controls (it just verified a fresh domain-separated signature),
-  // so pinning it is safe.
+  // 2. Caller-supplied login path (the self-serve org path). Both checks required.
+  if (typeof login === "string" && LOGIN_RE.test(login)) {
+    const res = await verifyGithubIdentity(login, msg, sig);
+    if (res.ok && (await loginHasRepoPush(env, repo, login))) {
+      if (res.matchedKey) await env.KNOWN_KV.put(K_LIFEKEY(repo), res.matchedKey);
+      console.log("verifyCaller login-path ok", { action, repo, login });
+      return true;
+    }
+    // Didn't authenticate — fall through to the owner-.keys path (a user repo where
+    // login==owner still passes there; an org's owner .keys is empty, so no false pass).
+  }
+
+  // 3. github.com/<owner>.keys (user repos). matchedKey is necessarily a key the
+  // signer controls (it just verified a fresh domain-separated signature), so
+  // pinning it is safe.
   const owner = repo.split("/")[0];
   const res = await verifyGithubIdentity(owner, msg, sig);
   if (res.ok) {
@@ -297,7 +332,7 @@ export async function handleExchangeVerify(req: Request, env: Env): Promise<Resp
   const rl = await checkRate(env, `ghverify:${ip}`, 120, 60);
   if (!rl.ok) return json(429, { ok: false, error: "rate_limited" });
 
-  const body = await req.json().catch(() => null) as { repo?: string; ref?: string; path?: string; nonce?: string; sig?: string; ts?: number } | null;
+  const body = await req.json().catch(() => null) as { repo?: string; ref?: string; path?: string; nonce?: string; sig?: string; ts?: number; login?: string } | null;
   const repo = body?.repo, ref = body?.ref, path = body?.path, nonce = body?.nonce;
   if (!repoOk(repo) || !ref || !path || !nonce) {
     return json(400, { ok: false, error: "repo, ref, path, nonce required" });
@@ -316,8 +351,9 @@ export async function handleExchangeVerify(req: Request, env: Env): Promise<Resp
   }
   // Caller-auth BEFORE any GitHub call: an unauthenticated request never spends
   // the central App's quota. The vault signs (repo, nonce, ts) with the owner's
-  // lifekey; we verify against github.com/<owner>.keys.
-  if (!(await verifyCaller(env, "verify", repo, nonce, body?.sig, body?.ts))) {
+  // lifekey; we verify it (enrolled key, the caller-supplied `login`, or
+  // github.com/<owner>.keys — see verifyCaller).
+  if (!(await verifyCaller(env, "verify", repo, nonce, body?.sig, body?.ts, body?.login))) {
     return json(401, { ok: false, error: "caller auth failed" });
   }
 
@@ -426,7 +462,7 @@ export async function handleExchangeDeleteBranch(req: Request, env: Env): Promis
   const rl = await checkRate(env, `ghdelbranch:${ip}`, 60, 60);
   if (!rl.ok) return json(429, { ok: false, error: "rate_limited" });
 
-  const body = await req.json().catch(() => null) as { repo?: string; branch?: string; sig?: string; ts?: number } | null;
+  const body = await req.json().catch(() => null) as { repo?: string; branch?: string; sig?: string; ts?: number; login?: string } | null;
   const repo = body?.repo, branch = body?.branch;
   if (!repoOk(repo) || typeof branch !== "string" || !branch) return json(400, { ok: false, error: "repo, branch required" });
   if (!DELETABLE_BRANCH.test(branch) || branch.includes("..")) {
@@ -434,7 +470,7 @@ export async function handleExchangeDeleteBranch(req: Request, env: Env): Promis
   }
   // Caller-auth BEFORE any GitHub call (same scheme as /exchange/verify): the
   // vault signs (repo, branch, ts) with the owner's lifekey.
-  if (!(await verifyCaller(env, "delete-branch", repo, branch, body?.sig, body?.ts))) {
+  if (!(await verifyCaller(env, "delete-branch", repo, branch, body?.sig, body?.ts, body?.login))) {
     return json(401, { ok: false, error: "caller auth failed" });
   }
 
@@ -514,7 +550,7 @@ export async function handleExchangeMergePR(req: Request, env: Env): Promise<Res
   const rl = await checkRate(env, `ghmergepr:${ip}`, 60, 60);
   if (!rl.ok) return json(429, { ok: false, error: "rate_limited" });
 
-  const body = await req.json().catch(() => null) as { repo?: string; pr?: number; branch?: string; sha?: string; sig?: string; ts?: number } | null;
+  const body = await req.json().catch(() => null) as { repo?: string; pr?: number; branch?: string; sha?: string; sig?: string; ts?: number; login?: string } | null;
   const repo = body?.repo, pr = body?.pr, branch = body?.branch, sha = body?.sha;
   if (!repoOk(repo)) return json(400, { ok: false, error: "repo required (owner/repo)" });
   if (!Number.isInteger(pr) || (pr as number) <= 0) return json(400, { ok: false, error: "pr (positive integer) required" });
@@ -528,7 +564,7 @@ export async function handleExchangeMergePR(req: Request, env: Env): Promise<Res
   // the vault signs (repo, sha, ts) with the owner's lifekey. Binding the subject
   // to the SHA pins the signature to the exact commit being merged — it can't be
   // replayed to merge a later, unverified head.
-  if (!(await verifyCaller(env, "merge-pr", repo, sha, body?.sig, body?.ts))) {
+  if (!(await verifyCaller(env, "merge-pr", repo, sha, body?.sig, body?.ts, body?.login))) {
     return json(401, { ok: false, error: "caller auth failed" });
   }
 
