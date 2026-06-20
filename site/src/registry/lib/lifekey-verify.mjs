@@ -9,13 +9,16 @@
 // Uses WebCrypto (Workers + Node 18+) so the same code verifies on the edge
 // and on a server. No secret, no token — reads only PUBLIC github.com/<login>.keys.
 //
-// CONSUMERS:
-// - known.life registry worker — vendors this file VERBATIM as
-//   site/src/registry/lib/lifekey-verify.mjs via site/scripts/vendor-lifekey.sh
-//   (never a hand-port: the retired TS port had silently drifted). The secrets
-//   vault is NOT a consumer since its secrets@2.13.0 auth collapse (tokenless
-//   /exchange only).
-// - any other Life service that wants user-scoped identity proofs
+// CONSUMERS — each vendors this file VERBATIM (never a hand-port: the retired
+// TS port had silently drifted) and proves no semantic drift against the shared
+// tests/vector.json known-answer fixture:
+// - known.life registry worker — site/src/registry/lib/lifekey-verify.mjs via
+//   site/scripts/vendor-lifekey.sh.
+// - the secrets vault — src/lib/lifekey-verify.mjs via the secrets gene's own
+//   vendor-lifekey.sh. (It had dropped lifekey in the secrets@2.13.0 auth
+//   collapse, then re-became a consumer when Path B — the warm /exchange/lifekey
+//   re-auth — was built: it verifyGithubIdentity's the owner's nonce signature.)
+// - any other Life service that wants user-scoped identity proofs.
 //
 // This file is the source of truth. Re-vendor downstream via the consumer's
 // vendor-lifekey script. Change the protocol here, version-bump, republish.
