@@ -248,16 +248,16 @@ describe("clearCachedToken — a re-consent must not be masked by the token cach
   const REPO = "octocat/life";
   const staleGrant: CfGrant = {
     refresh_token_enc: "iv.ct", // bogus → a real refresh would throw (proves no network on a cache hit)
-    account_id: "sauna",
-    account_name: "sauna-growth",
-    accounts: [{ id: "sauna", name: "sauna-growth" }],
+    account_id: "acctB",
+    account_name: "acme-co",
+    accounts: [{ id: "acctB", name: "acme-co" }],
     repo: REPO,
     updated_at: 1,
   };
 
   it("removes the cached token", async () => {
     const e = env();
-    await putCachedToken(e, "octocat", REPO, "cf-access-stale", 3600, "sauna");
+    await putCachedToken(e, "octocat", REPO, "cf-access-stale", 3600, "acctB");
     expect(await getCachedToken(e, "octocat", REPO)).not.toBeNull();
     await clearCachedToken(e, "octocat", REPO);
     expect(await getCachedToken(e, "octocat", REPO)).toBeNull();
@@ -266,7 +266,7 @@ describe("clearCachedToken — a re-consent must not be masked by the token cach
 
   it("is case-insensitive (purges a token cached under any casing)", async () => {
     const e = env();
-    await putCachedToken(e, "Octocat", "Octocat/Life", "cf-access-stale", 3600, "sauna");
+    await putCachedToken(e, "Octocat", "Octocat/Life", "cf-access-stale", 3600, "acctB");
     await clearCachedToken(e, "octocat", "octocat/life");
     expect(await getCachedToken(e, "Octocat", "Octocat/Life")).toBeNull();
   });
@@ -278,7 +278,7 @@ describe("clearCachedToken — a re-consent must not be masked by the token cach
     // the stale account from cache anymore.
     const e = env();
     await putGrant(e, "octocat", REPO, staleGrant);
-    await putCachedToken(e, "octocat", REPO, "cf-access-stale", 3600, "sauna");
+    await putCachedToken(e, "octocat", REPO, "cf-access-stale", 3600, "acctB");
     expect((await mintAccessToken(e, "octocat", REPO))?.access_token).toBe("cf-access-stale"); // masked
 
     await clearCachedToken(e, "octocat", REPO);
@@ -287,12 +287,12 @@ describe("clearCachedToken — a re-consent must not be masked by the token cach
 });
 
 describe("chooseGrantAccount — the cross-account-poisoning guard", () => {
-  const A = { id: "accA", name: "i@dom.vin" };
-  const B = { id: "accB", name: "sauna-growth" };
+  const A = { id: "accA", name: "alice@example.com" };
+  const B = { id: "accB", name: "acme-co" };
 
   it("the incident shape: a re-consent that drops the connected account is REFUSED, grant untouched", () => {
-    // domvinyard was connected to A (…e134e3); a consent under the wrong login
-    // saw only B (sauna-growth). The old code took B blindly; now it refuses.
+    // the user was connected to A (…e134e3); a consent under the wrong login
+    // saw only B (acme-co). The old code took B blindly; now it refuses.
     const c = chooseGrantAccount({ accounts: [B], priorAccountId: A.id });
     expect(c.ok).toBe(false);
     expect(c.reason).toBe("would_repoint_account");

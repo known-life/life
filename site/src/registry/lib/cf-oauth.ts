@@ -107,9 +107,9 @@ export function cfOAuthConfigured(env: Env): boolean {
 
 // --- grant account-binding policy (the cross-account-poisoning guard) ---
 //
-// The 2026-06-20 incident: a `domvinyard` consent performed while the browser was
-// logged into the WRONG Cloudflare account (sauna-growth, not i@dom.vin) silently
-// overwrote the correct grant, because the callback blindly recorded accounts[0]
+// The 2026-06-20 incident: a consent performed while the browser was logged into
+// the WRONG Cloudflare account silently overwrote the correct grant, because the
+// callback blindly recorded accounts[0]
 // with no check that the new account matched the connected one. Every `.life`
 // under that login then deployed to the foreign account, invisibly.
 //

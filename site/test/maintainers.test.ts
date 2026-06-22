@@ -32,7 +32,7 @@ function account(p: Partial<Account> & { id: string }): Account {
 }
 
 const OWNER = account({ id: "OWNER", github_login: "gene-owner" });
-const TEAM = account({ id: "TEAM", github_login: "wordware-ai" });
+const TEAM = account({ id: "TEAM", github_login: "team-org" });
 const STRANGER = account({ id: "STRANGER", github_login: "someone-else" });
 const ADMIN = account({ id: "ADMIN", github_login: "root", is_admin: 1 });
 
@@ -65,21 +65,21 @@ describe("canManageName", () => {
 
   it("a delegated maintainer can manage every name the owner holds", async () => {
     expect(await canManageName(env(db), OWNER.id, TEAM)).toBe(false);
-    await addMaintainer(env(db), OWNER.id, "wordware-ai");
+    await addMaintainer(env(db), OWNER.id, "team-org");
     expect(await canManageName(env(db), OWNER.id, TEAM)).toBe(true);
     // …but only over the owner who granted it, not a third account.
     expect(await canManageName(env(db), STRANGER.id, TEAM)).toBe(false);
   });
 
   it("revoking a maintainer removes the authority", async () => {
-    await addMaintainer(env(db), OWNER.id, "wordware-ai");
+    await addMaintainer(env(db), OWNER.id, "team-org");
     expect(await canManageName(env(db), OWNER.id, TEAM)).toBe(true);
-    await removeMaintainer(env(db), OWNER.id, "wordware-ai");
+    await removeMaintainer(env(db), OWNER.id, "team-org");
     expect(await canManageName(env(db), OWNER.id, TEAM)).toBe(false);
   });
 
   it("an account with no resolved github login is never a maintainer", async () => {
-    await addMaintainer(env(db), OWNER.id, "wordware-ai");
+    await addMaintainer(env(db), OWNER.id, "team-org");
     const ghost = account({ id: "GHOST", github_login: null });
     expect(await canManageName(env(db), OWNER.id, ghost)).toBe(false);
     expect(await isMaintainer(env(db), OWNER.id, null)).toBe(false);
@@ -88,14 +88,14 @@ describe("canManageName", () => {
 
 describe("addMaintainer / listMaintainers", () => {
   it("grants are idempotent and listed sorted", async () => {
-    await addMaintainer(env(db), OWNER.id, "wordware-ai");
-    await addMaintainer(env(db), OWNER.id, "wordware-ai"); // re-grant is a no-op
+    await addMaintainer(env(db), OWNER.id, "team-org");
+    await addMaintainer(env(db), OWNER.id, "team-org"); // re-grant is a no-op
     await addMaintainer(env(db), OWNER.id, "alice");
-    expect(await listMaintainers(env(db), OWNER.id)).toEqual(["alice", "wordware-ai"]);
+    expect(await listMaintainers(env(db), OWNER.id)).toEqual(["alice", "team-org"]);
   });
 
   it("a maintainer grant on one owner doesn't leak to another", async () => {
-    await addMaintainer(env(db), OWNER.id, "wordware-ai");
+    await addMaintainer(env(db), OWNER.id, "team-org");
     expect(await listMaintainers(env(db), STRANGER.id)).toEqual([]);
   });
 });
