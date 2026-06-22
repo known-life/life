@@ -60,6 +60,20 @@ cloudflare:
   compatibility_date: "2026-05-01"
   compatibility_flags:
     - nodejs_compat
+  # Eyes on the one production surface every .life depends on (Law 13). The
+  # adapter passes this straight into the script-upload metadata (cloudflare
+  # gene ≥1.36.4); it does NOT read wrangler.toml, so this is the canonical
+  # declaration. Read it back with `node scripts/observe.mjs`. Both datasets
+  # share the Workers Logs free tier (200k events/day); head_sampling_rate is
+  # the cost knob — registry traffic is low, so 1.0 stays well within it.
+  observability:
+    enabled: true
+    head_sampling_rate: 1
+    logs:
+      enabled: true
+    traces:
+      enabled: true
+      head_sampling_rate: 1
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
 # (the auth root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
@@ -120,6 +134,12 @@ embeddings powering semantic `/search`, computed lazily and cached in the D1
 `embeddings` table; `lib/semantic.ts`). Operator secrets (`ANTHROPIC_API_KEY`,
 the OAuth client pair) are set out of band via `data <dir> secret set` and
 survive every redeploy.
+
+Observability: the worker emits **Workers Logs + Traces** (declared in the
+`cloudflare: observability:` block above; one span per handler/fetch/KV/R2/D1
+call). Read the telemetry back from the terminal — no dashboard — with
+`node scripts/observe.mjs [--since 6h] [--errors] [--traces] [text]`, which
+mints a short-lived token via the cloudflare gene and queries the telemetry API.
 
 The deeper deploy mechanics — the capability→primitive map, `route:` gating, the
 Workers REST flow — live in the `cloudflare` skill (`life ask cloudflare`).
