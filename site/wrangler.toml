@@ -55,3 +55,25 @@ bucket_name = "known-life-known-r2"
 # The deploy workflow also flips `accounts.is_admin = 1` for the github_login
 # named in the `KNOWN_ADMIN_LOGIN` Actions secret (NOT a worker secret) — that
 # row controls who can publish over any name. No shared bearer.
+
+# Observability — eyes on the one production surface every .life depends on
+# (Law 13: see everything the running self does). Zero-code automatic
+# instrumentation, read in the Cloudflare dashboard or via the GraphQL
+# Analytics API:
+#   - logs: captures console.* output from the SSR worker.
+#   - traces: one span per handler/fetch/binding call (KV·R2·D1), the
+#     end-to-end life of a publish/resolve request.
+# Both share the Workers Logs quota (free tier 200k events/day, 3-day
+# retention; then $0.60/M). head_sampling_rate is the cost knob — registry
+# traffic is low so 1.0 is well within free; dial traces down if span volume
+# (one per binding op) ever approaches the cap.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
