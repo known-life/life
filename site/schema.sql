@@ -120,6 +120,21 @@ CREATE INDEX IF NOT EXISTS idx_deps_depname ON deps(dep_name);
 ALTER TABLE versions ADD COLUMN yanked_reason TEXT;
 ALTER TABLE packages ADD COLUMN superseded_by TEXT;
 
+-- auth_challenge — outstanding lifekey sign-in nonces (routes/auth.ts). ONE ROW
+-- PER CHALLENGE, keyed by the nonce itself — NOT a single per-login slot. The
+-- former KV slot `authchallenge:<login>` was last-write-wins, so two concurrent
+-- mints as the same login (e.g. the deploy's `auto` + `hook-think` jobs) clobbered
+-- each other's nonce and one/both proves failed. D1 is strongly consistent and
+-- holds N rows, so concurrent challenges never collide. Ephemeral (5-min TTL,
+-- swept opportunistically on each challenge); a matched nonce is deleted on a
+-- successful prove (one-time use).
+CREATE TABLE IF NOT EXISTS auth_challenge (
+  nonce      TEXT PRIMARY KEY,
+  login      TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_challenge_login ON auth_challenge(login);
+
 -- embeddings — the semantic-search cache (lib/semantic.ts): one bge-base
 -- vector per package, keyed to the latest_version it was computed from.
 -- Lazily (re)filled at search time: a publish bumps latest_version, the row

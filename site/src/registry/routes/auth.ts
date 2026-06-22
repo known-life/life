@@ -2,20 +2,27 @@ import type { Env } from "../lib/types";
 import { issueRegistryToken } from "../lib/jwt";
 import { getOrCreateGithubAccount } from "../lib/db";
 import { checkRate } from "../lib/ratelimit";
-import { verifyGithubIdentity } from "../lib/lifekey-verify.mjs";
+import { fetchGithubKeys, rawFromOpenSsh, verifyRaw } from "../lib/lifekey-verify.mjs";
 
 /**
  * lifekey sign-in — the ONE way to authenticate. Git identity, no human step.
  *
  *   POST /api/auth/challenge { login }   → { nonce }   (5-min TTL)
  *   POST /api/auth/prove     { login, signatures }
- *       → fetch github.com/<login>.keys, verify a signature over the nonce,
- *         bind the account to the GitHub identity, return a known.life token.
+ *       → fetch github.com/<login>.keys, verify a signature over ANY of the
+ *         login's outstanding nonces, bind the account, return a known.life token.
  *
  * The agent signs the nonce locally with the lifekey — the SSH key it already
  * pushes git with — whose public half is on github.com/<login>.keys. It may
  * offer several signatures (one per available key); any match proves identity.
  * The genepool only ever reads PUBLIC keys; no credential reaches known.life.
+ *
+ * Nonces live in D1 (`auth_challenge`), ONE ROW PER CHALLENGE keyed by the nonce
+ * — not a single per-login KV slot. The slot was last-write-wins, so two
+ * concurrent sign-ins as the same login (e.g. a deploy's parallel mint jobs)
+ * overwrote each other's nonce and one/both proves failed. D1 is strongly
+ * consistent and holds N rows, so concurrent challenges never collide; `prove`
+ * accepts a signature over any of the login's unexpired nonces. No client change.
  */
 
 const CHALLENGE_TTL = 300;
@@ -32,7 +39,15 @@ export async function handleAuthChallenge(req: Request, env: Env): Promise<Respo
   const nonceBytes = new Uint8Array(24);
   crypto.getRandomValues(nonceBytes);
   const nonce = "knl-" + [...nonceBytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  await env.KNOWN_KV.put(`authchallenge:${login.toLowerCase()}`, nonce, { expirationTtl: CHALLENGE_TTL });
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  // D1 has no native TTL — sweep expired rows opportunistically (cheap; auth
+  // challenges are low-volume), then insert this one. One row per challenge so
+  // concurrent sign-ins for the same login never overwrite each other.
+  await env.DB.prepare("DELETE FROM auth_challenge WHERE created_at < ?").bind(nowSec - CHALLENGE_TTL).run();
+  await env.DB.prepare("INSERT INTO auth_challenge (nonce, login, created_at) VALUES (?, ?, ?)")
+    .bind(nonce, login.toLowerCase(), nowSec)
+    .run();
 
   return json(200, {
     ok: true,
@@ -58,29 +73,48 @@ export async function handleAuthProve(req: Request, env: Env): Promise<Response>
     .filter(Boolean);
   if (!login || signatures.length === 0) return json(400, { error: "missing_fields" });
 
-  const nonce = await env.KNOWN_KV.get(`authchallenge:${login.toLowerCase()}`);
-  if (!nonce) return json(400, { error: "no_pending_challenge", hint: "call /api/auth/challenge first (nonce expires in 5 min)" });
+  // All of the login's UNEXPIRED outstanding nonces (one row per challenge).
+  const nowSec = Math.floor(Date.now() / 1000);
+  const rows = (await env.DB.prepare(
+    "SELECT nonce FROM auth_challenge WHERE login = ? AND created_at > ?",
+  ).bind(login.toLowerCase(), nowSec - CHALLENGE_TTL).all<{ nonce: string }>()).results;
+  if (!rows.length) return json(400, { error: "no_pending_challenge", hint: "call /api/auth/challenge first (nonce expires in 5 min)" });
 
-  // Verify against the login's PUBLIC GitHub keys. Wrapped so a GitHub transport
-  // blip stays retryable (keep the nonce, 502) rather than a hard 403.
-  let result: { ok: boolean; matchedKey?: string };
+  // Fetch the login's PUBLIC GitHub keys ONCE, then check the signatures against
+  // each outstanding nonce. A match on ANY nonce proves identity (the caller
+  // signed one of them); concurrent sign-ins each match their own row. Wrapped so
+  // a GitHub transport blip stays retryable (502) rather than a hard 403.
+  let matchedNonce: string | null = null;
   try {
-    result = await verifyGithubIdentity(login, nonce, signatures);
+    const keys = await fetchGithubKeys(login);
+    outer: for (const { nonce } of rows) {
+      for (const line of keys) {
+        const raw = rawFromOpenSsh(line);
+        if (!raw) continue;
+        for (const sig of signatures) {
+          try {
+            if (await verifyRaw(raw, nonce, sig)) { matchedNonce = nonce; break outer; }
+          } catch {
+            // malformed key/sig shape — try the next
+          }
+        }
+      }
+    }
   } catch {
     return json(502, { error: "github_unreachable", hint: "try again — the genepool couldn't read your GitHub keys just now" });
   }
 
-  if (!result.ok) {
-    // Consume the nonce so it can't be brute-forced.
-    await env.KNOWN_KV.delete(`authchallenge:${login.toLowerCase()}`);
+  if (!matchedNonce) {
+    // No delete on failure: brute-force is bounded by the IP rate-limit above,
+    // and deleting here would wipe a concurrent sign-in's still-valid nonce.
     return json(403, {
       error: "signature_invalid",
       hint: `no signature matched a key on github.com/${login}.keys. Sign with the SSH key you push git with (add it to ssh-agent), or publish a key at https://github.com/settings/keys`,
     });
   }
 
-  // Consume the challenge (one-time).
-  await env.KNOWN_KV.delete(`authchallenge:${login.toLowerCase()}`);
+  // Consume the matched challenge (one-time); other outstanding nonces stand.
+  await env.DB.prepare("DELETE FROM auth_challenge WHERE nonce = ?").bind(matchedNonce).run();
 
   // Resolve the canonical GitHub id (stable across login renames) for binding.
   let githubId: number | null = null;
