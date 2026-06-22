@@ -54,26 +54,20 @@ verify:
   - /install.sh=200
   - /api/resolve/life/latest=200
 
+# Eyes on the one production surface every .life depends on (Law 13). `observe:`
+# is the PORTABLE observability knob (cloudflare gene ≥1.36.8) — the adapter maps
+# it to CF Workers Logs + Traces metadata. Read it back with `node scripts/
+# observe.mjs`. Logs + traces share the Workers Logs free tier (200k events/day);
+# `true` = full sampling (registry traffic is low, so well within it; use
+# `observe: { sampling: N }` to dial down if volume ever climbs).
+observe: true
+
 # CF-runtime config with no portable meaning — the exact pinned compatibility
 # the live worker runs on. nodejs_compat is required by the Astro CF adapter.
 cloudflare:
   compatibility_date: "2026-05-01"
   compatibility_flags:
     - nodejs_compat
-  # Eyes on the one production surface every .life depends on (Law 13). The
-  # adapter passes this straight into the script-upload metadata (cloudflare
-  # gene ≥1.36.4); it does NOT read wrangler.toml, so this is the canonical
-  # declaration. Read it back with `node scripts/observe.mjs`. Both datasets
-  # share the Workers Logs free tier (200k events/day); head_sampling_rate is
-  # the cost knob — registry traffic is low, so 1.0 stays well within it.
-  observability:
-    enabled: true
-    head_sampling_rate: 1
-    logs:
-      enabled: true
-    traces:
-      enabled: true
-      head_sampling_rate: 1
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
 # (the auth root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
@@ -138,7 +132,7 @@ the OAuth client pair) are set out of band via `data <dir> secret set` and
 survive every redeploy.
 
 Observability: the worker emits **Workers Logs + Traces** (declared in the
-`cloudflare: observability:` block above; one span per handler/fetch/KV/R2/D1
+portable `observe:` knob above; one span per handler/fetch/KV/R2/D1
 call). Read the telemetry back from the terminal — no dashboard — with
 `node scripts/observe.mjs [--since 6h] [--errors] [--traces] [text]`, which
 mints a short-lived token via the cloudflare gene and queries the telemetry API.
