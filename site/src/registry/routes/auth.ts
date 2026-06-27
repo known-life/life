@@ -29,7 +29,7 @@ const CHALLENGE_TTL = 300;
 
 export async function handleAuthChallenge(req: Request, env: Env): Promise<Response> {
   const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
-  const rl = await checkRate(env, `auth:${ip}`, 30, 60 * 60);
+  const rl = await checkRate(env, `auth:${ip}`, 300, 60 * 60);
   if (!rl.ok) return json(429, { error: "rate_limited", retry_after_s: rl.retryAfter });
 
   const body = (await req.json().catch(() => null)) as { login?: string } | null;
@@ -59,7 +59,7 @@ export async function handleAuthChallenge(req: Request, env: Env): Promise<Respo
 
 export async function handleAuthProve(req: Request, env: Env): Promise<Response> {
   const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
-  const rl = await checkRate(env, `auth:${ip}`, 30, 60 * 60);
+  const rl = await checkRate(env, `auth:${ip}`, 300, 60 * 60);
   if (!rl.ok) return json(429, { error: "rate_limited", retry_after_s: rl.retryAfter });
 
   const body = (await req.json().catch(() => null)) as
