@@ -2,6 +2,7 @@ import type { Env } from "../lib/types";
 import { isValidName, isValidVersion } from "../lib/id";
 import { putBlob, manifestHash } from "../lib/blobs";
 import { scanFiles } from "../lib/scan";
+import { scanIsolateParity } from "../lib/parity";
 import { checkFit } from "../lib/fit";
 import type { PublishManifest } from "../lib/manifest";
 import { getName, claimName, resolveAccountFromSubject, getVersion, insertVersion, getPackage, canManageName } from "../lib/db";
@@ -103,8 +104,11 @@ export async function handlePublish(req: Request, env: Env): Promise<Response> {
   const existing = await getVersion(env, name, version);
   if (existing) return json(409, { error: "version_exists", hint: "versions are immutable; bump the version" });
 
-  // SCAN — blocking.
+  // SCAN — blocking (secrets/PII) + advisory isolate-parity findings, which
+  // ride the same warnings channel so the publisher sees them in the mutate
+  // result at the moment they can act.
   const scan = scanFiles(files);
+  scan.warnings.push(...scanIsolateParity(files));
   if (!scan.ok) {
     return json(422, {
       error: "secrets_detected",
