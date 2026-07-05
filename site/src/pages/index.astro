@@ -36,6 +36,14 @@ export const prerender = false;
   </main>
 </Base>
 
+<style is:global>
+  /* Homepage-only: the splash is a fixed full-screen takeover, so lock scroll.
+     Overrides the shared global `body{min-height:100vh}`, which otherwise
+     reserves a hair past the viewport and shows a phantom (disabled) scrollbar.
+     Astro loads this page's styles only on `/`, so /docs is unaffected. */
+  html, body { height: 100%; overflow: hidden; }
+</style>
+
 <style>
   /* A dark synthwave teaser that fully takes over `/`. Just the aviators over a
      neon sunset, a moving perspective grid, and one cryptic line. */
