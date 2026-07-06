@@ -144,10 +144,14 @@ export async function handlePublish(req: Request, env: Env): Promise<Response> {
   );
 
   // ACCEPT — store blobs, compute manifest hash, write the version row.
+  // Each putBlob() is an independent R2 head+put keyed by that file's own
+  // content hash, so — same fix + rationale as the read side in
+  // routes/resolve.ts — fetch them concurrently rather than one await per
+  // file; latency then scales with the slowest single write, not the sum.
+  const entries = Object.entries(files);
+  const shas = await Promise.all(entries.map(([, content]) => putBlob(env, content)));
   const blobManifest: Record<string, string> = {};
-  for (const [path, content] of Object.entries(files)) {
-    blobManifest[path] = await putBlob(env, content);
-  }
+  entries.forEach(([path], i) => { blobManifest[path] = shas[i]; });
   const contentHash = await manifestHash(blobManifest);
 
   await insertVersion(env, {
