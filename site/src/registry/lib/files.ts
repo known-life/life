@@ -44,11 +44,17 @@ export async function loadVersionFiles(
   const cached = (await env.KNOWN_KV.get(cacheKey, "json")) as VersionFiles | null;
   if (cached) return cached;
 
+  // Concurrent R2 reads, not one await at a time — see the same fix + rationale
+  // in routes/resolve.ts. This path is KV-cached after first hydration, but a
+  // cold/evicted large package still pays the full sequential cost otherwise.
   const manifest = JSON.parse(v.manifest_json) as Record<string, string>;
+  const entries = Object.entries(manifest);
+  const contents = await Promise.all(entries.map(([, sha]) => getBlob(env, sha)));
   const files: Record<string, string> = {};
   const missing: string[] = [];
-  for (const [path, sha] of Object.entries(manifest)) {
-    const content = await getBlob(env, sha);
+  for (let i = 0; i < entries.length; i++) {
+    const [path] = entries[i];
+    const content = contents[i];
     if (content === null) missing.push(path);
     else files[path] = content;
   }

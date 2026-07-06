@@ -78,10 +78,18 @@ export async function handleResolve(
     // The engine surfaces this as a warning on install.
   }
 
+  // Blob reads are independent R2 gets — fetch them concurrently, not one
+  // await at a time. A sequential loop scales resolve latency linearly with
+  // file count (a few hundred ms round-trip × hundreds of files → seconds,
+  // enough to trip a caller's own request timeout for a large gene); this way
+  // it scales with the SLOWEST single read, not the sum of all of them.
   const manifest = JSON.parse(v.manifest_json) as Record<string, string>;
+  const entries = Object.entries(manifest);
+  const contents = await Promise.all(entries.map(([, sha]) => getBlob(env, sha)));
   const files: Record<string, string> = {};
-  for (const [path, sha] of Object.entries(manifest)) {
-    const content = await getBlob(env, sha);
+  for (let i = 0; i < entries.length; i++) {
+    const [path, sha] = entries[i];
+    const content = contents[i];
     if (content === null) return json(500, { error: "missing_blob", path, sha });
     files[path] = content;
   }
