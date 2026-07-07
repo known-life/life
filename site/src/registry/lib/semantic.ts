@@ -142,12 +142,18 @@ export async function semanticSearch(
           .sort((a, b) => b[1] - a[1])
           .map(([name]) => name);
 
+  // Each getPackage() is an independent D1 lookup keyed by name — fetch the
+  // ones lexical search didn't already return concurrently, not one await
+  // per semantic match (same fix + rationale as routes/resolve.ts and
+  // routes/publish.ts: this scales with pool size as the registry grows, and
+  // it's on the hot /search path, not a one-off).
   const byName = new Map(lexical.map((p) => [p.name, p]));
-  for (const name of semNames) {
-    if (byName.has(name)) continue;
-    const p = await getPackage(env, name);
+  const toFetch = semNames.filter((name) => !byName.has(name));
+  const fetched = await Promise.all(toFetch.map((name) => getPackage(env, name)));
+  toFetch.forEach((name, i) => {
+    const p = fetched[i];
     if (p) byName.set(name, p);
-  }
+  });
 
   const ordered: PackageRecord[] = [];
   const seen = new Set<string>();
