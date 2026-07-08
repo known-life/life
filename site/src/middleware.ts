@@ -58,6 +58,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const ownedOutright =
     path === "/healthz" ||
     path === "/skill" ||
+    path === "/install" ||
     path === "/mcp" ||
     path === "/explore" ||
     path === "/search" ||

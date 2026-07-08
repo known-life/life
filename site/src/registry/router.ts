@@ -10,6 +10,7 @@
  *
  *   GET  /healthz                  { ok }
  *   GET  /skill                    the known.life skill (markdown)
+ *   GET  /install                  the come-alive guide (markdown)
  *   GET|POST /mcp                  MCP server (JSON-RPC; public read surface)
  *   POST /api/claim                claim a name (Bearer/lifekey auth)
  *   POST /api/publish              the publish pipeline (auth → scan → fit → cut)
@@ -54,6 +55,7 @@ import {
   handleExchangeEnroll,
 } from "./routes/github-app";
 import { handleSkill } from "./routes/skill";
+import { handleInstall } from "./routes/install";
 import { isValidName } from "./lib/id";
 
 // Minimal ExecutionContext shape — `waitUntil` is all the genepool uses (deferred
@@ -80,6 +82,8 @@ export async function registryFetch(
   if (path === "/healthz") return json({ ok: true, ts: Date.now() });
 
   if (path === "/skill") return handleSkill(env);
+
+  if (path === "/install") return handleInstall(env);
 
   if (path === "/mcp") {
     if (method === "POST") return handleMcp(req, env);
