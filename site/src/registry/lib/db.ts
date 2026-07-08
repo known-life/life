@@ -519,6 +519,10 @@ export async function deprecateVersion(
   await env.DB.prepare("UPDATE versions SET yanked = 1, yanked_reason = ? WHERE package = ? AND version = ?")
     .bind(reason ?? null, pkg, version)
     .run();
+  // Best-effort purge of the resolve edge cache so the yanked flag propagates
+  // fast in this colo; the Cache API can't reach other colos, so the resolve
+  // route's RESOLVE_EDGE_TTL is the real ceiling on flag staleness.
+  try { await (caches as unknown as { default: Cache }).default.delete(new Request(`https://known.life/api/resolve/${pkg}/${version}`)); } catch { /* advisory */ }
   // If the deprecated cut was `latest`, drop back to the highest non-yanked one
   // so consumers resolving `latest` skip a deprecated version.
   const latest = await highestVersion(env, pkg);

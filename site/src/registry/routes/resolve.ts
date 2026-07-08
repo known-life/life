@@ -20,6 +20,41 @@ export async function handleProvides(env: Env, cap: string): Promise<Response> {
   });
 }
 
+// Exact `name@x.y.z` payloads are IMMUTABLE (versioning is the record; nothing
+// is withdrawn-and-rewritten), so they are served from the edge cache. The TTL
+// is NOT a correctness bound on the files — those can never change — it bounds
+// how long the ADVISORY flags (yanked, superseded_by, verified_state) may lag a
+// post-publish mutate. A yank purges best-effort below, but the Cache API is
+// per-colo, so the TTL is the real ceiling.
+const RESOLVE_EDGE_TTL = 3600;
+// The Workers runtime's default edge cache; the DOM lib's CacheStorage type
+// doesn't know `.default`, hence the cast (tsconfig doesn't pull workers-types).
+const edgeCache = () => (caches as unknown as { default: Cache }).default;
+const exactVersion = (v: string) => /^\d+\.\d+\.\d+$/.test(v);
+
+// The one ranking side effect on the resolve path — MUST run on cache hits and
+// misses alike, or edge caching silently freezes the install rankings. Counts a
+// genuine adoption only (?reason=install and `have` differs), capped per-IP so a
+// forged spray can't inflate the signal; off the response path via waitUntil.
+function countInstall(
+  req: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  name: string,
+  version: string,
+  life: string | null,
+  isInstall: boolean,
+  have: string | null,
+): void {
+  if (!isInstall || have === version) return;
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+  ctx.waitUntil(
+    checkRate(env, `install-bump:${ip}`, 60, 3600).then((rl) => {
+      if (rl.ok) return bumpInstall(env, name, version, life);
+    }),
+  );
+}
+
 /**
  * GET /api/resolve/:name/:version — the engine install endpoint.
  *
@@ -50,6 +85,20 @@ export async function handleResolve(
   const isInstall = reqUrl.searchParams.get("reason") === "install";
   const have = reqUrl.searchParams.get("have");
   const life = reqUrl.searchParams.get("life");
+
+  // Immutable fast path: query string stripped from the key (?reason/have/life
+  // vary per caller; the body is identical), counting still runs per request.
+  const cacheKey = new Request(`${reqUrl.origin}/api/resolve/${name}/${versionArg}`);
+  if (exactVersion(versionArg)) {
+    const hit = await edgeCache().match(cacheKey);
+    if (hit) {
+      countInstall(req, env, ctx, name, versionArg, life, isInstall, have);
+      const res = new Response(hit.body, hit);
+      res.headers.set("X-Registry-Cache", "hit");
+      return res;
+    }
+  }
+
   const pkg = await getPackage(env, name);
   if (!pkg) {
     // Common agent misfire: someone said "install known.life" and the agent
@@ -94,19 +143,9 @@ export async function handleResolve(
     files[path] = content;
   }
 
-  // Count a genuine adoption, but cap per-IP so a forged ?life=&reason=install
-  // spray can't inflate the ranking signal. The check + bump run off the
-  // response path (waitUntil) since the count is advisory, not load-bearing.
-  if (isInstall && have !== version) {
-    const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
-    ctx.waitUntil(
-      checkRate(env, `install-bump:${ip}`, 60, 3600).then((rl) => {
-        if (rl.ok) return bumpInstall(env, name, version, life);
-      }),
-    );
-  }
+  countInstall(req, env, ctx, name, version, life, isInstall, have);
 
-  return json(200, {
+  const payload = JSON.stringify({
     name,
     version,
     content_hash: v.content_hash,
@@ -118,6 +157,28 @@ export async function handleResolve(
     provides: JSON.parse(v.provides_json ?? "[]"),
     inputs: JSON.parse(v.inputs_json ?? "[]"),
     files,
+  });
+
+  // Populate the edge cache only for exact-version requests (a `latest` request
+  // must stay fresh — tonight's publishes moved it four times in an evening) and
+  // only for non-yanked versions; yanked stays origin-only so the flag is live.
+  if (exactVersion(versionArg) && !v.yanked) {
+    ctx.waitUntil(edgeCache().put(cacheKey, new Response(payload, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": `public, s-maxage=${RESOLVE_EDGE_TTL}`,
+      },
+    })));
+  }
+
+  return new Response(payload, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Registry-Cache": "miss",
+    },
   });
 }
 
