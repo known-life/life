@@ -122,6 +122,19 @@ export async function handleResolve(
 
   const v = await getVersion(env, name, version);
   if (!v) return json(404, { error: "no_such_version", name, version });
+
+  // Conditional resolve: the lockfile already pins content_hash, so a sync
+  // that only asks "did latest move?" can send If-None-Match and get a 304
+  // BEFORE any blob assembly — this is what turns an evolve's ~31 full-payload
+  // latest checks into ~31 empty round-trips. (No install counted on a 304:
+  // an unchanged pin is by definition not an adoption.)
+  const inm = req.headers.get("If-None-Match");
+  if (inm && inm.replace(/^W\//, "").replace(/"/g, "") === v.content_hash) {
+    return new Response(null, {
+      status: 304,
+      headers: { ETag: `"${v.content_hash}"`, "Cache-Control": "no-store" },
+    });
+  }
   if (v.yanked) {
     // Still resolvable (reproducibility) but loudly flagged.
     // The engine surfaces this as a warning on install.
@@ -168,6 +181,7 @@ export async function handleResolve(
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": `public, s-maxage=${RESOLVE_EDGE_TTL}`,
+        ETag: `"${v.content_hash}"`,
       },
     })));
   }
@@ -178,6 +192,7 @@ export async function handleResolve(
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       "X-Registry-Cache": "miss",
+      ETag: `"${v.content_hash}"`,
     },
   });
 }
