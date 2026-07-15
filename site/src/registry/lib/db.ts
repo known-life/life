@@ -387,6 +387,49 @@ export async function bumpInstall(env: Env, name: string, version: string, lifeI
   }
 }
 
+
+/** Reconcile a single life's adoption rows against the set it CURRENTLY holds.
+ *  install_lives is written on adoption (resolve ?reason=install) but never on
+ *  shed — a life that `life shed`s a gene stops resolving it, so the registry
+ *  never hears and the row lingers, holding install_count above zero forever.
+ *  That stale count is exactly what wedges an owner's `--withdraw`
+ *  (handleUnpublish's in_use guard) long after the last real consumer let go.
+ *  The engine reports this life's currently-held known.life pins; we drop every
+ *  row for the life that isn't in that set and recompute the affected packages'
+ *  install_count. Deletes only ever shrink THIS life's own rows — never another
+ *  life's, and never the deps graph the withdraw guard also honours. Returns the
+ *  number of rows removed. */
+export async function reconcileLifeInstalls(
+  env: Env,
+  lifeId: string,
+  held: { package: string; version: string }[],
+): Promise<{ removed: number }> {
+  if (!lifeId) return { removed: 0 };
+  const before = await env.DB.prepare(
+    "SELECT package, version FROM install_lives WHERE life_id = ?",
+  ).bind(lifeId).all<{ package: string; version: string }>();
+  const rows = before.results ?? [];
+  if (!rows.length) return { removed: 0 };
+  const heldSet = new Set(held.map((h) => `${h.package} ${h.version}`));
+  const stale = rows.filter((r) => !heldSet.has(`${r.package} ${r.version}`));
+  if (!stale.length) return { removed: 0 };
+  const affected = [...new Set(stale.map((r) => r.package))];
+  const stmts: D1PreparedStatement[] = stale.map((r) =>
+    env.DB.prepare(
+      "DELETE FROM install_lives WHERE life_id = ? AND package = ? AND version = ?",
+    ).bind(lifeId, r.package, r.version),
+  );
+  for (const pkg of affected) {
+    stmts.push(
+      env.DB.prepare(
+        "UPDATE packages SET install_count = (SELECT COUNT(DISTINCT life_id) FROM install_lives WHERE package = ?) WHERE name = ?",
+      ).bind(pkg, pkg),
+    );
+  }
+  await env.DB.batch(stmts);
+  return { removed: stale.length };
+}
+
 // --- versions ---
 
 export async function getVersion(

@@ -20,6 +20,7 @@
  *   POST /api/wipe                 delete a name + all attached rows (admin auth)
  *   GET|POST /api/maintainers      list / grant / revoke account-level publish delegation (owner auth)
  *   GET  /api/resolve/:name/:ver   engine install endpoint (manifest + blobs)
+ *   POST /api/reconcile            drop a life's shed install rows (engine self-heal; opaque life_id)
  *   GET  /api/owner/:login        genes a GitHub login owns (public, JSON)
  *   GET  /explore                  ranked by installs
  *   GET  /search?q=                search
@@ -27,7 +28,7 @@
  */
 import type { Env } from "./lib/types";
 import { handlePublish } from "./routes/publish";
-import { handleResolve, handleProvides } from "./routes/resolve";
+import { handleResolve, handleProvides, handleReconcile } from "./routes/resolve";
 import { handleClaim } from "./routes/claim";
 import { handleAuthChallenge, handleAuthProve } from "./routes/auth";
 import { handleDeprecate, handleUnpublish, handleWipe, handleSupersede } from "./routes/lifecycle";
@@ -130,6 +131,8 @@ export async function registryFetch(
   if (path === "/api/supersede" && method === "POST") return handleSupersede(req, env);
   if (path === "/api/wipe" && method === "POST") return handleWipe(req, env);
   if (path === "/api/maintainers" && (method === "GET" || method === "POST")) return handleMaintainers(req, env);
+
+  if (path === "/api/reconcile" && method === "POST") return handleReconcile(req, env);
 
   const resolveMatch = path.match(/^\/api\/resolve\/([a-z0-9.-]+)\/([a-z0-9.\-]+)$/);
   if (resolveMatch && method === "GET") {

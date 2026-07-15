@@ -1,5 +1,5 @@
 import type { Env } from "../lib/types";
-import { getVersion, getPackage, bumpInstall, providersOf } from "../lib/db";
+import { getVersion, getPackage, bumpInstall, providersOf, reconcileLifeInstalls } from "../lib/db";
 import { getBlob } from "../lib/blobs";
 import { checkRate } from "../lib/ratelimit";
 
@@ -18,6 +18,32 @@ export async function handleProvides(env: Env, cap: string): Promise<Response> {
     status: 200,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
   });
+}
+
+/**
+ * POST /api/reconcile — the consumer-side self-heal for the adoption signal.
+ * The engine reports a life's CURRENTLY-held known.life pins on sync/gc; we drop
+ * every install_lives row for that life not in the set and recompute the
+ * affected install_counts — so a shed gene stops wedging the owner's --withdraw.
+ * Trust: the same opaque life_id the engine already mints for resolve's install
+ * bump — a reconcile can only ever shrink a life's OWN rows (never another's,
+ * never the deps graph the withdraw guard also honours). IP-rate-limited like the
+ * install bump so a scripted sweep of guessed life_ids can't churn rankings.
+ */
+export async function handleReconcile(req: Request, env: Env): Promise<Response> {
+  const body = await req.json().catch(() => null) as
+    | { life?: string; held?: { package?: unknown; version?: unknown }[] }
+    | null;
+  if (!body?.life || !Array.isArray(body.held)) return json(400, { error: "missing_fields" });
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+  const rl = await checkRate(env, `reconcile:${ip}`, 60, 3600);
+  if (!rl.ok) return json(429, { error: "rate_limited" });
+  const held = body.held
+    .filter((h): h is { package: string; version: string } =>
+      !!h && typeof h.package === "string" && typeof h.version === "string")
+    .map((h) => ({ package: h.package, version: h.version }));
+  const { removed } = await reconcileLifeInstalls(env, body.life, held);
+  return json(200, { ok: true, removed });
 }
 
 // Exact `name@x.y.z` payloads are IMMUTABLE (versioning is the record; nothing
