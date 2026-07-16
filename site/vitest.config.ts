@@ -1,4 +1,6 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
+const gene = (f) => fileURLToPath(new URL(`../.genome/registry/src/registry/lib/${f}`, import.meta.url));
 
 // The worker's security spine — scan (leak gate), lifekey-verify (auth root of
 // trust), jwt (the write-endpoint bearer), gh-secrets (the CI-credential
@@ -16,11 +18,12 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
+      // The security-spine modules now live in the known.life/registry gene,
+      // materialized (gitignored) at ../.genome/registry/. allowExternal lets v8
+      // instrument files outside this project root (the gene tree).
+      allowExternal: true,
       include: [
-        "src/registry/lib/scan.ts",
-        "src/registry/lib/lifekey-verify.ts",
-        "src/registry/lib/jwt.ts",
-        "src/registry/lib/gh-secrets.ts",
+        gene("scan.ts"), gene("lifekey-verify.ts"), gene("jwt.ts"), gene("gh-secrets.ts"),
       ],
       // A regression ratchet set just below achieved coverage — it fails CI the
       // moment a future edit drops a tested path. Not 100%: the residual lines
