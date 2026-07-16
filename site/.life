@@ -12,6 +12,17 @@ requires:
   # (lib/semantic.ts); the worker fails open to lexical search without it.
   - infra.ai
 
+# The registry CORE (src/registry/**) — the load-bearing capability every .life
+# boots through (resolve · publish · auth · scan · lifecycle · the D1/R2/KV/AI
+# data path) — lives ONLY in the pool as known.life/registry. It is NOT committed
+# here: `src/registry/` is gitignored and FETCHED FROM THE GENE at build time
+# (`bash vendor.sh <ver>`, hash-verified) — the repo holds no copy. Edit the gene:
+# `life fetch registry <dir>` → edit → mutate, then bump the pinned version in the
+# build/tests commands + the import below. The NON-load-bearing surfaces (homepage,
+# /docs, marketing, static assets) stay Astro in this repo — a website, not infra.
+imports:
+  - known.life/registry@0.3.0
+
 # Deploy to the live Worker script name, not the unit's (`site`). Per-resource
 # names + binding vars are pinned to the resources that predate the convention
 # (the worker reads env.KNOWN_KV / env.KNOWN_R2 / env.DB), so `life deploy`
@@ -27,7 +38,7 @@ config:
 # Build: install deps, fold the root installer into the served assets (it's
 # served at known.life/install.sh from the gene pool, not raw GitHub), then run
 # the Astro Cloudflare build → dist/_worker.js (SSR module graph) + dist/ assets.
-build: npm ci --no-audit --no-fund && cp ../install.sh public/install.sh && npm run build
+build: bash vendor.sh 0.3.0 && npm ci --no-audit --no-fund && cp ../install.sh public/install.sh && npm run build
 
 # The build above embeds the repo-root installer, so an install.sh edit must
 # trigger this unit's ci-auto deploy (engine ≥3.46.0 deploy_inputs) — without
@@ -76,7 +87,7 @@ cloudflare:
 # `life test --changed` rail runs for site/, replacing the hand-kept worker-unit
 # job). cwd is this dir, so no `cd site`.
 tests:
-  - npm ci && npm run test:coverage
+  - bash vendor.sh 0.3.0 && npm ci && npm run test:coverage
 
 ---
 
@@ -95,9 +106,10 @@ single SSR Worker plus edge static assets:
 - **The registry API** (`src/registry/`) — the genepool's request-handling
   core: `router.ts` dispatches to `routes/` + `lib/` (`publish` · `resolve` ·
   `package` · `claim` · `lifecycle` · `maintainers` · `auth` · `mcp` · `setup`
-  · `github-app` · `skill`). This is its own child cell — `life ask
-  site/src/registry` owns the surface map; its credential-free vitest suite
-  (`npm test`, CI job `worker-unit`) lives in `site/test/`.
+  · `github-app` · `skill`). **Fetched from the `known.life/registry` gene at build**
+  (`vendor.sh`, hash-verified) into a gitignored `src/registry/` — the repo commits
+  no copy; the gene is the sole source of truth. Its credential-free vitest suite
+  (`npm test`) lives in `site/test/` (which also vendors before running).
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
   to static assets.
 - **The installer** — `install.sh` (repo root) is copied into `public/` at build
