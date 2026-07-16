@@ -6,7 +6,7 @@ import {
   removeMaintainer,
   listMaintainers,
   type Account,
-} from "../src/registry/lib/db";
+} from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 // Account-level maintainer delegation: a login the owner trusts to publish ANY

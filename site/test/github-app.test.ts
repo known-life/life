@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { generateKeyPairSync, createVerify, sign as nodeSign } from "node:crypto";
-import { makeAppJwt, handleExchangeVerify, handleExchangeDeleteBranch, handleExchangeMergePR, handleAppInstalled, handleAppManifestCallback, handleExchangeEnroll, callerAuthMessage } from "../src/registry/routes/github-app";
+import { makeAppJwt, handleExchangeVerify, handleExchangeDeleteBranch, handleExchangeMergePR, handleAppInstalled, handleAppManifestCallback, handleExchangeEnroll, callerAuthMessage } from "../../.genome/registry/src/registry/routes/github-app";
 
 // The durable-verifier central half. Two hazard-bearing pieces, both credential-
 // free here: (1) the App JWT — if the RS256 signature or the PKCS#1→PKCS#8 wrap

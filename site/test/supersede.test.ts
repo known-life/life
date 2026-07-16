@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { setSuperseded, getPackage, topPackages } from "../src/registry/lib/db";
-import { listMarkdown } from "../src/registry/lib/pages";
+import { setSuperseded, getPackage, topPackages } from "../../.genome/registry/src/registry/lib/db";
+import { listMarkdown } from "../../.genome/registry/src/registry/lib/pages";
 import { MockD1 } from "./d1-mock";
 
 // superseded_by is the package-level "this gene was renamed/replaced" pointer

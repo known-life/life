@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ALLOWED_SCOPES, isAllowedScope } from "../src/registry/routes/mcp-oauth";
+import { ALLOWED_SCOPES, isAllowedScope } from "../../.genome/registry/src/registry/routes/mcp-oauth";
 
 // The scope allow-list is what stands between a random OAuth client and an
 // escalated consent screen — and it's also where the ci-deploy convention's

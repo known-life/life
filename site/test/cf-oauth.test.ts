@@ -14,9 +14,9 @@ import {
   chooseGrantAccount,
   CF_OAUTH_SCOPES,
   type CfGrant,
-} from "../src/registry/lib/cf-oauth";
-import { handleCfOAuthStart, handleCfOAuthStatus, handleCfOAuthToken } from "../src/registry/routes/cloudflare-oauth";
-import { issueRegistryToken } from "../src/registry/lib/jwt";
+} from "../../.genome/registry/src/registry/lib/cf-oauth";
+import { handleCfOAuthStart, handleCfOAuthStatus, handleCfOAuthToken } from "../../.genome/registry/src/registry/routes/cloudflare-oauth";
+import { issueRegistryToken } from "../../.genome/registry/src/registry/lib/jwt";
 
 // The CF OAuth flow is the paste-free infra-onboarding credential path: a wrong
 // PKCE challenge, a leaked-in-the-clear refresh token, or a start route that

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { ensureEmbeddings, semanticSearch } from "../src/registry/lib/semantic";
-import { searchPackages, type PackageRecord } from "../src/registry/lib/db";
+import { ensureEmbeddings, semanticSearch } from "../../.genome/registry/src/registry/lib/semantic";
+import { searchPackages, type PackageRecord } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 // Semantic /search pins three contracts, all over the REAL schema.sql:

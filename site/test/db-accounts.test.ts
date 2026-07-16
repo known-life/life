@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { getOrCreateGithubAccount, syntheticGithubId, type Account } from "../src/registry/lib/db";
+import { getOrCreateGithubAccount, syntheticGithubId, type Account } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 // The account upsert is the auth root of every publish: /api/auth/prove calls

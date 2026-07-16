@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scanIsolateParity, nodeCommandBodies } from "../src/registry/lib/parity";
+import { scanIsolateParity, nodeCommandBodies } from "../../.genome/registry/src/registry/lib/parity";
 
 // The isolate-parity advisory scan. The contract it pins (learned live: two
 // published genes shipped isolate-broken while passing the shallow

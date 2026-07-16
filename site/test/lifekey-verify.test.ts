@@ -3,7 +3,7 @@ import {
   rawFromOpenSsh,
   verifyRaw,
   verifyGithubIdentity,
-} from "../src/registry/lib/lifekey-verify";
+} from "../../.genome/registry/src/registry/lib/lifekey-verify";
 import { makeKey, b64 } from "./helpers";
 import vector from "./vectors/lifekey.json";
 

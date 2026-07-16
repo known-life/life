@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { deprecateVersion, getVersion, highestVersion } from "../src/registry/lib/db";
+import { deprecateVersion, getVersion, highestVersion } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 // The yank reason is the agent-legible half of deprecation: stored with the

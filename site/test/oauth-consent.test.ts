@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { handleAuthorize, handleConsent } from "../src/registry/routes/mcp-oauth";
-import { issueSsoSession, SSO_COOKIE } from "../src/registry/lib/jwt";
+import { handleAuthorize, handleConsent } from "../../.genome/registry/src/registry/routes/mcp-oauth";
+import { issueSsoSession, SSO_COOKIE } from "../../.genome/registry/src/registry/lib/jwt";
 
 // The silent-SSO open-redirect defense: a known.life SSO cookie must NOT silently
 // mint an auth code for an arbitrary external redirect_uri (that hands whoever

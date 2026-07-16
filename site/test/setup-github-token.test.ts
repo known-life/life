@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { handleSetupGithubToken } from "../src/registry/routes/setup";
-import { issueRegistryToken } from "../src/registry/lib/jwt";
+import { handleSetupGithubToken } from "../../.genome/registry/src/registry/routes/setup";
+import { issueRegistryToken } from "../../.genome/registry/src/registry/lib/jwt";
 
 // The decoupled GitHub-token delivery for the OAuth setup flow (the non-CF half
 // of the retired `redeem`). It hands the device-flow-cached GitHub token back to

@@ -6,7 +6,7 @@ import {
   verifySsoSession,
   SSO_COOKIE,
   SSO_COOKIE_TTL_S,
-} from "../src/registry/lib/jwt";
+} from "../../.genome/registry/src/registry/lib/jwt";
 
 // Genepool tokens are the ONLY credential for write endpoints (publish / setup /
 // mcp / lifecycle / claim all gate on verifyToken). The token logic is HS256

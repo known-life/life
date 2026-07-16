@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { handleAuthChallenge, handleAuthProve } from "../src/registry/routes/auth";
+import { handleAuthChallenge, handleAuthProve } from "../../.genome/registry/src/registry/routes/auth";
 import { MockD1 } from "./d1-mock";
 import { makeKey, type TestKey } from "./helpers";
 

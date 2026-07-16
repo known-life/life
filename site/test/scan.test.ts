@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scanFiles } from "../src/registry/lib/scan";
+import { scanFiles } from "../../.genome/registry/src/registry/lib/scan";
 
 // scanFiles is the BLOCKING leak gate for a PUBLIC commons: every gene published
 // to known.life passes through it first. A regression is one of two disasters —

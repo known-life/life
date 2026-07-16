@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { wipeName, getPackage } from "../src/registry/lib/db";
+import { wipeName, getPackage } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 // `--delete` (wipeName) hard-removes a gene and every row attached to it. The

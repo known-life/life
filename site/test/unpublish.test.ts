@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { downloadsByVersion, dependentsOf, unpublishVersion, getVersion, highestVersion } from "../src/registry/lib/db";
+import { downloadsByVersion, dependentsOf, unpublishVersion, getVersion, highestVersion } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 // unpublish lost its arbitrary 72h time window (lifecycle.ts) — you own your

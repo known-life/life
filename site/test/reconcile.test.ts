@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { reconcileLifeInstalls, downloadsByVersion, getPackage } from "../src/registry/lib/db";
+import { reconcileLifeInstalls, downloadsByVersion, getPackage } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 
 const env = (db: MockD1) => ({ DB: db }) as any;

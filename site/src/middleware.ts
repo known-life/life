@@ -1,6 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
-import { registryFetch } from "./registry/router";
-import type { Env } from "./registry/lib/types";
+import { registryFetch } from "../../.genome/registry/src/registry/router";
+import type { Env } from "../../.genome/registry/src/registry/lib/types";
 
 /**
  * The merge seam between the docs site (Astro) and the genepool (a request

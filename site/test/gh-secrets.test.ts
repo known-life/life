@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import nacl from "tweetnacl";
-import { sealForGitHub, sealNonce, seedActionsSecrets } from "../src/registry/lib/gh-secrets";
+import { sealForGitHub, sealNonce, seedActionsSecrets } from "../../.genome/registry/src/registry/lib/gh-secrets";
 
 // gh-secrets is the CI-secret bootstrap: /setup seals the user's Cloudflare
 // credentials as GitHub Actions repo secrets so the generated deploy.yml works
