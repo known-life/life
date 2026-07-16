@@ -10,7 +10,7 @@ import vector from "./vectors/lifekey.json";
 // lifekey-verify is the auth root of trust: it decides whether a signature was
 // made by a key GitHub publishes for a login. A bug here either accepts forged
 // signatures (anyone publishes as anyone) or rejects valid ones (locks everyone
-// out). The live auth.sh round-trip only exercises the valid-signature happy
+// out). The live auth.mjs round-trip only exercises the valid-signature happy
 // path against the real vault; the forgery-rejection and malformed-input paths
 // can ONLY be exercised here, in isolation, with adversarial inputs.
 
