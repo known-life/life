@@ -23,6 +23,10 @@ requires:
 # marketing, static assets) stay Astro in this repo — a website, not infra.
 imports:
   - known.life/registry
+  # The multi-life viewer (served at /app) — same ownership cut as the
+  # registry: the gene is the sole source, materialized into .genome/viewer/
+  # and mounted from src/middleware.ts; this repo holds no copy.
+  - known.life/viewer
 
 # Deploy to the live Worker script name, not the unit's (`site`). Per-resource
 # names + binding vars are pinned to the resources that predate the convention
@@ -65,6 +69,8 @@ public: true
 verify:
   - /install.sh=200
   - /api/resolve/life/latest=200
+  # The multi-life viewer's sign-in page (src/viewer, mounted at /app).
+  - /app=200
 
 # Eyes on the one production surface every .life depends on (Law 13). `observe:`
 # is the PORTABLE observability knob (cloudflare gene ≥1.36.8) — the adapter maps
@@ -113,6 +119,14 @@ single SSR Worker plus edge static assets:
   (`npm test`) lives in `site/test/`.
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
   to static assets.
+- **The multi-life viewer** (served at `/app`) — sign in with GitHub (through
+  this worker's own OAuth bridge — no new secrets), open any life repo you can
+  reach (sessions list + the Life tab, artifacts included), and scaffold new
+  lives from the browser. Lives in **the `known.life/viewer` gene**
+  (`imports:` above), materialized into `.genome/viewer/` and mounted as one
+  `viewerFetch(request, config)` call from `src/middleware.ts` — the repo
+  holds no copy; edit = fetch → mutate → re-vendor, exactly like the registry.
+  Its credential-free vitest suite lives in `site/test/viewer-*.test.ts`.
 - **The installer** — `install.sh` (repo root) is copied into `public/` at build
   time and served from `known.life/install.sh`, so cold-start never depends on
   raw GitHub. Because that file lives outside this directory, the frontmatter

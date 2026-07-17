@@ -118,4 +118,28 @@ describe("OAuth silent-SSO open-redirect defense", () => {
     const r = await handleConsent(await consentPost(e, "nope", "approve"), e);
     expect(r.status).toBe(400);
   });
+
+  // prompt=login (registry ≥0.4.0): a client can demand a fresh upstream
+  // authentication. The silent-SSO path never touches GitHub, so it can never
+  // refresh the gh:tok:<login> cache — prompt=login is how a UI client (the
+  // viewer gene) forces the github.com hop that re-caches the upstream token.
+  it("prompt=login skips silent SSO and bounces to github.com even with a valid session", async () => {
+    const e = env();
+    const r = await handleAuthorize(
+      new Request(authUrl("https://known.life/cb") + "&prompt=login", { headers: { Cookie: await ssoCookie(e) } }),
+      e,
+    );
+    expect(r.status).toBe(302);
+    const loc = new URL(r.headers.get("location")!);
+    expect(loc.origin).toBe("https://github.com");
+    expect(loc.pathname).toBe("/login/oauth/authorize");
+    expect(loc.searchParams.get("code")).toBeNull(); // no silently minted code
+  });
+
+  it("prompt=login without a session behaves like a normal first login (github hop)", async () => {
+    const e = env();
+    const r = await handleAuthorize(new Request(authUrl("https://known.life/cb") + "&prompt=login"), e);
+    expect(r.status).toBe(302);
+    expect(new URL(r.headers.get("location")!).origin).toBe("https://github.com");
+  });
 });

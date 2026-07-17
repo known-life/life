@@ -26,6 +26,11 @@ export const prerender = false;
     <div class="floor" aria-hidden="true"></div>
     <div class="scan" aria-hidden="true"></div>
 
+    {/* Subtle entry to the multi-life viewer (served at /app by the same
+        worker). Deliberately quiet — the veil stays a teaser; those who know,
+        know. */}
+    <a class="entry" href="/app">sign in</a>
+
     <div class="stage">
       <div class="halo" aria-hidden="true"></div>
       <img class="shades" src="/aviators.png" alt="Mirrored aviator sunglasses reflecting a synthwave sunset" />
@@ -161,6 +166,19 @@ export const prerender = false;
   }
   .veil .mark span{ color:var(--cyan); text-shadow:0 0 8px rgba(33,230,193,.8) }
 
+  /* The quiet door: same register as .mark, top-right, brightens on hover. */
+  .veil .entry{
+    position:absolute; z-index:6; top:22px; right:26px;
+    font-size:11px; letter-spacing:.34em; text-transform:uppercase;
+    color:rgba(255,255,255,.34); text-decoration:none;
+    padding:6px 2px;
+    transition:color .25s ease, text-shadow .25s ease;
+  }
+  .veil .entry:hover{
+    color:rgba(255,255,255,.85);
+    text-shadow:0 0 10px rgba(33,230,193,.7);
+  }
+
   @media(prefers-reduced-motion:reduce){
     .veil .sun, .veil .floor, .veil .shades, .veil .cursor{ animation:none }
     .veil .cursor{ opacity:1 }
@@ -169,5 +187,6 @@ export const prerender = false;
     .veil .stage{ gap:26px }
     .veil .cryptic{ letter-spacing:.2em }
     .veil .mark{ bottom:20px; letter-spacing:.34em }
+    .veil .entry{ top:16px; right:16px; letter-spacing:.26em }
   }
 </style>

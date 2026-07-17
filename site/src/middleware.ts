@@ -1,6 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 import { registryFetch } from "../../.genome/registry/src/registry/router";
 import type { Env } from "../../.genome/registry/src/registry/lib/types";
+import { viewerFetch } from "../../.genome/viewer/src/index";
 
 /**
  * The merge seam between the docs site (Astro) and the genepool (a request
@@ -53,6 +54,24 @@ export const onRequest = defineMiddleware(async (context, next) => {
       // back through Cloudflare's asset handler, which serves the file.
       return Response.redirect(new URL("/llms.txt", request.url).toString(), 302);
     }
+  }
+
+  // The multi-life viewer (the known.life/viewer gene, vendored into
+  // .genome/viewer/ — the repo holds no copy) owns /app. Mounted
+  // registryFetch-style; its IdP calls go back through registryFetch
+  // IN-PROCESS (a worker must not fetch() its own hostname), and its session
+  // cookie rides the existing JWT_SIGNING_KEY — no new secrets, no new
+  // deploy unit.
+  if (path === "/app" || path.startsWith("/app/")) {
+    const viewerRes = await viewerFetch(request, {
+      basePath: "/app",
+      idpOrigin: env.PUBLIC_URL,
+      idpFetch: async (req) =>
+        (await registryFetch(req, env, ctx)) ?? new Response("idp route missing", { status: 502 }),
+      sessionSecret: env.JWT_SIGNING_KEY,
+      brand: "Life",
+    });
+    if (viewerRes) return viewerRes;
   }
 
   const ownedOutright =
