@@ -16,8 +16,8 @@ requires:
 # (resolve · publish · auth · scan · lifecycle · the D1/R2/KV/AI data path) — lives
 # ONLY in the pool as the known.life/registry gene (floating latest). It is NOT in
 # this repo in any form: `imports:` materializes it into `.genome/registry/`
-# (gitignored, rehydrated per environment by `life inherit`, exactly like the
-# reddit-egress worker consumes secrets-egress), and `src/middleware.ts` imports
+# (gitignored, rehydrated per environment by `life inherit`, the same way any
+# imported gene materializes into `.genome/<gene>/`), and `src/middleware.ts` imports
 # `registryFetch` from there. Edit the gene (`life fetch registry` → mutate); the
 # next evolve floats to it. The NON-load-bearing surfaces (homepage, /docs,
 # marketing, static assets) stay Astro in this repo — a website, not infra.
