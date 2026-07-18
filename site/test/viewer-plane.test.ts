@@ -116,12 +116,18 @@ beforeEach(async () => {
   seenWrites.length = 0;
   await signIn("DomVinyard");
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input instanceof Request ? input.url : input);
-    if (url.startsWith(PLANE) && init?.method && init.method !== "GET") {
-      seenWrites.push(`${init.method} ${new URL(url).pathname} ${String(init.body ?? "")}`);
+    // The plane seam passes a fully-formed Request (the transport contract);
+    // normalize both call shapes to one view before matching.
+    const req = input instanceof Request ? input : null;
+    const url = String(req ? req.url : input);
+    const method = (req?.method ?? init?.method ?? "GET").toUpperCase();
+    const headers = { Authorization: req?.headers.get("authorization") ?? (init?.headers as Record<string, string>)?.Authorization ?? "" };
+    if (url.startsWith(PLANE) && method !== "GET") {
+      const body = req ? await req.text() : String(init?.body ?? "");
+      seenWrites.push(`${method} ${new URL(url).pathname} ${body}`);
       return Response.json({ data: { ok: true } });
     }
-    return planeMock(url, init) ?? ghMock(url) ?? new Response("unexpected " + url, { status: 500 });
+    return planeMock(url, { headers }) ?? ghMock(url) ?? new Response("unexpected " + url, { status: 500 });
   }));
 });
 afterEach(() => vi.unstubAllGlobals());

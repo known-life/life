@@ -85,6 +85,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
           owners: ["DomVinyard"],
           artifactHost: "https://artifact.justin.vin",
         },
+        // This repo's own plane (the dataplane/ cell) — reached via the
+        // DATAPLANE service binding (same-account fetch is CF-blocked); the
+        // URL host is nominal, the binding routes.
+        "DomVinyard/life": {
+          url: "https://life-dataplane",
+          identity: true,
+          owners: ["DomVinyard"],
+          fetch: (req: Request) =>
+            (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
+            Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
+        },
       },
     });
     if (viewerRes) return viewerRes;

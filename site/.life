@@ -32,6 +32,12 @@ imports:
 # names + binding vars are pinned to the resources that predate the convention
 # (the worker reads env.KNOWN_KV / env.KNOWN_R2 / env.DB), so `life deploy`
 # binds the existing stores instead of provisioning fresh empty ones.
+# The life-dataplane service binding: this repo's own data plane (dataplane/
+# cell), reached in-process by the viewer's plane seam — same-account public
+# worker->worker fetch is CF-blocked, the binding is the contract.
+services:
+  DATAPLANE: life-dataplane
+
 deploy_name: known-life
 config:
   db_name: known-life-db
