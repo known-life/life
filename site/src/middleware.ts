@@ -74,28 +74,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
         (await registryFetch(req, env, ctx)) ?? new Response("idp route missing", { status: 502 }),
       sessionSecret: env.JWT_SIGNING_KEY,
       brand: "Life",
-      // App-parity data planes (viewer-app-parity node 06): IDENTITY mode —
-      // the viewer calls each plane with the session's IdP-signed identity
-      // token (minted at login when the identity keypair exists; public key
-      // at /jwks) and the plane verifies the login itself. No secret here.
-      planes: {
-        "DomVinyard/justin": {
-          url: "https://data.justin.vin",
-          identity: true,
-          owners: ["DomVinyard"],
-          artifactHost: "https://artifact.justin.vin",
-        },
-        // This repo's own plane (the dataplane/ cell) — reached via the
-        // DATAPLANE service binding (same-account fetch is CF-blocked); the
-        // URL host is nominal, the binding routes.
-        "DomVinyard/life": {
-          url: "https://life-dataplane",
-          identity: true,
-          owners: ["DomVinyard"],
-          fetch: (req: Request) =>
-            (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
-            Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
-        },
+      // The data plane is the ONLY data path: the viewer discovers each
+      // life's plane from its root `.life` head (`dataplane:`) and calls it
+      // with the session's IdP-signed identity token — the plane authorizes.
+      // The single entry here is TRANSPORT, not a data path: this repo's own
+      // plane is a same-account worker (public worker→worker fetch is
+      // CF-blocked), so its origin routes through the DATAPLANE service
+      // binding.
+      planeTransports: {
+        "https://life-dataplane": (req: Request) =>
+          (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
+          Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
       },
     });
     if (viewerRes) return viewerRes;

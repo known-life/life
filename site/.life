@@ -134,9 +134,12 @@ single SSR Worker plus edge static assets:
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
   to static assets.
 - **The multi-life viewer** (served at `/app`) — sign in with GitHub (through
-  this worker's own OAuth bridge — no new secrets), open any life repo you can
-  reach (sessions list + the Life tab, artifacts included), and scaffold new
-  lives from the browser. Lives in **the `known.life/viewer` gene**
+  this worker's own OAuth bridge — no new secrets), open any life you can
+  reach LIVE through its own data plane (discovered from its root `.life`
+  head's `dataplane:`; the session's identity token is the credential, the
+  plane authorizes), and scaffold new lives from the browser. The data plane
+  is the only data path — a life without one gets an honest planeless page.
+  Lives in **the `known.life/viewer` gene**
   (`imports:` above), materialized into `.genome/viewer/` and mounted as one
   `viewerFetch(request, config)` call from `src/middleware.ts` — the repo
   holds no copy; edit = fetch → mutate → re-vendor, exactly like the registry.

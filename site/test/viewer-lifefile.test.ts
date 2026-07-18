@@ -34,11 +34,17 @@ describe(".life parsing", () => {
     expect(body).toBe("");
   });
 
-  it("extracts meta, normalizing a bare harness host to https", () => {
-    expect(lifeMeta(SAMPLE)).toEqual({ name: "act", summary: "Life's own agent runtime", harness: null });
+  it("extracts meta, normalizing bare url-shaped hosts to https", () => {
+    expect(lifeMeta(SAMPLE)).toEqual({ name: "act", summary: "Life's own agent runtime", harness: null, dataplane: null, artifacts: null });
     const withHarness = lifeMeta("name: justin\nharness: harness.justin.vin\n---\nbody");
     expect(withHarness.harness).toBe("https://harness.justin.vin");
     const already = lifeMeta("name: j\nharness: https://h.example\n---\n");
     expect(already.harness).toBe("https://h.example");
+  });
+
+  it("discovers the plane and artifact host from the head (the one data path)", () => {
+    const m = lifeMeta("name: j\ndataplane: data.justin.vin\nartifacts: https://artifact.justin.vin\n---\n");
+    expect(m.dataplane).toBe("https://data.justin.vin");
+    expect(m.artifacts).toBe("https://artifact.justin.vin");
   });
 });

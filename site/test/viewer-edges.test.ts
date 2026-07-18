@@ -4,20 +4,19 @@ import { seal } from "../../.genome/viewer/src/crypto";
 import { readSession } from "../../.genome/viewer/src/session";
 import { renderMarkdown } from "../../.genome/viewer/src/markdown";
 import { parseLifeFile, lifeMeta } from "../../.genome/viewer/src/lifefile";
-import { deriveSessions, groupSessions, humanizeBranch, agentOf } from "../../.genome/viewer/src/sessions";
 import { validRepoName, scaffoldFiles } from "../../.genome/viewer/src/scaffold";
-import { resolveRel } from "../../.genome/viewer/src/pages-tree";
 import type { ViewerConfig } from "../../.genome/viewer/src/config";
 
 /**
  * The stress battery — adversarial and pathological inputs across every seam:
- * URLs, cookies, markdown, .life parsing, session derivation, scaffolding,
+ * URLs, cookies, markdown, .life parsing, hostile plane data, scaffolding,
  * and the rendered-HTML escape discipline. Each case is either a security
  * property (must never regress) or a graceful-degradation contract.
  */
 
 const SECRET = "0123456789abcdef0123456789abcdef-test-secret"; // synthetic fixture, not a credential — gitleaks:allow
 const ORIGIN = "https://known.life";
+const PLANE = "https://plane.example";
 
 const cfg: ViewerConfig = {
   basePath: "/app",
@@ -28,69 +27,52 @@ const cfg: ViewerConfig = {
 
 async function sessionCookie(): Promise<string> {
   const sealed = await seal(
-    { v: 1, login: "DomVinyard", name: null, avatar: null, token: "gho_test", iat: Math.floor(Date.now() / 1000) },
+    { v: 1, login: "DomVinyard", name: null, avatar: null, token: "gho_test", iat: Math.floor(Date.now() / 1000), identityToken: "idtok" },
     SECRET,
   );
   return `life_view=${sealed}`;
 }
 
-// A GitHub mock that records what got requested and serves adversarial content.
+// Mocks that record what got requested and serve adversarial content — the
+// evil life declares a plane whose data is hostile (plane data is a semi-
+// trusted upstream: the escape discipline must hold against it too).
 const requested: string[] = [];
-function ghMock(url: string): Response {
+function mock(url: string): Response {
   const u = new URL(url);
   requested.push(u.pathname);
   const p = u.pathname;
   const json = (d: unknown, status = 200) => Response.json(d, { status });
 
-  if (p === "/repos/DomVinyard/evil") {
-    return json({
-      full_name: "DomVinyard/evil", name: "evil",
-      owner: { login: "DomVinyard", avatar_url: "https://a/1\" onerror=\"alert(1)" },
-      description: `<img src=x onerror=alert(1)> "quoted" & <script>`,
-      private: false, default_branch: "main",
-      pushed_at: "2026-07-16T00:00:00Z", html_url: "https://github.com/DomVinyard/evil",
-    });
-  }
-  if (p === "/repos/DomVinyard/evil/pulls") {
-    if (u.searchParams.get("head")) {
-      return json([{
-        number: 1, title: `</div><script>alert(1)</script>`, state: "open", merged_at: null,
-        updated_at: "2026-07-16T12:00:00Z", html_url: "https://github.com/x/pull/1",
-        head: { ref: "claude/söme-brañch-✨" }, base: { ref: "main" },
-        body: "[x](javascript:alert(1)) <svg onload=alert(1)>",
-        user: { login: "eve", avatar_url: "https://a/e" },
-      }]);
+  if (u.origin === "https://api.github.com") {
+    if (p === "/repos/DomVinyard/evil/contents/.life") {
+      return new Response(`name: evil\ndataplane: ${PLANE}\n---\nBody`, { status: 200 });
     }
-    return json([{
-      number: 1, title: `</div><script>alert(1)</script>`, state: "open", merged_at: null,
-      updated_at: "2026-07-16T12:00:00Z", html_url: "https://github.com/x/pull/1",
-      head: { ref: "claude/söme-brañch-✨" },
-      user: { login: "eve", avatar_url: "https://a/e" },
-    }]);
+    if (p.includes("..")) return json({ boom: true }, 500);
+    return new Response("{}", { status: 404 });
   }
-  if (p === "/repos/DomVinyard/evil/branches") return json([{ name: "main", commit: { sha: "a" } }]);
-  if (p === "/repos/DomVinyard/evil/contents/.life") {
-    return new Response(`name: evil\nsummary: "<b>bold</b> & <script>alert(1)</script>"\nharness: javascript:alert(1)\n---\nBody <script>x</script>`, { status: 200 });
+
+  if (u.origin === PLANE) {
+    if (p.includes("..")) return json({ boom: true }, 500);
+    if (p === "/v1/nodes/" || p.startsWith("/v1/nodes/")) {
+      return json({ data: { path: ".", kind: "self", life: {
+        name: `<script>alert(1)</script>`,
+        summary: `<img src=x onerror=alert(1)> "quoted" & <script>`,
+        icon: `x" onerror="alert(1)`, kind: "self",
+        contract: { requires: [`<svg onload=alert(1)>`], provides: [], imports: [] },
+        bodyLead: "[x](javascript:alert(1)) <svg onload=alert(1)>",
+        body: "[x](javascript:alert(1)) <svg onload=alert(1)>",
+      }, children: [
+        { name: `"><script>pwn</script>.md`, path: `"><script>pwn</script>.md`, type: "file", size: 10 },
+      ] } });
+    }
+    return json({ type: "about:blank", title: "not found" }, 404);
   }
-  if (p.startsWith("/repos/DomVinyard/evil/compare/")) {
-    return json({ ahead_by: 1, behind_by: 0, html_url: "https://github.com/cmp",
-      commits: [{ sha: "abcd1234", html_url: "https://github.com/c", commit: { message: `<script>alert(1)</script> commit`, author: { date: "2026-07-16T00:00:00Z" } } }],
-      files: [{ filename: `"><img src=x onerror=alert(1)>.ts`, status: "added", additions: 1, deletions: 0 }] });
-  }
-  if (p === "/repos/DomVinyard/evil/contents/") {
-    return json([
-      { name: `"><script>pwn</script>.md`, path: `"><script>pwn</script>.md`, type: "file", size: 10 },
-      { name: ".life", path: ".life", type: "file", size: 40 },
-    ]);
-  }
-  // Traversal probes must never reach here with dots intact.
-  if (p.includes("..")) return json({ boom: true }, 500);
-  return new Response("{}", { status: 404 });
+  return new Response("unexpected " + url, { status: 500 });
 }
 
 beforeEach(() => {
   requested.length = 0;
-  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => ghMock(String(input instanceof Request ? input.url : input))));
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => mock(String(input instanceof Request ? input.url : input))));
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -105,7 +87,7 @@ describe("router edges", () => {
     expect((await viewerFetch(new Request(`${ORIGIN}/app/`), cfg))?.status).toBe(200);
   });
 
-  it("rejects malformed owners/repos instead of forwarding them to GitHub", async () => {
+  it("rejects malformed owners/repos instead of forwarding them anywhere", async () => {
     for (const bad of ["/app/..%2F..%2Fetc/repo", "/app/own%20er/repo", "/app/-lead/repo", "/app/a/re%20po"]) {
       const res = await get(bad);
       expect(res?.status).toBe(404);
@@ -113,34 +95,18 @@ describe("router edges", () => {
     expect(requested.filter((p) => p.includes(".."))).toEqual([]);
   });
 
-  it("strips traversal segments from tree and raw paths", async () => {
-    await get("/app/DomVinyard/evil/life/..%2F..%2Fsecrets");
-    await get("/app/DomVinyard/evil/raw/..%2F..%2F..%2Fetc%2Fpasswd");
+  it("strips traversal segments from cells, preview, and plane-proxy paths", async () => {
+    await get("/app/DomVinyard/evil/cells/..%2F..%2Fsecrets");
+    await get("/app/DomVinyard/evil/preview/..%2F..%2F..%2Fetc%2Fpasswd");
+    await get("/app/DomVinyard/evil/plane/v1/..%2Fadmin");
     expect(requested.filter((p) => p.includes(".."))).toEqual([]);
   });
 
-  it("a GitHub error on ANY route renders the friendly page, never crashes the handler", async () => {
-    // Regression: bare `return handler()` inside viewerFetch's try let the
-    // handler's rejection escape the catch (async return isn't awaited). Every
-    // real route must degrade to an error page, not throw.
-    for (const path of [
-      "/app/DomVinyard/missing",             // sessionsView → getRepo 404
-      "/app/DomVinyard/missing/life",        // treeView
-      "/app/DomVinyard/missing/session/x",   // sessionDetail
-      "/app/DomVinyard/missing/raw/x.md",    // rawView
-    ]) {
-      const res = await get(path);
-      expect(res, path).not.toBeNull();
-      expect([404, 502], path).toContain(res!.status);
-      expect(await res!.text()).not.toContain("boom");
-    }
-  });
-
-  it("unicode branch names survive the URL round-trip", async () => {
-    const res = await get(`/app/DomVinyard/evil/session/${encodeURIComponent("claude/söme-brañch-✨")}`);
-    expect(res?.status).toBe(200);
-    const html = await res!.text();
-    expect(html).toContain("söme-brañch-✨");
+  it("a repo whose .life is missing renders the friendly 404, never crashes the handler", async () => {
+    const res = await get("/app/DomVinyard/missing");
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(404);
+    expect(await res!.text()).not.toContain("boom");
   });
 
   it("detect api caps the batch and drops malformed names", async () => {
@@ -153,28 +119,15 @@ describe("router edges", () => {
 });
 
 describe("rendered-HTML escape discipline (XSS)", () => {
-  it("hostile PR titles, branch names, and .life summaries render inert", async () => {
-    const res = await get("/app/DomVinyard/evil");
+  it("hostile plane data — names, summaries, contract entries, filenames — renders inert", async () => {
+    const res = await get("/app/DomVinyard/evil/cells");
     const html = await res!.text();
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;");           // escaped, still visible
     expect(html).not.toContain("<img src=x onerror");
-    // harness: javascript: scheme must not become a clickable protocol
+    expect(html).not.toContain("<script>pwn</script>");
+    expect(html).not.toContain("<svg onload");
     expect(html).not.toMatch(/href="javascript:/);
-  });
-
-  it("hostile filenames in tree listings and diffs render inert", async () => {
-    const tree = await (await get("/app/DomVinyard/evil/life"))!.text();
-    expect(tree).not.toContain("<script>pwn</script>");
-    const detail = await (await get(`/app/DomVinyard/evil/session/${encodeURIComponent("claude/söme-brañch-✨")}`))!.text();
-    expect(detail).not.toContain('"><img src=x onerror');
-    expect(detail).not.toContain("<script>alert(1)</script>");
-  });
-
-  it("PR body markdown strips javascript: links and raw HTML", async () => {
-    const detail = await (await get(`/app/DomVinyard/evil/session/${encodeURIComponent("claude/söme-brañch-✨")}`))!.text();
-    expect(detail).not.toMatch(/href="javascript:/);
-    expect(detail).not.toContain("<svg onload");
   });
 });
 
@@ -245,35 +198,9 @@ describe(".life parsing edges", () => {
     expect(md.body).toBe("just markdown");
   });
 
-  it("harness values that are not http(s) never become clickable schemes", () => {
+  it("url-shaped head values that are not http(s) never become clickable schemes", () => {
     expect(lifeMeta('name: x\nharness: "javascript:alert(1)"\n---\n').harness).toBe("https://javascript:alert(1)");
-    expect(lifeMeta("name: x\nharness: ftp.example.com\n---\n").harness).toBe("https://ftp.example.com");
-  });
-});
-
-describe("session derivation edges", () => {
-  it("humanize handles degenerate branch names", () => {
-    expect(humanizeBranch("claude/")).toBe("claude/"); // falls back to the raw name
-    expect(humanizeBranch("x")).toBe("x");
-    expect(humanizeBranch("claude/a-b1c2d3")).toBe("a");
-    expect(agentOf("CLAUDE/x")).toBe("claude");
-    expect(agentOf("claude")).toBeNull(); // no slash → not an agent branch
-  });
-
-  it("empty inputs produce empty groups, not crashes", () => {
-    expect(deriveSessions([], [], "main")).toEqual([]);
-    expect(groupSessions([])).toEqual([]);
-  });
-
-  it("rows with missing dates sort last and land in Older", () => {
-    const rows = deriveSessions(
-      [],
-      [{ name: "a", date: null }, { name: "b", date: "2026-07-16T00:00:00Z" }],
-      "main",
-    );
-    expect(rows[0].branch).toBe("b");
-    const groups = groupSessions(rows, new Date("2026-07-17T00:00:00Z"));
-    expect(groups.find((g) => g.label === "Older")!.rows.some((r) => r.branch === "a")).toBe(true);
+    expect(lifeMeta("name: x\ndataplane: ftp.example.com\n---\n").dataplane).toBe("https://ftp.example.com");
   });
 });
 
@@ -291,13 +218,5 @@ describe("scaffold edges", () => {
     const files = scaffoldFiles("my-life", "https://known.life");
     expect(files[0].content).toContain("name: my-life");
     expect(files[0].content).toContain("LIFE_ALIVE");
-  });
-});
-
-describe("relative-link resolution", () => {
-  it("cannot escape the repo root", () => {
-    expect(resolveRel("a/b", "../../../../etc/passwd")).toBe("etc/passwd");
-    expect(resolveRel("", "../..")).toBe("");
-    expect(resolveRel("docs", "./x.md#frag")).toBe("docs/x.md#frag");
   });
 });

@@ -1,8 +1,9 @@
-// The app-parity plane seam (viewer-app-parity node 01): a repo with a
-// configured data plane — and the signed-in login in its owners — renders the
-// justin app's Life tab off the plane instead of the GitHub-derived screens;
-// browser pages reach the plane only through the /plane proxy; the bearer
-// never leaves the server. Fidelity source: knowledge/viewer-app-parity-plan.md.
+// The plane-only contract: every life-scoped screen is served off the life's
+// own data plane, discovered from its root `.life` head (`dataplane:`), with
+// the session's IdP-signed identity token as the bearer — the plane
+// authorizes, the viewer only authenticates. No plane in the manifest → the
+// honest planeless page; no identity token in the session → sign in again.
+// Fidelity source: knowledge/viewer-app-parity-plan.md.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { viewerFetch } from "../../.genome/viewer/src/router";
 import { seal } from "../../.genome/viewer/src/crypto";
@@ -11,30 +12,30 @@ import type { ViewerConfig } from "../../.genome/viewer/src/config";
 const ORIGIN = "https://known.life";
 const SECRET = "0123456789abcdef0123456789abcdef"; // synthetic fixture, not a credential — gitleaks:allow
 const PLANE = "https://plane.example";
-const BEARER = "plane-admin-bearer-test"; // synthetic fixture, not a credential — gitleaks:allow
+const IDTOK = "idtok.viewer.test"; // synthetic fixture, not a credential — gitleaks:allow
 
 const cfg: ViewerConfig = {
   basePath: "/app",
   idpOrigin: ORIGIN,
   idpFetch: async () => new Response("unused", { status: 500 }),
   sessionSecret: SECRET,
-  planes: {
-    "DomVinyard/life": {
-      url: PLANE,
-      bearer: BEARER,
-      owners: ["DomVinyard"],
-      artifactHost: "https://artifact.example",
-    },
-  },
 };
+
+// The manifest is the discovery surface: DomVinyard/life declares a plane (and
+// an artifact host); DomVinyard/bare is a life without one; DomVinyard/plain
+// has no .life at all.
+const LIFE_MANIFEST = `name: life\ndataplane: ${PLANE}\nartifacts: https://artifact.example\n---\nbody`;
+const BARE_MANIFEST = `name: bare\nsummary: a life with no plane yet\n---\nbody`;
 
 const seenAuth: string[] = [];
 const seenWrites: string[] = [];
 
-function planeMock(url: string, init?: RequestInit): Response | null {
+function planeMock(url: string, auth: string): Response | null {
   const u = new URL(url);
   if (u.origin !== PLANE) return null;
-  seenAuth.push(String((init?.headers as Record<string, string>)?.Authorization ?? ""));
+  seenAuth.push(auth);
+  // The plane authorizes: only the minted identity token may read.
+  if (auth !== `Bearer ${IDTOK}`) return Response.json({ type: "about:blank", title: "unauthorized" }, { status: 401 });
   const env = (data: unknown, meta?: unknown) => Response.json({ data, ...(meta ? { meta } : {}) });
   switch (u.pathname) {
     case "/v1/self": return env({ counts: { genesInstalled: 31 } });
@@ -91,21 +92,19 @@ function planeMock(url: string, init?: RequestInit): Response | null {
 function ghMock(url: string): Response | null {
   const u = new URL(url);
   if (u.origin !== "https://api.github.com") return null;
-  if (u.pathname === "/repos/DomVinyard/plain/pulls") return Response.json([]);
-  if (u.pathname === "/repos/DomVinyard/plain/branches") return Response.json([]);
-  if (u.pathname === "/repos/DomVinyard/plain/commits") return Response.json([]);
+  if (u.pathname === "/repos/DomVinyard/life/contents/.life") return new Response(LIFE_MANIFEST);
+  if (u.pathname === "/repos/DomVinyard/bare/contents/.life") return new Response(BARE_MANIFEST);
   if (u.pathname === "/repos/DomVinyard/plain/contents/.life") return new Response("no", { status: 404 });
-  if (u.pathname === "/repos/DomVinyard/plain") {
-    return Response.json({ full_name: "DomVinyard/plain", name: "plain", owner: { login: "DomVinyard" }, default_branch: "main", private: true, description: "", pushed_at: "2026-07-01T00:00:00Z", html_url: "https://github.com/DomVinyard/plain" });
-  }
   return Response.json({}, { status: 200 });
 }
 
 let cookieFor = "";
 
-async function signIn(login: string) {
+async function signIn(login: string, opts: { identity?: string | null } = {}) {
+  const identity = opts.identity === undefined ? IDTOK : opts.identity;
   const sealed = await seal(
-    { v: 1, login, name: login, avatar: "https://a/1", token: "gho_test", iat: Math.floor(Date.now() / 1000) },
+    { v: 1, login, name: login, avatar: "https://a/1", token: "gho_test", iat: Math.floor(Date.now() / 1000),
+      ...(identity ? { identityToken: identity } : {}) },
     SECRET,
   );
   cookieFor = `life_view=${sealed}`;
@@ -121,13 +120,13 @@ beforeEach(async () => {
     const req = input instanceof Request ? input : null;
     const url = String(req ? req.url : input);
     const method = (req?.method ?? init?.method ?? "GET").toUpperCase();
-    const headers = { Authorization: req?.headers.get("authorization") ?? (init?.headers as Record<string, string>)?.Authorization ?? "" };
+    const auth = req?.headers.get("authorization") ?? (init?.headers as Record<string, string>)?.Authorization ?? "";
     if (url.startsWith(PLANE) && method !== "GET") {
       const body = req ? await req.text() : String(init?.body ?? "");
       seenWrites.push(`${method} ${new URL(url).pathname} ${body}`);
       return Response.json({ data: { ok: true } });
     }
-    return planeMock(url, { headers }) ?? ghMock(url) ?? new Response("unexpected " + url, { status: 500 });
+    return planeMock(url, auth) ?? ghMock(url) ?? new Response("unexpected " + url, { status: 500 });
   }));
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -135,8 +134,8 @@ afterEach(() => vi.unstubAllGlobals());
 const call = (path: string, init?: RequestInit) =>
   viewerFetch(new Request(`${ORIGIN}${path}`, { ...init, headers: { Cookie: cookieFor, ...(init?.headers ?? {}) } }), cfg);
 
-describe("viewer plane seam (app parity)", () => {
-  it("a planed repo renders the app Life tab, word-identical, with live counts", async () => {
+describe("viewer plane contract (the one data path)", () => {
+  it("a life with a declared plane renders the app Life tab, word-identical, with live counts", async () => {
     const res = await call("/app/DomVinyard/life");
     expect(res?.status).toBe(200);
     const html = await res!.text();
@@ -151,20 +150,20 @@ describe("viewer plane seam (app parity)", () => {
     expect(html).not.toContain("Your lives"); // not the dashboard
   });
 
-  it("the plane bearer never reaches the page, and every plane call carried it", async () => {
+  it("the identity token is the bearer on every plane call and never reaches the page", async () => {
     const res = await call("/app/DomVinyard/life");
     const html = await res!.text();
-    expect(html).not.toContain(BEARER);
+    expect(html).not.toContain(IDTOK);
     expect(seenAuth.length).toBeGreaterThan(0);
-    for (const a of seenAuth) expect(a).toBe(`Bearer ${BEARER}`);
+    for (const a of seenAuth) expect(a).toBe(`Bearer ${IDTOK}`);
   });
 
-  it("the /plane proxy forwards /v1 reads with the server-held bearer", async () => {
+  it("the /plane proxy forwards /v1 reads with the identity bearer", async () => {
     const res = await call("/app/DomVinyard/life/plane/v1/search?q=site");
     expect(res?.status).toBe(200);
     const env = (await res!.json()) as { data: { results: unknown[] } };
     expect(env.data.results).toHaveLength(2);
-    expect(seenAuth.at(-1)).toBe(`Bearer ${BEARER}`);
+    expect(seenAuth.at(-1)).toBe(`Bearer ${IDTOK}`);
   });
 
   it("the proxy pins paths under /v1", async () => {
@@ -172,12 +171,49 @@ describe("viewer plane seam (app parity)", () => {
     expect(res?.status).toBe(404);
   });
 
-  it("a login outside owners gets no plane: GitHub view, proxy 404", async () => {
-    await signIn("SomeoneElse");
+  it("the plane authorizes: a login it rejects gets the honest denied page, and the proxy passes its 401 through", async () => {
+    await signIn("SomeoneElse", { identity: "someone.elses.token" });
+    const page = await call("/app/DomVinyard/life");
+    expect(page?.status).toBe(403);
+    expect(await page!.text()).toContain("declined your sign-in");
     const proxied = await call("/app/DomVinyard/life/plane/v1/self");
-    expect(proxied?.status).toBe(404);
-    const html = await (await call("/app/DomVinyard/life"))!.text();
+    expect(proxied?.status).toBe(401);
+  });
+
+  it("a pre-identity session is told to sign in again — never a silent fallback", async () => {
+    await signIn("DomVinyard", { identity: null });
+    const res = await call("/app/DomVinyard/life");
+    expect(await res!.text()).toContain("Sign in again to unlock");
+  });
+
+  it("a life without a declared plane gets the honest planeless page", async () => {
+    const res = await call("/app/DomVinyard/bare");
+    expect(res?.status).toBe(200);
+    const html = await res!.text();
+    expect(html).toContain("No data plane");
+    expect(html).toContain("dataplane:");
     expect(html).not.toContain("Search Life");
+  });
+
+  it("a repo with no .life is not a life: 404", async () => {
+    const res = await call("/app/DomVinyard/plain");
+    expect(res?.status).toBe(404);
+  });
+
+  it("a planeTransports override carries the call for its origin — transport, not a data path", async () => {
+    const carried: string[] = [];
+    const tCfg: ViewerConfig = {
+      ...cfg,
+      planeTransports: {
+        [PLANE]: async (req: Request) => {
+          carried.push(new URL(req.url).pathname);
+          return planeMock(req.url, req.headers.get("authorization") ?? "")!;
+        },
+      },
+    };
+    const res = await viewerFetch(new Request(`${ORIGIN}/app/DomVinyard/life/plane/v1/self`, { headers: { Cookie: cookieFor } }), tCfg);
+    expect(res?.status).toBe(200);
+    expect(carried).toEqual(["/v1/self"]);
   });
 
   it("the cells tree renders the .life lead + served-order children off /v1/nodes", async () => {
@@ -208,7 +244,7 @@ describe("viewer plane seam (app parity)", () => {
     for (const s of ["My Chart", "Tools", "1 item", "Move to Folder", "Visibility", "Delete", "New Folder"]) {
       expect(html).toContain(s);
     }
-    expect(html).toContain("artifact.example/" + "a".repeat(32)); // open URL off artifactHost
+    expect(html).toContain("artifact.example/" + "a".repeat(32)); // open URL off the manifest's artifacts: host
   });
 
   it("artifact writes ride the proxy: PATCH pin, :publish, DELETE", async () => {
@@ -249,19 +285,6 @@ describe("viewer plane seam (app parity)", () => {
     expect(html).toContain("data-key=\"model\"");
   });
 
-  it("identity mode: the session's identity token is the bearer; without one, re-login", async () => {
-    const idCfg: ViewerConfig = { ...cfg, planes: { "DomVinyard/life": { url: PLANE, identity: true, owners: ["DomVinyard"] } } };
-    // Pre-identity session → the sign-in nudge, never a silent GitHub view.
-    let res = await viewerFetch(new Request(`${ORIGIN}/app/DomVinyard/life`, { headers: { Cookie: cookieFor } }), idCfg);
-    expect(await res!.text()).toContain("Sign in again to unlock");
-    // Session carrying an identity token → it IS the plane bearer.
-    const sealed = await seal({ v: 1, login: "DomVinyard", name: "D", avatar: "a", token: "t",
-      iat: Math.floor(Date.now() / 1000), identityToken: "id.jwt.token" }, SECRET);
-    res = await viewerFetch(new Request(`${ORIGIN}/app/DomVinyard/life/plane/v1/self`, { headers: { Cookie: `life_view=${sealed}` } }), idCfg);
-    expect(res?.status).toBe(200);
-    expect(seenAuth.at(-1)).toBe("Bearer id.jwt.token");
-  });
-
   it("schedules renders the board rows with state dots and the paused marker", async () => {
     const html = await (await call("/app/DomVinyard/life/schedules"))!.text();
     for (const s of ["Scheduled", "Morning brief", "0 7 * * 1-5", "Old sweep", "(paused)"]) expect(html).toContain(s);
@@ -273,12 +296,5 @@ describe("viewer plane seam (app parity)", () => {
     expect(list).toContain("Workers");
     const detail = await (await call("/app/DomVinyard/life/system/workers/known-life"))!.text();
     for (const s of ["last deployed", "serves on", "known.life/*", "static assets"]) expect(detail).toContain(s);
-  });
-
-  it("a repo without a plane keeps the GitHub-derived sessions view", async () => {
-    const res = await call("/app/DomVinyard/plain");
-    expect(res?.status).toBe(200);
-    const html = await res!.text();
-    expect(html).not.toContain("Search Life");
   });
 });
