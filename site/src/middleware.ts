@@ -48,11 +48,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // UAs often contain "bot" (iMessage is literally "Facebot Twitterbot").
     const previewBot = /\b(whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|telegrambot|discordbot|linkedinbot|pinterestbot|skypeuripreview|snapchat|viber)\b/i.test(ua);
     if ((!wantsHtml || agentUa) && !previewBot) {
-      // 302 (not Astro rewrite): `/llms.txt` is a static asset excluded
-      // from the worker via _routes.json, so an internal rewrite has no
-      // Astro route to land on and 404s. A redirect routes the agent
-      // back through Cloudflare's asset handler, which serves the file.
-      return Response.redirect(new URL("/llms.txt", request.url).toString(), 302);
+      // Serve the runbook BODY (200), not a redirect: an agent curling `/`
+      // without -L gets a bodyless 302 and reads the site as broken (lived
+      // 2026-07-18). `/llms.txt` is a static asset excluded from the worker
+      // via _routes.json — an internal Astro rewrite has no route to land on —
+      // but the ASSETS binding reaches it in-process (site/.life assets:).
+      // ASSETS is always bound in production (site/.life); if it ever isn't,
+      // the throw surfaces as a 500 — visible, not silently divergent.
+      const assets = (env as unknown as { ASSETS: { fetch(u: string): Promise<Response> } }).ASSETS;
+      return assets.fetch(new URL("/llms.txt", request.url).toString());
     }
   }
 
