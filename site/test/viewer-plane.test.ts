@@ -42,7 +42,21 @@ function planeMock(url: string, init?: RequestInit): Response | null {
     case "/v1/infra/kv": return env([{}]);
     case "/v1/infra/r2": return env([{}]);
     case "/v1/infra/d1": return env([{}, {}]);
-    case "/v1/conversations": return env({ active: [{}, {}, {}, {}], days: [], weeks: [] });
+    case "/v1/conversations": return env({
+      active: [{ slug: "s1", title: "Fix the viewer", status: "working", updated: new Date(Date.now()-300000).toISOString(),
+        frontier: { primary: "delivered", topic: "Viewer fixes", topicEmoji: "🛠️", headline: "The menu closes on mobile now" } }],
+      days: [{ key: "2026-07-17", lead: "Shipped the viewer.", rows: [{ slug: "s2", title: "Old one", updated: null }] }],
+      weeks: [{ key: "2026-W28", lead: null, rows: [{ slug: "s3", title: "Older", updated: null }] }] });
+    case "/v1/conversations/s1": return env({ title: "Fix the viewer", messages: [
+      { id: 1, ts: new Date().toISOString(), type: "user_message", text: "How is it looking?" },
+      { id: 2, ts: new Date().toISOString(), type: "response", text: "All green." },
+      { id: 3, ts: new Date().toISOString(), type: "injection", text: "hidden nudge" },
+    ] });
+    case "/v1/settings": return env({ groups: [{ key: "appearance", label: "Appearance", settings: [
+      { key: "model", type: "enum", label: "Model", value: "a", writable: true,
+        options: [{ value: "a", label: "Kimi" }, { value: "b", label: "Llama" }] },
+      { key: "tint", type: "string", label: "Tint", value: "orange" },
+    ] }] });
     case "/v1/search": return env({ query: u.searchParams.get("q"), results: [
       { path: "site", title: "site", type: "cell" },
       { path: "install.sh", type: "file" },
@@ -198,6 +212,28 @@ describe("viewer plane seam (app parity)", () => {
     expect(seenWrites.some((w) => w.startsWith("PATCH /v1/artifacts/") && w.includes("pinned"))).toBe(true);
     expect(seenWrites.some((w) => w.includes(":publish"))).toBe(true);
     expect(seenWrites.some((w) => w.startsWith("DELETE /v1/artifacts/"))).toBe(true);
+  });
+
+  it("conversations renders the served pyramid: Active card, day + week rows", async () => {
+    const html = await (await call("/app/DomVinyard/life/conversations"))!.text();
+    for (const s of ["Conversations", "Active", "This week", "Earlier weeks", "Viewer fixes",
+      "The menu closes on mobile now", "delivered", "No conversations yet".slice(0, 0) || "Earlier weeks"]) {
+      expect(html).toContain(s);
+    }
+    expect(html).toContain("Jul 6"); // weekLabel for 2026-W28 → "Jul 6 – 12"
+  });
+
+  it("a transcript reads user/agent bubbles and drops injections", async () => {
+    const html = await (await call("/app/DomVinyard/life/conversations/s1"))!.text();
+    expect(html).toContain("How is it looking?");
+    expect(html).toContain("All green.");
+    expect(html).not.toContain("hidden nudge");
+  });
+
+  it("settings renders schema-driven groups with a writable enum", async () => {
+    const html = await (await call("/app/DomVinyard/life/settings"))!.text();
+    for (const s of ["Appearance", "Model", "Kimi", "Llama", "Tint", "orange"]) expect(html).toContain(s);
+    expect(html).toContain("data-key=\"model\"");
   });
 
   it("a repo without a plane keeps the GitHub-derived sessions view", async () => {
