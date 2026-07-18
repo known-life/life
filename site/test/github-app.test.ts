@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { generateKeyPairSync, createVerify, sign as nodeSign } from "node:crypto";
-import { makeAppJwt, handleExchangeVerify, handleExchangeDeleteBranch, handleExchangeMergePR, handleAppInstalled, handleAppManifestCallback, handleExchangeEnroll, callerAuthMessage } from "../../.genome/registry/src/registry/routes/github-app";
+import { makeAppJwt } from "../../.genome/registry/src/registry/lib/github-app";
+import { handshakeMessage as callerAuthMessage } from "../../.genome/registry/src/registry/lib/handshake";
+import { handleExchangeVerify, handleAppInstalled } from "../../.genome/registry/src/registry/routes/challenge";
+import { handleExchangeEnroll } from "../../.genome/registry/src/registry/routes/enrolment";
+import { handleExchangeDeleteBranch, handleExchangeMergePR } from "../../.genome/registry/src/registry/routes/git-broker";
+import { handleAppManifestCallback } from "../../.genome/registry/src/registry/routes/github-app";
 
 // The durable-verifier central half. Two hazard-bearing pieces, both credential-
 // free here: (1) the App JWT — if the RS256 signature or the PKCS#1→PKCS#8 wrap
@@ -431,7 +436,7 @@ describe("handleAppInstalled (onboarding gate)", () => {
 // lets an org repo verify at all (orgs serve an empty `.keys`), and makes user
 // repos robust to the owner removing their lifekey from GitHub.
 const APP_SEED = { "ghapp:id": "424242", "ghapp:pem": APP_PKCS1_PEM, "ghapp:slug": "known-life-verifier" };
-describe("verifyCaller — enrolled-key path (org-owned .life support)", () => {
+describe("verifyHandshake — enrolled-key path (org-owned .life support)", () => {
   const NONCE = "deadbeefcafe0123";
   const REF = `life-bootstrap/${NONCE}`;
   const PATH = `.life-exchange/${NONCE}`;
@@ -523,7 +528,7 @@ function loginMock(opts: { keysByLogin?: Record<string, string>; perm?: string; 
   vi.stubGlobal("fetch", fetchMock);
   return { deleted, getPermChecked: () => permChecked };
 }
-describe("verifyCaller — caller-supplied login path (self-serve org-owned .life)", () => {
+describe("verifyHandshake — caller-supplied login path (self-serve org-owned .life)", () => {
   const NONCE = "feedfacecafe0099";
   const REF = `life-bootstrap/${NONCE}`;
   const PATH = `.life-exchange/${NONCE}`;

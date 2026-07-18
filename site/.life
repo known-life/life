@@ -13,7 +13,7 @@ requires:
   - infra.ai
 
 # The registry CORE — the load-bearing capability every .life boots through
-# (resolve · publish · auth · scan · lifecycle · the D1/R2/KV/AI data path) — lives
+# (resolve · publish · handshake auth · scan · lifecycle · the D1/R2/KV/AI data path) — lives
 # ONLY in the pool as the known.life/registry gene (floating latest). It is NOT in
 # this repo in any form: `imports:` materializes it into `.genome/registry/`
 # (gitignored, rehydrated per environment by `life inherit`, the same way any
@@ -100,7 +100,7 @@ cloudflare:
     - nodejs_compat
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
-# (the auth root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
+# (the trust-store/handshake root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
 # /api/auth/prove). Pure WebCrypto/jose/node:sqlite, the one fetch stubbed, no
 # network — a genuinely self-contained ARTIFACT test (the one the unified-CI
 # `life test --changed` rail runs for site/, replacing the hand-kept worker-unit

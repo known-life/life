@@ -1,5 +1,5 @@
 {
- "count": 1951,
+ "count": 1957,
  "versions": [
   {
    "package": "anatomy",
@@ -2966,6 +2966,22 @@
    "version": "1.2.0",
    "content_hash": "e4ed12f75645d7b74fcdee2cebfa9105282a7051b4dc3dec8600b11a39b5b807",
    "published_at": 1784391015249,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "dataplane",
+   "version": "1.2.1",
+   "content_hash": "c422950c4f7b55658c304fabd2269b93946e351fbe7e15f34a85eeced6c408e0",
+   "published_at": 1784392123348,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "dataplane",
+   "version": "1.2.2",
+   "content_hash": "81cf8acb2e0b9f7a0e04eb202e54f6fd93e30161cb7823e2967bf89805ac5441",
+   "published_at": 1784394895744,
    "yanked": false,
    "signer": "DomVinyard"
   },
@@ -10339,6 +10355,14 @@
   },
   {
    "package": "registry",
+   "version": "0.10.0",
+   "content_hash": "79672a1103d9db2973b2ed161de0c762b520279f3af691810bbc351f2c9e7c26",
+   "published_at": 1784394768041,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "registry",
    "version": "0.2.0",
    "content_hash": "3baf0f05426e498bdb4bcebfe9d1986bbc2e6a72bc91b74c9357f709a2766d95",
    "published_at": 1784152699429,
@@ -13603,6 +13627,14 @@
   },
   {
    "package": "setup",
+   "version": "2.37.0",
+   "content_hash": "78445de703a50bd98261ad97ead98236c9ed2350decf8b4979f590eafd781011",
+   "published_at": 1784395028099,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "setup",
    "version": "2.4.0",
    "content_hash": "20d5578e4d950816d5aef91175501c86691c658b26ccdf1e8684264ce8ca6603",
    "published_at": 1780641756746,
@@ -14928,6 +14960,22 @@
    "published_at": 1784351247725,
    "yanked": false,
    "signer": null
+  },
+  {
+   "package": "think",
+   "version": "1.15.86",
+   "content_hash": "c918ab27b2e3cf74e1f60d70d72deff81bab48ed9a857280f71ff7c91fdae550",
+   "published_at": 1784392365403,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "think",
+   "version": "1.15.87",
+   "content_hash": "8948ae4fdd9af4c708c1c556746e3ab1c4b2064072303c45906c27f86b85979d",
+   "published_at": 1784392426167,
+   "yanked": false,
+   "signer": "DomVinyard"
   },
   {
    "package": "think",
