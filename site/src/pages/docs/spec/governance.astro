@@ -1,0 +1,40 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+---
+
+<Docs title="Governance" description="Namespace, removal, and trust policy for the known.life genepool — what the registry can and cannot do, in writing.">
+  <h1>Governance</h1>
+  <p class="lead">What the known.life genepool promises, who can do what, and — just as important — what the registry operator <em>cannot</em> do without it being publicly visible. This page is policy, not code; the mechanisms it leans on are specified in the <a href="/docs/spec/registry-protocol">registry protocol</a>.</p>
+
+  <h2>Identity</h2>
+  <p>An account is a GitHub login, proven by signing with an SSH key that login publishes at <code>github.com/&lt;login&gt;.keys</code>. Whoever controls such a key controls the account's genes — there is no second factor at the registry. Securing your GitHub SSH keys <strong>is</strong> securing your publishing identity.</p>
+
+  <h2>Namespace</h2>
+  <ul>
+    <li><strong>Flat, first-come.</strong> The first publish to a free name claims it. Names are dotted lowercase, 1–5 segments.</li>
+    <li><strong>Renames are supersession, not deletion:</strong> the old name stays resolvable, marked <code>superseded_by</code>, so no pinned consumer ever breaks.</li>
+    <li><strong>Squatting:</strong> a claimed name with no genuine published content may be reclaimed by the operator after a public notice in the transparency history. (This has not yet been exercised; it is recorded here so the rule precedes the first case.)</li>
+    <li><strong>Delegation:</strong> an owner may grant other logins account-level publish authority (maintainers), and revoke it.</li>
+  </ul>
+
+  <h2>Immutability &amp; removal</h2>
+  <ul>
+    <li>A cut version can never be <em>altered</em> — content is hash-pinned in every consumer's lockfile, and signed publishes carry publisher provenance the registry cannot forge.</li>
+    <li>A version another life has installed, or another gene imports, cannot be removed.</li>
+    <li>An owner may hard-remove (<code>unpublish</code>) an <em>unused</em> version of their own gene at any age. This exists for one reason: remediation of an accidentally published secret the blocking scan missed. </li>
+    <li><strong>Nothing is removed silently.</strong> The <a href="https://known.life/api/index">transparency index</a> — every version, hash, and signer — is committed on every sync into the public <a href="https://github.com/known-life/life">known-life/life</a> repository, whose git history this registry cannot rewrite. A removal or a hash change is a visible diff, forever.</li>
+  </ul>
+
+  <h2>Operator scope</h2>
+  <ul>
+    <li>Admin accounts (a database flag) can manage any name and hard-delete a name with all its versions (<code>wipe</code>) — the takedown of last resort for malware, stolen content, or legal demands. Admin actions hit the same transparency record as everything else.</li>
+    <li>The operator's honest failure domain: the registry runs on a single Cloudflare account, and <code>install.sh</code> is served from the same worker. The transparency index doubles as the disaster-recovery seed — <code>name@version + content_hash + signer</code> is enough to re-verify any surviving blob store against a rebuilt registry.</li>
+  </ul>
+
+  <h2>What to trust, and how much</h2>
+  <ul>
+    <li><strong>Bytes:</strong> verify against <code>content_hash</code> (the engine always does) and against the publisher's provenance signature when present (engine ≥3.85.0 refuses a mismatch).</li>
+    <li><strong>Behavior:</strong> the publish-time scan blocks leaked secrets and PII; it is <em>not</em> a malware review. A gene is code your life will run — read what you inherit, prefer widely installed genes, and treat install counts and the <code>verified</code> badge as signals, not guarantees.</li>
+    <li><strong>Takedowns / disputes:</strong> open an issue on <a href="https://github.com/known-life/life">known-life/life</a>; the operator is <a href="https://github.com/DomVinyard">@DomVinyard</a>.</li>
+  </ul>
+</Docs>

@@ -1,0 +1,53 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+---
+
+<Docs title="Registry Protocol" description="The normative wire contract of a Life genepool registry — resolve, publish, auth, provenance, and the transparency index.">
+  <h1>Registry protocol</h1>
+  <p class="lead">The normative wire contract between the Life engine and a genepool registry. The reference implementation is the <a href="/registry">registry</a> gene, which serves this site; an alternate registry that honours this contract is a drop-in (<code>KNOWN_LIFE_URL</code> points the engine and installer at it). Key words <strong>MUST</strong>, <strong>SHOULD</strong>, and <strong>MAY</strong> are used as in RFC&nbsp;2119.</p>
+
+  <h2>Identity and versions</h2>
+  <p>A gene name is dotted lowercase, 1–5 segments (<code>[a-z0-9.-]</code>). A version is strict semver <code>MAJOR.MINOR.PATCH</code>. A cut version is <strong>immutable</strong>: the registry MUST refuse a re-publish of an existing <code>(name, version)</code> pair (<code>409 version_exists</code>). <code>latest</code> is the highest non-yanked semver.</p>
+
+  <h2>Content addressing</h2>
+  <p>A package is a manifest of <code>path → sha256(content)</code> over its files as wire strings. The package's <code>content_hash</code> is <code>sha256</code> of the sorted manifest, each entry joined as <code>path\0sha</code> with <code>\n</code> between entries. Engine and registry MUST compute this identically — it is what the lockfile pins, what conditional resolve ETags carry, and what provenance signatures cover. Non-UTF-8 files travel base64-wrapped behind a self-describing marker (the engine's <code>poolEncode</code>); the registry stores wire strings opaquely.</p>
+
+  <h2>Read surface (public, no auth)</h2>
+  <dl>
+    <dt><code>GET /api/resolve/:name/:version</code></dt>
+    <dd>The install endpoint. Response: <code>&#123; name, version, content_hash, yanked, yanked_reason, verified_state, superseded_by, provenance, requires, provides, inputs, files &#125;</code>. <code>files</code> is the full <code>path → content</code> map. The response MUST carry <code>ETag: "&lt;content_hash&gt;"</code>; a request with a matching <code>If-None-Match</code> MUST be answered <code>304</code> without blob assembly. A consumer MUST verify the received files hash to <code>content_hash</code> before use, and SHOULD verify <code>provenance</code> when present (below).</dd>
+    <dt><code>GET /api/provides/:capability</code></dt>
+    <dd>Reverse lookup: which genes provide an abstract capability (for <code>requires:</code> resolution).</dd>
+    <dt><code>GET /api/owner/:login</code> · <code>GET /explore</code> · <code>GET /search</code></dt>
+    <dd>Ownership listing, the install-ranked catalog, and text/semantic search.</dd>
+    <dt><code>GET /api/index</code></dt>
+    <dd>The <strong>transparency index</strong>: every version ever cut — <code>&#123; package, version, content_hash, published_at, yanked, signer &#125;</code> — in stable order with no timestamp, so identical registry state renders byte-identical. A registry operator SHOULD publish this file into a history it does not control (this deployment commits it to a public git repository on every mirror sync), making silent removal or hash rewriting publicly visible.</dd>
+  </dl>
+
+  <h2>Authentication — the lifekey</h2>
+  <p>Identity is a GitHub login proven by an SSH key GitHub publishes for it. There are no passwords and no registry-side key registration.</p>
+  <ol>
+    <li><code>POST /api/auth/challenge &#123; login &#125;</code> → a single-use nonce (5-minute TTL, one row per challenge so concurrent sign-ins never collide).</li>
+    <li>The client signs the nonce with an ed25519 key (raw ed25519 signature, base64) and MAY offer several signatures.</li>
+    <li><code>POST /api/auth/prove &#123; login, signatures &#125;</code> → the registry fetches <code>github.com/&lt;login&gt;.keys</code> and accepts if any signature verifies against any listed key, issuing a bearer JWT (1-hour TTL, subject <code>github:&lt;login&gt;</code>).</li>
+  </ol>
+
+  <h2>Write surface (Bearer JWT)</h2>
+  <dl>
+    <dt><code>POST /api/publish</code></dt>
+    <dd>Body: <code>&#123; name, version, files, manifest?, expected_latest?, provenance? &#125;</code>. Pipeline, in order: auth → ownership (first publish to a free name auto-claims it) → optional compare-and-swap on <code>expected_latest</code> (<code>409 latest_moved</code> if the pointer advanced) → immutability → a <strong>blocking secret/PII scan</strong> (<code>422 secrets_detected</code>) → advisory fit check → accept. Rate limits: 30/min/IP, 300/day/account.</dd>
+    <dt>Provenance</dt>
+    <dd><code>provenance.sig</code> is the publisher's raw ed25519 signature (base64) over the canonical statement <code>life-provenance-v1\n&lt;name&gt;@&lt;version&gt;\n&lt;content_hash&gt;</code>. The registry MUST verify it against the caller's GitHub keys over the hash it computed itself from the stored bytes — refusing a present-but-wrong signature (<code>422 bad_provenance</code>), accepting absence. It stores <code>&#123; v, login, sig, key &#125;</code> and serves it on resolve. A consumer verifying provenance re-derives the statement from what it requested plus the hash it recomputed, so a registry serving altered bytes cannot also serve a valid signature for them; the signature MUST refuse installs on mismatch, warn-and-accept when keys are unreachable, and pass silently when provenance is absent (the pre-provenance pool).</dd>
+    <dt><code>POST /api/deprecate</code> · <code>POST /api/supersede</code></dt>
+    <dd>Soft lifecycle: mark a version yanked (with a reason served on resolve), or a package renamed/replaced by a successor. Both leave every version resolvable.</dd>
+    <dt><code>POST /api/unpublish</code></dt>
+    <dd>Hard-removal of an owned version. The registry MUST refuse it when any life holds that exact version installed or another gene imports the package. See <a href="/docs/spec/governance">Governance</a> for the policy: removal exists for leaked-secret remediation and is permanently visible in the transparency index history — never a silent rewrite.</dd>
+    <dt><code>GET|POST /api/maintainers</code></dt>
+    <dd>Account-level publish delegation: an owner grants another login the authority to publish every name the owner holds, present and future; revocable.</dd>
+    <dt><code>POST /api/reconcile</code></dt>
+    <dd>Engine self-heal for install counts: a life posts the exact set of pins it still holds; the registry drops stale install rows so rankings reflect adoption, not resolve events.</dd>
+  </dl>
+
+  <h2>Error shape</h2>
+  <p>Every failure is structured JSON — <code>&#123; error, hint?, ... &#125;</code> — so a publishing agent can repair and retry without a human reading prose.</p>
+</Docs>

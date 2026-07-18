@@ -24,14 +24,14 @@ allow:
 commands:
   preview:
     desc: Build and deploy a preview
-    run: bash scripts/preview.sh
+    run: node scripts/preview.js
   publish:
     desc: Merge to main and deploy
-    run: bash scripts/publish.sh
+    run: node scripts/publish.js
     requires_approval: true
 
 tests:
-  - bash scripts/check-links.sh
+  - node scripts/check-links.js
 
 ---
 
@@ -85,14 +85,17 @@ governs this path.</code></pre>
   <pre><code>commands:
   preview:
     desc: Build and deploy a preview
-    run: bash scripts/preview.sh
+    run: node scripts/preview.js
 
   publish:
     desc: Merge to main and deploy
-    run: bash scripts/publish.sh
+    run: node scripts/publish.js
     requires_approval: true</code></pre>
   <p>Run one with <code>life &lt;cell&gt; &lt;command&gt;</code>; <code>life</code> alone lists every command in the library. A command marked <code>requires_approval: true</code> refuses to run without an explicit <code>--approve</code> — this is the entire policy layer, and it lives on the command, not in a separate system.</p>
 
   <h2>Installable by anyone</h2>
   <p>Any cell is independently installable by another .life through its <code>imports:</code> — as a published <code>known.life/&lt;name&gt;</code> gene, pinned in <code>.life.lock</code>. That is all a gene is: a cell, published. If a concept cannot fit this file, it belongs in normal code.</p>
+
+  <h2>Normative reference</h2>
+  <p>This page is the tour. The exhaustive field reference — every key the system reads, its consumer, and its meaning — ships as <code>life-schema.md</code> in the <a href="/life-guide">life-guide</a> gene (every .life inherits it; <code>life ask life-guide</code>), so the reference always matches the engine you actually run. Two rules are load-bearing enough to restate here: a key does nothing until code reads it (unknown keys are ignored by design — <code>life test</code> warns on the known-dead ones), and <code>run:</code> bodies in <code>commands:</code>/<code>hooks:</code> must be <code>node &lt;file&gt;.js</code> to work in every harness. The registry's wire contract and the pool's policy live in the <a href="/docs/spec/registry-protocol">Specification</a> section.</p>
 </Docs>
