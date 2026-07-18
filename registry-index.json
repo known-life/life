@@ -1,5 +1,5 @@
 {
- "count": 1934,
+ "count": 1937,
  "versions": [
   {
    "package": "anatomy",
@@ -2942,6 +2942,14 @@
    "version": "1.1.0",
    "content_hash": "42d261e2ca1ec71a3012aff6d38b9fa7b0f305eb5e90e5ce55ad3dd1bcf92fa1",
    "published_at": 1784357946711,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "dataplane",
+   "version": "1.1.1",
+   "content_hash": "bb1575c3afcd7255fe6444e621935feeebb9568d17863568bd1885de16ddb12c",
+   "published_at": 1784359175774,
    "yanked": false,
    "signer": "DomVinyard"
   },
@@ -10370,6 +10378,14 @@
    "signer": "DomVinyard"
   },
   {
+   "package": "registry",
+   "version": "0.8.2",
+   "content_hash": "9e86b4ea8d0aebe6a016a0909838352cc4335de40784ab88774666a9709097b7",
+   "published_at": 1784386331366,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
    "package": "reply-block",
    "version": "1.0.0",
    "content_hash": "cb30876d560c5370e12f44964da054d5eb8c36b88b3eae2a6f7a439767411289",
@@ -15190,6 +15206,14 @@
    "version": "0.5.0",
    "content_hash": "120607d7222ba7beab42f3e3597a5589861014b6c615bbaf35b30057f9d6aa7b",
    "published_at": 1784357924104,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "viewer",
+   "version": "0.6.0",
+   "content_hash": "e71a0014abcf7cdc7ec9aa7e6b87002dc972696f0e3f73d3db01f6ca14601654",
+   "published_at": 1784386106697,
    "yanked": false,
    "signer": "DomVinyard"
   },

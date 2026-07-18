@@ -38,12 +38,12 @@ function planeMock(url: string, init?: RequestInit): Response | null {
   const env = (data: unknown, meta?: unknown) => Response.json({ data, ...(meta ? { meta } : {}) });
   switch (u.pathname) {
     case "/v1/self": return env({ counts: { genesInstalled: 31 } });
-    case "/v1/infra/workers": return env([{}, {}, {}]);
+    case "/v1/infra/workers": return env([{ name: "known-life" }, { name: "life-vault" }, { name: "life-act" }]);
     case "/v1/infra/kv": return env([{}]);
     case "/v1/infra/r2": return env([{}]);
     case "/v1/infra/d1": return env([{}, {}]);
     case "/v1/conversations": return env({
-      active: [{ slug: "s1", title: "Fix the viewer", status: "working", updated: new Date(Date.now()-300000).toISOString(),
+      active: [{ slug: "s1", title: "Fix the viewer", status: "complete", updated: new Date(Date.now()-300000).toISOString(),
         frontier: { primary: "delivered", topic: "Viewer fixes", topicEmoji: "🛠️", headline: "The menu closes on mobile now" } }],
       days: [{ key: "2026-07-17", lead: "Shipped the viewer.", rows: [{ slug: "s2", title: "Old one", updated: null }] }],
       weeks: [{ key: "2026-W28", lead: null, rows: [{ slug: "s3", title: "Older", updated: null }] }] });
@@ -61,7 +61,11 @@ function planeMock(url: string, init?: RequestInit): Response | null {
       { path: "site", title: "site", type: "cell" },
       { path: "install.sh", type: "file" },
     ] });
-    case "/v1/schedules": return env({ schedules: [{}, {}] });
+    case "/v1/schedules": return env({ schedules: [
+      { id: "s1", name: "Morning brief", cron: "0 7 * * 1-5", mode: "prompt", active: 1, last_run: 1752790000, last_status: "ok", next_run: null },
+      { id: "s2", name: "Old sweep", cron: "0 3 * * *", mode: "prompt", active: 0, last_run: null, last_status: null, next_run: null },
+    ] });
+    case "/v1/infra/workers/known-life": return env({ name: "known-life", modifiedOn: new Date(Date.now()-7200000).toISOString(), routes: ["known.life/*"], hasAssets: true, hasModules: true });
     case "/v1/nodes/": return env({ path: ".", kind: "self", life: {
       name: "life", summary: "The genepool dogfood.", icon: "planet-outline", kind: "self",
       contract: { requires: ["infra.compute"], provides: ["registry"], imports: ["known.life/registry"] },
@@ -216,10 +220,13 @@ describe("viewer plane seam (app parity)", () => {
 
   it("conversations renders the served pyramid: Active card, day + week rows", async () => {
     const html = await (await call("/app/DomVinyard/life/conversations"))!.text();
+    // The RowCard's row distance: emoji · topic · age, then dot · state label —
+    // the headline lives on deeper distances, never the row (Card.tsx).
     for (const s of ["Conversations", "Active", "This week", "Earlier weeks", "Viewer fixes",
-      "The menu closes on mobile now", "delivered", "No conversations yet".slice(0, 0) || "Earlier weeks"]) {
+      "Delivered", "card-dot", "🛠️"]) {
       expect(html).toContain(s);
     }
+    expect(html).not.toContain("The menu closes on mobile now");
     expect(html).toContain("Jul 6"); // weekLabel for 2026-W28 → "Jul 6 – 12"
   });
 
@@ -247,6 +254,19 @@ describe("viewer plane seam (app parity)", () => {
     res = await viewerFetch(new Request(`${ORIGIN}/app/DomVinyard/life/plane/v1/self`, { headers: { Cookie: `life_view=${sealed}` } }), idCfg);
     expect(res?.status).toBe(200);
     expect(seenAuth.at(-1)).toBe("Bearer id.jwt.token");
+  });
+
+  it("schedules renders the board rows with state dots and the paused marker", async () => {
+    const html = await (await call("/app/DomVinyard/life/schedules"))!.text();
+    for (const s of ["Scheduled", "Morning brief", "0 7 * * 1-5", "Old sweep", "(paused)"]) expect(html).toContain(s);
+    expect(html).toContain("#9FE0C4"); // ok dot
+  });
+
+  it("the system browser walks workers list → worker detail off /v1/infra", async () => {
+    const list = await (await call("/app/DomVinyard/life/system/workers"))!.text();
+    expect(list).toContain("Workers");
+    const detail = await (await call("/app/DomVinyard/life/system/workers/known-life"))!.text();
+    for (const s of ["last deployed", "serves on", "known.life/*", "static assets"]) expect(detail).toContain(s);
   });
 
   it("a repo without a plane keeps the GitHub-derived sessions view", async () => {
