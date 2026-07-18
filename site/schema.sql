@@ -86,8 +86,13 @@ CREATE TABLE IF NOT EXISTS versions (
   published_at   INTEGER NOT NULL,
   yanked         INTEGER NOT NULL DEFAULT 0,
   yanked_reason  TEXT,                 -- why it was deprecated; served on resolve
+  provenance_json TEXT,               -- publisher-signed provenance {v,login,sig,key}; null = unsigned
   PRIMARY KEY (package, version)
 );
+
+-- Live-DB migration for the provenance column (fresh DBs get it from the CREATE
+-- above; the deploy's applySchema skips the "duplicate column" error on re-runs).
+ALTER TABLE versions ADD COLUMN provenance_json TEXT;
 
 -- install_lives — the single source of truth for adoption: one row per
 -- distinct (package, version, life). The headline install_count is
