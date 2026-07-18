@@ -3,16 +3,37 @@ import { handleIndex } from "../../.genome/registry/src/registry/routes/transpar
 import { MockD1 } from "./d1-mock";
 
 // The transparency index (productionize/21): the full public record of every
-// cut version — package, version, content_hash, published_at, yanked, signer —
-// deterministic for a given registry state (stable order, no timestamp), so the
-// public mirror's diff gate commits only real registry changes and its git
-// history reads as an append-only log.
+// cut version — package, version, content_hash, published_at, yanked, signer,
+// signing key — plus the ENROLMENT ledger (repo → key/login, the consumer-side
+// provenance anchor since engine 3.90.0) — deterministic for a given registry
+// state (stable order, no timestamp), so the public mirror's diff gate commits
+// only real registry changes and its git history reads as an append-only log.
+
+function makeKV(seed: Record<string, string> = {}) {
+  const store = new Map(Object.entries(seed));
+  return {
+    async get(k: string) { return store.get(k) ?? null; },
+    async put(k: string, v: string) { store.set(k, v); },
+    async delete(k: string) { store.delete(k); },
+    async list({ prefix, cursor }: { prefix: string; cursor?: string; limit?: number }) {
+      const keys = [...store.keys()].filter((k) => k.startsWith(prefix)).sort().map((name) => ({ name }));
+      return { keys, list_complete: true, cursor: undefined };
+    },
+  };
+}
 
 describe("GET /api/index — the transparency index", () => {
   let db: MockD1;
-  const env = () => ({ DB: db }) as any;
+  let kv: ReturnType<typeof makeKV>;
+  const env = () => ({ DB: db, KNOWN_KV: kv }) as any;
   beforeEach(async () => {
     db = new MockD1();
+    kv = makeKV({
+      "lifekey:pub:zeta/r": "ssh-ed25519 ZZZ",
+      "lifekey:login:zeta/r": "Zoe",
+      "lifekey:pub:acme/r": "ssh-ed25519 AAA",
+      // acme/r has no login record — a partial enrolment must still surface.
+    });
     await db.prepare("INSERT INTO accounts (id, email, created_at) VALUES ('acct','a@b.c',1)").bind().run();
     for (const name of ["beta", "alpha"]) {
       await db.prepare("INSERT INTO names (name, owner_account, created_at) VALUES (?,'acct',1)").bind(name).run();
@@ -21,22 +42,30 @@ describe("GET /api/index — the transparency index", () => {
         "VALUES (?,'acct','1.0.0',0,'scanned',1,1)",
       ).bind(name).run();
     }
-    const prov = JSON.stringify({ v: 1, login: "someone", sig: "c2ln", key: "k" });
+    const prov = JSON.stringify({ v: 1, login: "someone", sig: "c2ln", key: "ssh-ed25519 AAA" });
     await db.prepare("INSERT INTO versions (package, version, content_hash, manifest_json, published_at, yanked, provenance_json) VALUES ('beta','1.0.0','h-b1','{}',3,0,?)").bind(prov).run();
     await db.prepare("INSERT INTO versions (package, version, content_hash, manifest_json, published_at, yanked) VALUES ('alpha','1.0.0','h-a1','{}',1,0)").bind().run();
     await db.prepare("INSERT INTO versions (package, version, content_hash, manifest_json, published_at, yanked) VALUES ('alpha','1.1.0','h-a2','{}',2,1)").bind().run();
   });
 
-  it("serves every version with hash, yank state, and signer, in stable order", async () => {
+  it("serves every version with hash, yank state, signer, and signing key, in stable order", async () => {
     const res = await handleIndex(new Request("https://x/api/index"), env());
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.count).toBe(3);
     expect(body.versions.map((v: any) => `${v.package}@${v.version}`))
       .toEqual(["alpha@1.0.0", "alpha@1.1.0", "beta@1.0.0"]);
-    expect(body.versions[0]).toMatchObject({ content_hash: "h-a1", yanked: false, signer: null });
+    expect(body.versions[0]).toMatchObject({ content_hash: "h-a1", yanked: false, signer: null, key: null });
     expect(body.versions[1]).toMatchObject({ yanked: true });
-    expect(body.versions[2]).toMatchObject({ content_hash: "h-b1", signer: "someone" });
+    expect(body.versions[2]).toMatchObject({ content_hash: "h-b1", signer: "someone", key: "ssh-ed25519 AAA" });
+  });
+
+  it("anchors the enrolment ledger — every repo → key/login binding, repo-sorted", async () => {
+    const body = await (await handleIndex(new Request("https://x/api/index"), env())).json() as any;
+    expect(body.enrolments).toEqual([
+      { repo: "acme/r", key: "ssh-ed25519 AAA", login: null },
+      { repo: "zeta/r", key: "ssh-ed25519 ZZZ", login: "Zoe" },
+    ]);
   });
 
   it("is deterministic — two renders of the same state are byte-identical (no timestamp)", async () => {
