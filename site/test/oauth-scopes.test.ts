@@ -11,6 +11,7 @@ import { ALLOWED_SCOPES, isAllowedScope } from "../../.genome/registry/src/regis
 describe("isAllowedScope — what the bridge will put on a consent screen", () => {
   it.each([
     "read:user",
+    "repo,workflow,read:user", // setup ≥2.36.0 — the .keys-free identity set
     "repo,workflow,admin:public_key,read:user",
     "repo,workflow,admin:public_key",
     "repo,admin:public_key,read:user",
