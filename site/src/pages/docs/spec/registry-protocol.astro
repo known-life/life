@@ -27,9 +27,9 @@ import Docs from "../../../layouts/Docs.astro";
   <h2>Authentication — the lifekey</h2>
   <p>Identity is a GitHub login proven by an SSH key GitHub publishes for it. There are no passwords and no registry-side key registration.</p>
   <ol>
-    <li><code>POST /api/auth/challenge &#123; login &#125;</code> → a single-use nonce (5-minute TTL, one row per challenge so concurrent sign-ins never collide).</li>
+    <li><code>POST /api/handshake/nonce &#123; login &#125;</code> → a single-use nonce (5-minute TTL, one row per challenge so concurrent sign-ins never collide).</li>
     <li>The client signs the nonce with an ed25519 key (raw ed25519 signature, base64) and MAY offer several signatures.</li>
-    <li><code>POST /api/auth/prove &#123; login, signatures &#125;</code> → the registry fetches <code>github.com/&lt;login&gt;.keys</code> and accepts if any signature verifies against any listed key, issuing a bearer JWT (1-hour TTL, subject <code>github:&lt;login&gt;</code>).</li>
+    <li><code>POST /api/handshake/prove &#123; login, repo?, signatures &#125;</code> → the registry verifies the signatures against the trust store — the lifekey ENROLLED for <code>repo</code>, admitted when its recorded enrolment login matches <code>login</code> (<code>github.com/.keys</code> left the trust chain at registry@1.0.0) — issuing a bearer JWT (1-hour TTL, subject <code>github:&lt;login&gt;</code>).</li>
   </ol>
 
   <h2>Write surface (Bearer JWT)</h2>

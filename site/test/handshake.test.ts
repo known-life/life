@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { handleAuthChallenge, handleAuthProve } from "../../.genome/registry/src/registry/routes/handshake";
+import { handleHandshakeNonce, handleHandshakeProve } from "../../.genome/registry/src/registry/routes/handshake";
 import { MockD1 } from "./d1-mock";
 import { makeKey, type TestKey } from "./helpers";
 
@@ -34,13 +34,13 @@ function stubGithub() {
 afterEach(() => vi.restoreAllMocks());
 
 const challenge = async (e: any, login: string): Promise<string> => {
-  const res = await handleAuthChallenge(
-    new Request("https://known.life/api/auth/challenge", { method: "POST", body: JSON.stringify({ login }) }), e);
+  const res = await handleHandshakeNonce(
+    new Request("https://known.life/api/handshake/nonce", { method: "POST", body: JSON.stringify({ login }) }), e);
   expect(res.status).toBe(200);
   return ((await res.json()) as { nonce: string }).nonce;
 };
 const prove = (e: any, login: string, signatures: string[], repo?: string) =>
-  handleAuthProve(new Request("https://known.life/api/auth/prove", { method: "POST", body: JSON.stringify({ login, repo, signatures }) }), e);
+  handleHandshakeProve(new Request("https://known.life/api/handshake/prove", { method: "POST", body: JSON.stringify({ login, repo, signatures }) }), e);
 
 describe("lifekey challenge/prove", () => {
   const enrol = async (e: any, repo: string, key: TestKey, login?: string) => {
