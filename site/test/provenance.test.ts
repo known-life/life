@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { verifyGithubIdentity } from "../../.genome/registry/src/registry/lib/lifekey-verify";
+import { rawFromOpenSsh, verifyRaw } from "../../.genome/registry/src/registry/lib/lifekey-verify";
 import { insertVersion, getVersion } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 import { makeKey } from "./helpers";
@@ -17,36 +17,32 @@ const statement = (name: string, version: string, hash: string) =>
   `life-provenance-v1\n${name}@${version}\n${hash}`;
 
 describe("provenance statement — sign/verify contract", () => {
-  it("a signature over the exact statement verifies against the signer's GitHub keys", async () => {
+  it("a signature over the exact statement verifies against the signer's enrolled key", async () => {
     const k = await makeKey();
     const st = statement("demo", "1.0.0", "abc123");
     const sig = await k.sign(st);
-    const fetchStub = (async () => new Response(k.opensshLine)) as any;
-    const v = await verifyGithubIdentity("someone", st, sig, fetchStub);
-    expect(v.ok).toBe(true);
-    expect(v.matchedKey).toBe(k.opensshLine);
+    expect(await verifyRaw(rawFromOpenSsh(k.opensshLine)!, st, sig)).toBe(true);
   });
 
   it("the same signature over a DIFFERENT name@version or hash is refused (no replay)", async () => {
     const k = await makeKey();
     const sig = await k.sign(statement("demo", "1.0.0", "abc123"));
-    const fetchStub = (async () => new Response(k.opensshLine)) as any;
+    const raw = rawFromOpenSsh(k.opensshLine)!;
     for (const st of [
       statement("other", "1.0.0", "abc123"),   // another gene
       statement("demo", "1.0.1", "abc123"),    // another version
       statement("demo", "1.0.0", "tampered"),  // other bytes
     ]) {
-      expect((await verifyGithubIdentity("someone", st, sig, fetchStub)).ok).toBe(false);
+      expect(await verifyRaw(raw, st, sig)).toBe(false);
     }
   });
 
-  it("a signer whose key GitHub does not list is refused", async () => {
+  it("a signature by a key that is not the enrolled one is refused", async () => {
     const k = await makeKey();
     const other = await makeKey();
     const st = statement("demo", "1.0.0", "abc123");
     const sig = await k.sign(st);
-    const fetchStub = (async () => new Response(other.opensshLine)) as any;
-    expect((await verifyGithubIdentity("someone", st, sig, fetchStub)).ok).toBe(false);
+    expect(await verifyRaw(rawFromOpenSsh(other.opensshLine)!, st, sig)).toBe(false);
   });
 });
 

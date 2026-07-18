@@ -1,18 +1,14 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import {
-  rawFromOpenSsh,
-  verifyRaw,
-  verifyGithubIdentity,
-} from "../../.genome/registry/src/registry/lib/lifekey-verify";
+import { describe, it, expect } from "vitest";
+import { rawFromOpenSsh, verifyRaw } from "../../.genome/registry/src/registry/lib/lifekey-verify";
 import { makeKey, b64 } from "./helpers";
 import vector from "./vectors/lifekey.json";
 
-// lifekey-verify is the auth root of trust: it decides whether a signature was
-// made by a key GitHub publishes for a login. A bug here either accepts forged
-// signatures (anyone publishes as anyone) or rejects valid ones (locks everyone
-// out). The live auth.mjs round-trip only exercises the valid-signature happy
-// path against the real vault; the forgery-rejection and malformed-input paths
-// can ONLY be exercised here, in isolation, with adversarial inputs.
+// lifekey-verify is the verification primitive under the trust store: parse an
+// ssh-ed25519 line, verify an Ed25519 signature. A bug here either accepts
+// forged signatures (anyone publishes as anyone) or rejects valid ones (locks
+// everyone out). The .keys identity half (fetchGithubKeys/verifyGithubIdentity)
+// was deleted in the secrets-4 sunset — WHICH keys to trust is the trust
+// store's question (trust-store.test.ts).
 
 describe("rawFromOpenSsh — public-key line parsing", () => {
   it("extracts the 32 raw bytes from a real ssh-ed25519 line", async () => {
@@ -85,61 +81,5 @@ describe("known-answer vector (cross-copy parity anchor)", () => {
   it("rejects the committed tampered signature", async () => {
     const raw = rawFromOpenSsh(vector.openssh_pubkey)!;
     expect(await verifyRaw(raw, vector.nonce, vector.tampered_signature_b64)).toBe(false);
-  });
-});
-
-describe("verifyGithubIdentity — identity assignment over github.com/<login>.keys", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  const stubKeys = (lines: string[]) =>
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(lines.join("\n"), { status: 200 })),
-    );
-
-  it("accepts when one of the published keys signed the nonce", async () => {
-    const k = await makeKey();
-    stubKeys(["ssh-rsa AAAAdecoy noise", k.opensshLine]);
-    const nonce = "nonce";
-    const res = await verifyGithubIdentity("octocat", nonce, await k.sign(nonce));
-    expect(res.ok).toBe(true);
-    expect(res.matchedKey).toBe(k.opensshLine);
-  });
-
-  it("accepts when ANY of several offered signatures matches (key array)", async () => {
-    const real = await makeKey();
-    const other = await makeKey();
-    stubKeys([real.opensshLine]);
-    const nonce = "nonce";
-    const sigs = [await other.sign(nonce), await real.sign(nonce)];
-    expect((await verifyGithubIdentity("octocat", nonce, sigs)).ok).toBe(true);
-  });
-
-  it("rejects when the login publishes NO matching key", async () => {
-    const signer = await makeKey();
-    const unrelated = await makeKey();
-    stubKeys([unrelated.opensshLine]);
-    const nonce = "nonce";
-    expect((await verifyGithubIdentity("octocat", nonce, await signer.sign(nonce))).ok).toBe(false);
-  });
-
-  it("rejects when the login has no keys at all (404 → empty)", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("Not Found", { status: 404 })));
-    const k = await makeKey();
-    expect((await verifyGithubIdentity("ghost", "n", await k.sign("n"))).ok).toBe(false);
-  });
-
-  it("FAILS CLOSED when github.com is unreachable (never accidentally authorizes)", async () => {
-    const k = await makeKey();
-    const sig = await k.sign("n"); // mint before faking timers
-    vi.useFakeTimers();
-    try {
-      vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network down"); }));
-      const p = verifyGithubIdentity("octocat", "n", sig);
-      await vi.runAllTimersAsync(); // skip the retry backoff
-      expect((await p).ok).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
