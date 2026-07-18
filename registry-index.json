@@ -1,5 +1,5 @@
 {
- "count": 1968,
+ "count": 1974,
  "versions": [
   {
    "package": "anatomy",
@@ -2438,6 +2438,30 @@
    "version": "1.38.0",
    "content_hash": "97b39997be92cc12b345750d36e190bb091a1439fc27aef4ffeddbe31de34a60",
    "published_at": 1784398570450,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "cloudflare",
+   "version": "1.38.1",
+   "content_hash": "f94a21edb6fd8041841e7e0bcc91a2b39736ae82599d80cee39b1fc35c86e372",
+   "published_at": 1784399285107,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "cloudflare",
+   "version": "1.39.0",
+   "content_hash": "97b39997be92cc12b345750d36e190bb091a1439fc27aef4ffeddbe31de34a60",
+   "published_at": 1784399497942,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "cloudflare",
+   "version": "1.39.1",
+   "content_hash": "692bcecc9808a02f92cbc2908bf0c9f64523ece17d0b8e5c624c9b6cf88ee089",
+   "published_at": 1784402064211,
    "yanked": false,
    "signer": "DomVinyard"
   },
@@ -12282,6 +12306,22 @@
    "signer": "DomVinyard"
   },
   {
+   "package": "secrets",
+   "version": "4.1.0",
+   "content_hash": "0ebb9c8ebd31048c19a5ff17c99876e50fc39cdfb4d31bdf770b72278eff3784",
+   "published_at": 1784402050955,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "secrets",
+   "version": "4.2.0",
+   "content_hash": "fc3e8163e836233a7406d7689cafd06e85ee475ddff79439e140214561c1bba5",
+   "published_at": 1784409747511,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
    "package": "self-kill-guard",
    "version": "1.0.0",
    "content_hash": "7471631ace1f878a21c63995b0d8ad07f222445feb29d84be9a4d31f38cdd880",
@@ -15462,6 +15502,14 @@
    "version": "0.8.0",
    "content_hash": "287aa4fae084a2838ad80feb21c71102ff811a3c0a68ff9f4aeac870854ea0fa",
    "published_at": 1784398832355,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "viewer",
+   "version": "0.9.0",
+   "content_hash": "8ae127c0b00573b9a2d702b9f7e9352f670ba188b81ef066b6410369ca33fed0",
+   "published_at": 1784409938566,
    "yanked": false,
    "signer": "DomVinyard"
   },
