@@ -25,15 +25,11 @@ describe("viewer markdown", () => {
     expect(html).not.toContain("data:text/html");
   });
 
-  it("resolves relative links and images through the caller", () => {
-    const html = renderMarkdown("[kb](knowledge/foo.md) ![img](../pic.png)", {
-      resolveLink: (h) => `/app/o/r/life/${h}`,
-      resolveImage: (s) => `/app/o/r/raw/${s}`,
-    });
-    expect(html).toContain('href="/app/o/r/life/knowledge/foo.md"');
-    expect(html).toContain('src="/app/o/r/raw/../pic.png"');
-    // absolute stays untouched
-    const abs = renderMarkdown("[x](https://a.b)", { resolveLink: () => "NOPE" });
+  it("passes relative links and images through untouched (no resolver seam)", () => {
+    const html = renderMarkdown("[kb](knowledge/foo.md) ![img](../pic.png)");
+    expect(html).toContain('href="knowledge/foo.md"');
+    expect(html).toContain('src="../pic.png"');
+    const abs = renderMarkdown("[x](https://a.b)");
     expect(abs).toContain('href="https://a.b"');
   });
 

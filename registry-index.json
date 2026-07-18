@@ -1,5 +1,5 @@
 {
- "count": 1949,
+ "count": 1951,
  "versions": [
   {
    "package": "anatomy",
@@ -2958,6 +2958,14 @@
    "version": "1.1.1",
    "content_hash": "bb1575c3afcd7255fe6444e621935feeebb9568d17863568bd1885de16ddb12c",
    "published_at": 1784359175774,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "dataplane",
+   "version": "1.2.0",
+   "content_hash": "e4ed12f75645d7b74fcdee2cebfa9105282a7051b4dc3dec8600b11a39b5b807",
+   "published_at": 1784391015249,
    "yanked": false,
    "signer": "DomVinyard"
   },
@@ -15310,6 +15318,14 @@
    "version": "0.7.0",
    "content_hash": "b8fa1d07840e519aca5a2fdb8bf061b5a33dec06051edb3d406a24b8fa185f1d",
    "published_at": 1784388265156,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "viewer",
+   "version": "0.7.1",
+   "content_hash": "25910efb81e8434235175a3385d6bea04bbaf3f57832d1a5f76dfd458b5e6a62",
+   "published_at": 1784391183472,
    "yanked": false,
    "signer": "DomVinyard"
   },

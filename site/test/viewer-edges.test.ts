@@ -199,7 +199,7 @@ describe(".life parsing edges", () => {
   });
 
   it("url-shaped head values that are not http(s) never become clickable schemes", () => {
-    expect(lifeMeta('name: x\nharness: "javascript:alert(1)"\n---\n').harness).toBe("https://javascript:alert(1)");
+    expect(lifeMeta('name: x\ndataplane: "javascript:alert(1)"\n---\n').dataplane).toBe("https://javascript:alert(1)");
     expect(lifeMeta("name: x\ndataplane: ftp.example.com\n---\n").dataplane).toBe("https://ftp.example.com");
   });
 });

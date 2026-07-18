@@ -35,11 +35,11 @@ describe(".life parsing", () => {
   });
 
   it("extracts meta, normalizing bare url-shaped hosts to https", () => {
-    expect(lifeMeta(SAMPLE)).toEqual({ name: "act", summary: "Life's own agent runtime", harness: null, dataplane: null, artifacts: null });
-    const withHarness = lifeMeta("name: justin\nharness: harness.justin.vin\n---\nbody");
-    expect(withHarness.harness).toBe("https://harness.justin.vin");
-    const already = lifeMeta("name: j\nharness: https://h.example\n---\n");
-    expect(already.harness).toBe("https://h.example");
+    expect(lifeMeta(SAMPLE)).toEqual({ name: "act", summary: "Life's own agent runtime", dataplane: null, artifacts: null });
+    const bare = lifeMeta("name: justin\ndataplane: data.justin.vin\n---\nbody");
+    expect(bare.dataplane).toBe("https://data.justin.vin");
+    const already = lifeMeta("name: j\ndataplane: https://d.example\n---\n");
+    expect(already.dataplane).toBe("https://d.example");
   });
 
   it("discovers the plane and artifact host from the head (the one data path)", () => {
