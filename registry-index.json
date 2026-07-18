@@ -1,5 +1,5 @@
 {
- "count": 1974,
+ "count": 1980,
  "versions": [
   {
    "package": "anatomy",
@@ -48,6 +48,14 @@
    "published_at": 1783065620174,
    "yanked": false,
    "signer": null
+  },
+  {
+   "package": "artifact",
+   "version": "1.10.0",
+   "content_hash": "52d3e1c77c0fc577c7bb838ce2ccf973027d5b5190fd27bdda5a3097c8dbd33a",
+   "published_at": 1784412307278,
+   "yanked": false,
+   "signer": "DomVinyard"
   },
   {
    "package": "artifact",
@@ -2514,6 +2522,22 @@
    "signer": null
   },
   {
+   "package": "codemod",
+   "version": "1.0.0",
+   "content_hash": "dd8c5b5eceae7c217c6b37c9bf82ba6e8231f095170fe3c58eb02d31c5ed0eaf",
+   "published_at": 1784412686755,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "codemod",
+   "version": "1.0.1",
+   "content_hash": "dd8c5b5eceae7c217c6b37c9bf82ba6e8231f095170fe3c58eb02d31c5ed0eaf",
+   "published_at": 1784412701414,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
    "package": "codex",
    "version": "1.0.0",
    "content_hash": "1ac53993329c854a6e1718eff6d35966dd9a4f788dc2d299652e8f5a856f50d2",
@@ -3030,6 +3054,22 @@
    "version": "1.3.0",
    "content_hash": "e452a2544065b761c0aaa71ab61538ab90514498ba5084b92952e8e4278df11a",
    "published_at": 1784396524433,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "dataplane",
+   "version": "1.3.1",
+   "content_hash": "e7f4d40d4c10be0f4380ef1879f60252e333c2e8a5668a07a6bdc6eda232fda2",
+   "published_at": 1784411763634,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "dataplane",
+   "version": "1.4.0",
+   "content_hash": "82cb7854ed530beb0d2c41ac3bf2a91c17b5de122fb8c0104bef38da104f8920",
+   "published_at": 1784412489580,
    "yanked": false,
    "signer": "DomVinyard"
   },
@@ -15432,6 +15472,14 @@
    "published_at": 1784350331676,
    "yanked": false,
    "signer": null
+  },
+  {
+   "package": "viewer",
+   "version": "0.10.0",
+   "content_hash": "7d246280a3731675238335a1f0abe735491fd9a81f0a74af24e60892d7b16cb0",
+   "published_at": 1784412626758,
+   "yanked": false,
+   "signer": "DomVinyard"
   },
   {
    "package": "viewer",

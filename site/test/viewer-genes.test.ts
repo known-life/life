@@ -155,3 +155,22 @@ describe("commit view (plane-served)", () => {
     expect(await res!.text()).toContain("Commit not found");
   });
 });
+
+describe("raw file previews (the binary door, dataplane 1.4.0)", () => {
+  it("an image preview renders <img> off the /plane proxy's ?raw URL — no JSON content read", async () => {
+    const res = await call("/app/DomVinyard/life/preview/site/public/grid.png");
+    expect(res?.status).toBe(200);
+    const html = await res!.text();
+    expect(html).toContain(`plane/v1/files/site/public/grid.png?raw`);
+    expect(html).toContain("<img");
+  });
+
+  it("a non-image binary renders the download link, not a mangled pre", async () => {
+    const res = await call("/app/DomVinyard/life/preview/docs/spec.pdf");
+    expect(res?.status).toBe(200);
+    const html = await res!.text();
+    expect(html).toContain("Download spec.pdf");
+    expect(html).toContain(`plane/v1/files/docs/spec.pdf?raw`);
+    expect(html).not.toContain("<pre>");
+  });
+});
