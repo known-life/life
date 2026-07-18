@@ -1,5 +1,5 @@
 {
- "count": 1933,
+ "count": 1934,
  "versions": [
   {
    "package": "anatomy",
@@ -10358,6 +10358,14 @@
    "version": "0.8.0",
    "content_hash": "f822d0a52882c4e0d768cbfa8a22025c969ba23906cc5e9132d34b7d44612a1b",
    "published_at": 1784357993051,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "registry",
+   "version": "0.8.1",
+   "content_hash": "9f7987f718e9d0393db891f451ff1d333ddd41c7c5515e373e32860622574010",
+   "published_at": 1784358893303,
    "yanked": false,
    "signer": "DomVinyard"
   },

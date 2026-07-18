@@ -1,9 +1,14 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
+import { generateKeyPairSync } from "node:crypto";
+import { jwtVerify, importJWK } from "jose";
 import {
   issueRegistryToken,
   verifyToken,
   issueSsoSession,
   verifySsoSession,
+  issueIdentityToken,
+  identityJwks,
+  IDENTITY_AUD,
   SSO_COOKIE,
   SSO_COOKIE_TTL_S,
 } from "../../.genome/registry/src/registry/lib/jwt";
@@ -110,5 +115,46 @@ describe("cross-kind replay is impossible (the two token kinds never substitute)
     const e = env();
     const bearer = await issueRegistryToken(SUB, e);
     expect(await verifySsoSession(bearer, e)).toBeNull();
+  });
+});
+
+describe("identity tokens — the IdP's asymmetric anchor (registry@0.8.0)", () => {
+  // The Ed25519 IDENTITY_PRIVATE_KEY signs long-lived identity tokens any data
+  // plane verifies via GET /jwks — no shared secret. These pin the contract:
+  // token verifies against the served JWKS (right issuer/audience/subject), the
+  // JWKS never leaks the private scalar, and an unset/malformed key disables
+  // the feature entirely (null token, empty JWKS) rather than half-working.
+  const pem = generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+
+  it("mints an EdDSA identity token the served JWKS verifies", async () => {
+    const e = env({ IDENTITY_PRIVATE_KEY: pem });
+    const tok = await issueIdentityToken(SUB, e);
+    expect(tok).toBeTruthy();
+    const jwks = await identityJwks(e);
+    expect(jwks.keys).toHaveLength(1);
+    const key = await importJWK(jwks.keys[0] as any, "EdDSA");
+    const { payload, protectedHeader } = await jwtVerify(tok!, key, {
+      issuer: "https://known.life",
+      audience: IDENTITY_AUD,
+    });
+    expect(payload.sub).toBe(SUB);
+    expect(protectedHeader.alg).toBe("EdDSA");
+  });
+
+  it("the served JWKS never contains the private scalar", async () => {
+    const jwks = await identityJwks(env({ IDENTITY_PRIVATE_KEY: pem }));
+    expect((jwks.keys[0] as Record<string, unknown>).d).toBeUndefined();
+  });
+
+  it("unset key disables the feature: null token, empty JWKS", async () => {
+    const e = env();
+    expect(await issueIdentityToken(SUB, e)).toBeNull();
+    expect((await identityJwks(e)).keys).toHaveLength(0);
+  });
+
+  it("a malformed key disables the feature, never half-signs", async () => {
+    const e = env({ IDENTITY_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----" });
+    expect(await issueIdentityToken(SUB, e)).toBeNull();
+    expect((await identityJwks(e)).keys).toHaveLength(0);
   });
 });

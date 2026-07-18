@@ -39,8 +39,8 @@ const challenge = async (e: any, login: string): Promise<string> => {
   expect(res.status).toBe(200);
   return ((await res.json()) as { nonce: string }).nonce;
 };
-const prove = (e: any, login: string, signatures: string[]) =>
-  handleAuthProve(new Request("https://known.life/api/auth/prove", { method: "POST", body: JSON.stringify({ login, signatures }) }), e);
+const prove = (e: any, login: string, signatures: string[], repo?: string) =>
+  handleAuthProve(new Request("https://known.life/api/auth/prove", { method: "POST", body: JSON.stringify({ login, repo, signatures }) }), e);
 
 describe("lifekey challenge/prove", () => {
   it("concurrent sign-ins for the same login BOTH succeed (the nonce-race fix)", async () => {
@@ -99,6 +99,67 @@ describe("lifekey challenge/prove", () => {
     serveKeys(key.opensshLine);
     const res = await prove(e, "octocat", [await key.sign("knl-never-issued")]);
     expect(res.status).toBe(400);
+  });
+
+  // ── the repo-enrolled lifekey path (web-only / org-owned .lifes) ──
+  // These sign with a key that is NOT on github.com/<login>.keys (serveKeys()
+  // serves none) — the exact shape of an org-owned or web-only .life, whose key
+  // can never reach .keys. Only the enrolled key + recorded login authenticate.
+
+  const enrol = async (e: any, repo: string, key: TestKey, login?: string) => {
+    await e.KNOWN_KV.put(`lifekey:pub:${repo}`, key.opensshLine);
+    if (login) await e.KNOWN_KV.put(`lifekey:login:${repo}`, login);
+  };
+
+  it("web-only/org: the repo-enrolled key proves identity with EMPTY .keys (200 + token)", async () => {
+    const e = env();
+    const key = await makeKey();
+    serveKeys(); // nothing published — orgs have no .keys; web sessions can't write them
+    await enrol(e, "attn-st6/studio", key, "octocat");
+    const nonce = await challenge(e, "octocat");
+    const res = await prove(e, "octocat", [await key.sign(nonce)], "attn-st6/studio");
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { token: string }).token).toBeTruthy();
+  });
+
+  it("an enrolled key WITHOUT a recorded login cannot mint (403 — the identity binding is required)", async () => {
+    const e = env();
+    const key = await makeKey();
+    serveKeys();
+    await enrol(e, "attn-st6/studio", key); // pre-change enrolment: pubkey only
+    const nonce = await challenge(e, "octocat");
+    const res = await prove(e, "octocat", [await key.sign(nonce)], "attn-st6/studio");
+    expect(res.status).toBe(403);
+  });
+
+  it("an enrolled key cannot mint a DIFFERENT login than the one that enrolled it (403)", async () => {
+    const e = env();
+    const key = await makeKey();
+    serveKeys();
+    await enrol(e, "attn-st6/studio", key, "octocat");
+    const nonce = await challenge(e, "mallory");
+    const res = await prove(e, "mallory", [await key.sign(nonce)], "attn-st6/studio");
+    expect(res.status).toBe(403);
+  });
+
+  it("a signature NOT by the enrolled key is rejected on the enrolled path (403)", async () => {
+    const e = env();
+    const enrolled = await makeKey();
+    const attacker = await makeKey();
+    serveKeys();
+    await enrol(e, "attn-st6/studio", enrolled, "octocat");
+    const nonce = await challenge(e, "octocat");
+    const res = await prove(e, "octocat", [await attacker.sign(nonce)], "attn-st6/studio");
+    expect(res.status).toBe(403);
+  });
+
+  it("passing a repo with no enrolment still authenticates via .keys (the additive guarantee)", async () => {
+    const e = env();
+    const key = await makeKey();
+    serveKeys(key.opensshLine);
+    const nonce = await challenge(e, "octocat");
+    const res = await prove(e, "octocat", [await key.sign(nonce)], "DomVinyard/life");
+    expect(res.status).toBe(200);
   });
 
   it("expired nonces are swept and don't authenticate", async () => {

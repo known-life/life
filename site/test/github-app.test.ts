@@ -459,6 +459,7 @@ describe("verifyCaller — enrolled-key path (org-owned .life support)", () => {
     const r = await handleExchangeVerify(vpost("o/r"), { KNOWN_KV: kv, PUBLIC_URL: "https://known.life" } as any);
     expect(await r.json()).toMatchObject({ ok: true });
     expect((await kv.get("lifekey:pub:o/r"))?.trim()).toBe(OWNER_OPENSSH); // pinned for next boot
+    expect(await kv.get("lifekey:login:o/r")).toBe("o"); // the proven owner is the recorded identity
   });
 
   it("re-enrols on a lifekey rotation: a stale stored key fails, falls back to .keys, then is overwritten", async () => {
@@ -632,6 +633,9 @@ describe("handleExchangeEnroll", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toMatchObject({ ok: true, repo: "known-life/foo", login: "octocat" });
     expect((await env.KNOWN_KV.get("lifekey:pub:known-life/foo"))?.trim()).toBe(OWNER_OPENSSH);
+    // The enrolling login is recorded beside the key: it is the ONLY identity
+    // /api/auth/prove will mint from this repo's enrolled lifekey.
+    expect(await env.KNOWN_KV.get("lifekey:login:known-life/foo")).toBe("octocat");
   });
 
   it("401 when no Authorization header is present", async () => {
