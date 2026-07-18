@@ -9,10 +9,11 @@ import { makeKey, type TestKey } from "./helpers";
 
 // The trust store is the ONE answer to "which public keys may speak for this
 // principal?" — consumed by the handshake (prove + /exchange caller-auth) and
-// the provenance check. These tests pin its admission rules and the regression
-// the extraction exists to prevent: a provenance-style statement verifying via
-// the ENROLLED key with an empty github.com/.keys (the studio bad_provenance
-// bug — the pre-trust-store verifier read only .keys).
+// the provenance check. Its ONE source is the enrolment record (github.com/.keys
+// left the trust chain in the secrets-4 sunset). These tests pin the admission
+// rules and the regression the extraction exists to prevent: a provenance-style
+// statement verifying via the ENROLLED key with nothing on github (the studio
+// bad_provenance bug — the pre-trust-store verifier read only .keys).
 
 function makeKV(seed: Record<string, string> = {}) {
   const store = new Map(Object.entries(seed));
@@ -58,11 +59,6 @@ describe("trustedKeysFor — admission rules", () => {
     expect(keys.map((x) => x.source)).toEqual(["enrolled"]);
   });
 
-  it("login-only resolves github.com/<login>.keys — the legacy source", async () => {
-    ownerKeys = k.opensshLine;
-    const keys = await trustedKeysFor(env(makeKV()), { login: "alice" });
-    expect(keys.map((x) => x.source)).toEqual(["github-keys"]);
-  });
 });
 
 describe("verifyAgainstTrustStore — the provenance regression pin", () => {
@@ -76,11 +72,9 @@ describe("verifyAgainstTrustStore — the provenance regression pin", () => {
     expect(res).toMatchObject({ ok: true, source: "enrolled" });
   });
 
-  it("refuses when neither source holds a verifying key", async () => {
+  it("refuses when no enrolment exists for the principal (.keys is no longer a source)", async () => {
     const k = await makeKey();
-    const other = await makeKey();
-    ownerKeys = other.opensshLine;
-    const res = await verifyAgainstTrustStore(env(makeKV()), { login: "someone" }, "msg", await k.sign("msg"));
+    const res = await verifyAgainstTrustStore(env(makeKV()), { login: "someone", repo: "someone/repo" }, "msg", await k.sign("msg"));
     expect(res.ok).toBe(false);
   });
 });
@@ -89,12 +83,12 @@ describe("logAuthDecision — the .keys sunset's read-zero counters", () => {
   it("an accept bumps the per-(source, surface) counter; a refusal does not", async () => {
     const kv = makeKV();
     const e = env(kv);
-    await logAuthDecision(e, { surface: "prove", outcome: "ok", source: "github-keys", login: "a" });
-    await logAuthDecision(e, { surface: "prove", outcome: "ok", source: "github-keys", login: "a" });
+    await logAuthDecision(e, { surface: "prove", outcome: "ok", source: "enrolled", login: "a" });
+    await logAuthDecision(e, { surface: "prove", outcome: "ok", source: "enrolled", login: "a" });
     await logAuthDecision(e, { surface: "prove", outcome: "refused", login: "a", reason: "x" });
-    const row = JSON.parse((await kv.get(K_AUTHPATH("github-keys", "prove")))!);
+    const row = JSON.parse((await kv.get(K_AUTHPATH("enrolled", "prove")))!);
     expect(row.count).toBe(2);
     expect(typeof row.last).toBe("string");
-    expect(await kv.get(K_AUTHPATH("enrolled", "prove"))).toBeNull();
+    expect(await kv.get(K_AUTHPATH("enrolled", "exchange"))).toBeNull();
   });
 });

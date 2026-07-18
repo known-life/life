@@ -21,12 +21,12 @@ const SIGNING = "test-signing-key-deterministic-0123456789abcdef";
 const env = (over: Record<string, unknown> = {}) =>
   ({ JWT_SIGNING_KEY: SIGNING, KNOWN_KV: new MockKV(), DB: new MockD1(), ...over }) as any;
 
-// Stub github.com/<login>.keys (and the api.github.com/users id lookup) so the
-// only key that verifies is the one we hand it.
-function serveKeys(...lines: string[]) {
+// Stub outbound fetch: the api.github.com/users id lookup that runs after a
+// successful prove. github.com/.keys left the trust chain (secrets-4 tranche D)
+// — nothing here serves keys; identity comes only from the enrolment records.
+function stubGithub() {
   globalThis.fetch = vi.fn(async (input: any) => {
     const url = String(input);
-    if (url.includes("github.com") && url.endsWith(".keys")) return new Response(lines.join("\n"), { status: 200 });
     if (url.includes("api.github.com/users/")) return new Response(JSON.stringify({ id: 42, avatar_url: "a" }), { status: 200 });
     return new Response("not found", { status: 404 });
   }) as any;
@@ -43,17 +43,24 @@ const prove = (e: any, login: string, signatures: string[], repo?: string) =>
   handleAuthProve(new Request("https://known.life/api/auth/prove", { method: "POST", body: JSON.stringify({ login, repo, signatures }) }), e);
 
 describe("lifekey challenge/prove", () => {
+  const enrol = async (e: any, repo: string, key: TestKey, login?: string) => {
+    await e.KNOWN_KV.put(`lifekey:pub:${repo}`, key.opensshLine);
+    if (login) await e.KNOWN_KV.put(`lifekey:login:${repo}`, login);
+  };
+  const REPO = "octocat/dotfiles";
+
   it("concurrent sign-ins for the same login BOTH succeed (the nonce-race fix)", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys(key.opensshLine);
+    stubGithub();
+    await enrol(e, REPO, key, "octocat");
     // Two overlapping challenges (the deploy's parallel mint jobs) — two D1 rows,
     // no clobber. Each prove signs its own nonce; both must succeed.
     const nonceA = await challenge(e, "octocat");
     const nonceB = await challenge(e, "octocat");
     expect(nonceA).not.toBe(nonceB);
-    const resA = await prove(e, "octocat", [await key.sign(nonceA)]);
-    const resB = await prove(e, "octocat", [await key.sign(nonceB)]);
+    const resA = await prove(e, "octocat", [await key.sign(nonceA)], REPO);
+    const resB = await prove(e, "octocat", [await key.sign(nonceB)], REPO);
     expect(resA.status).toBe(200);
     expect(resB.status).toBe(200);
     expect(((await resA.json()) as { token: string }).token).toBeTruthy();
@@ -62,9 +69,10 @@ describe("lifekey challenge/prove", () => {
   it("a valid signature over the nonce proves identity (200 + token)", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys(key.opensshLine);
+    stubGithub();
+    await enrol(e, REPO, key, "octocat");
     const nonce = await challenge(e, "octocat");
-    const res = await prove(e, "octocat", [await key.sign(nonce)]);
+    const res = await prove(e, "octocat", [await key.sign(nonce)], REPO);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { github_login: string; token: string };
     expect(body.github_login).toBe("octocat");
@@ -74,21 +82,22 @@ describe("lifekey challenge/prove", () => {
   it("a consumed nonce can't be replayed (single-use)", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys(key.opensshLine);
+    stubGithub();
+    await enrol(e, REPO, key, "octocat");
     const nonce = await challenge(e, "octocat");
     const sig = await key.sign(nonce);
-    expect((await prove(e, "octocat", [sig])).status).toBe(200);
-    const replay = await prove(e, "octocat", [sig]);
+    expect((await prove(e, "octocat", [sig], REPO)).status).toBe(200);
+    const replay = await prove(e, "octocat", [sig], REPO);
     expect(replay.status).toBe(400); // no rows left → no_pending_challenge
   });
 
-  it("a signature from a key NOT on github.com/<login>.keys is rejected (403)", async () => {
+  it("a login-only prove (no repo) can never authenticate — .keys left the trust chain (403)", async () => {
     const e = env();
-    const onKeys = await makeKey();
-    const attacker = await makeKey();
-    serveKeys(onKeys.opensshLine); // attacker's key is not served
+    const key = await makeKey();
+    stubGithub();
+    await enrol(e, REPO, key, "octocat"); // enrolled, but the request names no repo
     const nonce = await challenge(e, "octocat");
-    const res = await prove(e, "octocat", [await attacker.sign(nonce)]);
+    const res = await prove(e, "octocat", [await key.sign(nonce)]);
     expect(res.status).toBe(403);
     expect(((await res.json()) as { error: string }).error).toBe("signature_invalid");
   });
@@ -96,25 +105,17 @@ describe("lifekey challenge/prove", () => {
   it("prove with no outstanding challenge → 400", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys(key.opensshLine);
-    const res = await prove(e, "octocat", [await key.sign("knl-never-issued")]);
+    stubGithub();
+    await enrol(e, REPO, key, "octocat");
+    const res = await prove(e, "octocat", [await key.sign("knl-never-issued")], REPO);
     expect(res.status).toBe(400);
   });
 
-  // ── the repo-enrolled lifekey path (web-only / org-owned .lifes) ──
-  // These sign with a key that is NOT on github.com/<login>.keys (serveKeys()
-  // serves none) — the exact shape of an org-owned or web-only .life, whose key
-  // can never reach .keys. Only the enrolled key + recorded login authenticate.
-
-  const enrol = async (e: any, repo: string, key: TestKey, login?: string) => {
-    await e.KNOWN_KV.put(`lifekey:pub:${repo}`, key.opensshLine);
-    if (login) await e.KNOWN_KV.put(`lifekey:login:${repo}`, login);
-  };
-
+  // ── the enrolment binding rules ──
   it("web-only/org: the repo-enrolled key proves identity with EMPTY .keys (200 + token)", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys(); // nothing published — orgs have no .keys; web sessions can't write them
+    stubGithub();
     await enrol(e, "attn-st6/studio", key, "octocat");
     const nonce = await challenge(e, "octocat");
     const res = await prove(e, "octocat", [await key.sign(nonce)], "attn-st6/studio");
@@ -125,7 +126,7 @@ describe("lifekey challenge/prove", () => {
   it("an enrolled key WITHOUT a recorded login cannot mint (403 — the identity binding is required)", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys();
+    stubGithub();
     await enrol(e, "attn-st6/studio", key); // pre-change enrolment: pubkey only
     const nonce = await challenge(e, "octocat");
     const res = await prove(e, "octocat", [await key.sign(nonce)], "attn-st6/studio");
@@ -135,7 +136,7 @@ describe("lifekey challenge/prove", () => {
   it("an enrolled key cannot mint a DIFFERENT login than the one that enrolled it (403)", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys();
+    stubGithub();
     await enrol(e, "attn-st6/studio", key, "octocat");
     const nonce = await challenge(e, "mallory");
     const res = await prove(e, "mallory", [await key.sign(nonce)], "attn-st6/studio");
@@ -146,26 +147,18 @@ describe("lifekey challenge/prove", () => {
     const e = env();
     const enrolled = await makeKey();
     const attacker = await makeKey();
-    serveKeys();
+    stubGithub();
     await enrol(e, "attn-st6/studio", enrolled, "octocat");
     const nonce = await challenge(e, "octocat");
     const res = await prove(e, "octocat", [await attacker.sign(nonce)], "attn-st6/studio");
     expect(res.status).toBe(403);
   });
 
-  it("passing a repo with no enrolment still authenticates via .keys (the additive guarantee)", async () => {
-    const e = env();
-    const key = await makeKey();
-    serveKeys(key.opensshLine);
-    const nonce = await challenge(e, "octocat");
-    const res = await prove(e, "octocat", [await key.sign(nonce)], "DomVinyard/life");
-    expect(res.status).toBe(200);
-  });
-
   it("expired nonces are swept and don't authenticate", async () => {
     const e = env();
     const key = await makeKey();
-    serveKeys(key.opensshLine);
+    stubGithub();
+    await enrol(e, REPO, key, "octocat");
     // Plant an expired row directly, then a fresh challenge triggers the sweep.
     const stale = "knl-stale";
     await e.DB.prepare("INSERT INTO auth_challenge (nonce, login, created_at) VALUES (?, ?, ?)")
