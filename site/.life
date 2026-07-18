@@ -50,6 +50,12 @@ build: npm ci --no-audit --no-fund && cp ../install.sh public/install.sh && npm 
 # it, an installer change "deploys" as a silent no-op until the next site/ touch.
 deploy_inputs:
   - install.sh
+  # The lockfile: this unit's worker IS mostly vendored genes (registry, viewer
+  # — materialized from these pins at CI), so a lock-only re-pin is a real code
+  # change here. Without this, a gene patch published + re-pinned ships as a
+  # silent no-op deploy (lived 2026-07-18: registry@0.8.1's /jwks fix sat
+  # unshipped behind a green "deploy: skipped").
+  - .life.lock
 artifact: dist/_worker.js
 assets:
   dir: ./dist
