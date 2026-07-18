@@ -74,11 +74,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
         (await registryFetch(req, env, ctx)) ?? new Response("idp route missing", { status: 502 }),
       sessionSecret: env.JWT_SIGNING_KEY,
       brand: "Life",
-      // App-parity data planes (the viewer-app-parity stream) go live via
-      // IDENTITY, not bearer-copying: node 06 gives the IdP an asymmetric
-      // signing key (public at /jwks) and planes verify the signed-in login
-      // directly — no per-life secret on this worker. Until that lands the
-      // map stays empty and every repo keeps the GitHub-derived view.
+      // App-parity data planes (viewer-app-parity node 06): IDENTITY mode —
+      // the viewer calls each plane with the session's IdP-signed identity
+      // token (minted at login when the identity keypair exists; public key
+      // at /jwks) and the plane verifies the login itself. No secret here.
+      planes: {
+        "DomVinyard/justin": {
+          url: "https://data.justin.vin",
+          identity: true,
+          owners: ["DomVinyard"],
+          artifactHost: "https://artifact.justin.vin",
+        },
+      },
     });
     if (viewerRes) return viewerRes;
   }

@@ -236,6 +236,19 @@ describe("viewer plane seam (app parity)", () => {
     expect(html).toContain("data-key=\"model\"");
   });
 
+  it("identity mode: the session's identity token is the bearer; without one, re-login", async () => {
+    const idCfg: ViewerConfig = { ...cfg, planes: { "DomVinyard/life": { url: PLANE, identity: true, owners: ["DomVinyard"] } } };
+    // Pre-identity session → the sign-in nudge, never a silent GitHub view.
+    let res = await viewerFetch(new Request(`${ORIGIN}/app/DomVinyard/life`, { headers: { Cookie: cookieFor } }), idCfg);
+    expect(await res!.text()).toContain("Sign in again to unlock");
+    // Session carrying an identity token → it IS the plane bearer.
+    const sealed = await seal({ v: 1, login: "DomVinyard", name: "D", avatar: "a", token: "t",
+      iat: Math.floor(Date.now() / 1000), identityToken: "id.jwt.token" }, SECRET);
+    res = await viewerFetch(new Request(`${ORIGIN}/app/DomVinyard/life/plane/v1/self`, { headers: { Cookie: `life_view=${sealed}` } }), idCfg);
+    expect(res?.status).toBe(200);
+    expect(seenAuth.at(-1)).toBe("Bearer id.jwt.token");
+  });
+
   it("a repo without a plane keeps the GitHub-derived sessions view", async () => {
     const res = await call("/app/DomVinyard/plain");
     expect(res?.status).toBe(200);

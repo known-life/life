@@ -1,5 +1,5 @@
 {
- "count": 1926,
+ "count": 1933,
  "versions": [
   {
    "package": "anatomy",
@@ -2371,6 +2371,14 @@
   },
   {
    "package": "cloudflare",
+   "version": "1.36.41",
+   "content_hash": "9baa268915c95e7897a71de56487e97144e44efbb55e5ee46813cdf4378c543d",
+   "published_at": 1784357720490,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "cloudflare",
    "version": "1.36.5",
    "content_hash": "978726e037c390ffa76da51d9d722a3a6c74439a2091e4422fe5aa88dbc96eb6",
    "published_at": 1782146406894,
@@ -2928,6 +2936,14 @@
    "published_at": 1784309924576,
    "yanked": false,
    "signer": null
+  },
+  {
+   "package": "dataplane",
+   "version": "1.1.0",
+   "content_hash": "42d261e2ca1ec71a3012aff6d38b9fa7b0f305eb5e90e5ce55ad3dd1bcf92fa1",
+   "published_at": 1784357946711,
+   "yanked": false,
+   "signer": "DomVinyard"
   },
   {
    "package": "domain-search",
@@ -4264,6 +4280,14 @@
    "published_at": 1784316746814,
    "yanked": false,
    "signer": null
+  },
+  {
+   "package": "git-sync",
+   "version": "1.21.18",
+   "content_hash": "851b5761c9f0d61704ae0d0d145263ff242dbf8e69841bc3471c4542e9fba013",
+   "published_at": 1784358321033,
+   "yanked": false,
+   "signer": "DomVinyard"
   },
   {
    "package": "git-sync",
@@ -8851,6 +8875,14 @@
   },
   {
    "package": "life",
+   "version": "3.86.0",
+   "content_hash": "56f60e19bad5b0dafde0ac7d27c257cda912fca629080afa033b7c6d4d8870d0",
+   "published_at": 1784357774954,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "life",
    "version": "3.9.0",
    "content_hash": "7f476c9503fd913823aade04fd0eb49e8de22cad785e557595afa92fe4118503",
    "published_at": 1780698429450,
@@ -10310,6 +10342,22 @@
    "version": "0.6.0",
    "content_hash": "88c2d5de2ed2425b559fb411ee367e5b88bb316049953590194d71be86f8b27f",
    "published_at": 1784355565297,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "registry",
+   "version": "0.7.0",
+   "content_hash": "152e5906a1bb59929b645904d68704c455e067caf3cba175cb7c22826573bf7d",
+   "published_at": 1784357707558,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "registry",
+   "version": "0.8.0",
+   "content_hash": "f822d0a52882c4e0d768cbfa8a22025c969ba23906cc5e9132d34b7d44612a1b",
+   "published_at": 1784357993051,
    "yanked": false,
    "signer": "DomVinyard"
   },
@@ -15126,6 +15174,14 @@
    "version": "0.4.0",
    "content_hash": "cd6f436307799642966bf4930d78b9b041d14441b06631ec58d7a96770af4080",
    "published_at": 1784357284428,
+   "yanked": false,
+   "signer": "DomVinyard"
+  },
+  {
+   "package": "viewer",
+   "version": "0.5.0",
+   "content_hash": "120607d7222ba7beab42f3e3597a5589861014b6c615bbaf35b30057f9d6aa7b",
+   "published_at": 1784357924104,
    "yanked": false,
    "signer": "DomVinyard"
   },
