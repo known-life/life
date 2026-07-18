@@ -104,6 +104,19 @@ describe("viewer pages (mocked GitHub)", () => {
     expect(html).toContain("New Life");
   });
 
+  it("avatar menu dismisses on pointerdown, not click (iOS Safari fires no document click on body taps)", async () => {
+    const res = await get("/app");
+    const html = await res!.text();
+    // The rendered chrome's menu script must close on an outside pointerdown —
+    // iOS Safari never synthesizes click events on document for taps on
+    // non-interactive elements, so a click-based outside-dismiss leaves the
+    // menu stuck open on mobile (viewer@0.1.3). Behavior proven in a real
+    // browser at fix time; this pins the mechanism in the shipped bytes.
+    expect(html).toContain("document.addEventListener('pointerdown'");
+    expect(html).toContain("m.contains(e.target)");
+    expect(html).not.toContain("e.stopPropagation()");
+  });
+
   it("sessions page derives rows from PRs + branches and shows the harness link", async () => {
     const res = await get("/app/DomVinyard/life");
     expect(res?.status).toBe(200);
