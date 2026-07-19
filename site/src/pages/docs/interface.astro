@@ -7,19 +7,19 @@ import Docs from "../../layouts/Docs.astro";
   <p class="lead">Every <code>.life</code> file has the same shape. YAML frontmatter for the interface; a Markdown body that is the directory's README for agents. One format for every cell.</p>
 
   <h2>Example</h2>
-  <pre><code>name: blog
+  <pre><code>life: 1.0
+name: blog
 summary: "Astro essay site with scroll-driven illustrations"
 
 requires:
-  - infra.compute
-  - infra.route
+  infra.compute:
+  infra.route:
+    route: secure
+    allow:
+      - your-github-login
 
 provides:
-  - blog.preview
-
-route: secure
-allow:
-  - your-github-login
+  blog.preview:
 
 commands:
   preview:

@@ -67,11 +67,11 @@ infra.agent            # stateful agents      (→ Durable Objects)</code></pre>
   <p>Dependencies are just capabilities — there is no separate dependency field. A cell that <code>requires</code> what another <code>provides</code> depends on it:</p>
   <pre><code># api/.life provides a capability
 provides:
-  - api.ready
+  api.ready:
 
 # frontend/.life requires it
 requires:
-  - api.ready      # depends on api being deployed and healthy
+  api.ready:       # depends on api being deployed and healthy
 
 # life test frontend/ follows the chain:
 # "api.ready not satisfied — run: life deploy api"</code></pre>

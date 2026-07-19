@@ -9,16 +9,18 @@ import Docs from "../../../layouts/Docs.astro";
   <h2>Semantic capabilities, not vendor products</h2>
   <p>A cell never asks for "a Worker" or "a D1 database." It asks for capabilities:</p>
   <pre><code>requires:
-  - infra.compute        # runs code
-  - infra.route          # HTTP exposure
-  - infra.datastore      # structured data (SQL)
-  - infra.kv             # key-value with TTL
-  - infra.object_store   # files and blobs
-  - infra.secret_store   # holds secrets
-  - infra.ai             # model inference
-  - infra.email          # outbound email
-  - infra.agent          # stateful agents</code></pre>
-  <p>The infra adapter owns the translation. On another provider, the same capabilities map to different resources — the cell's <code>.life</code> doesn't change.</p>
+  infra.compute:         # runs code
+    deploy_name: my-app  # …and each capability's config rides its entry
+  infra.route:           # HTTP exposure
+    route: my-app.example
+  infra.datastore:       # structured data (SQL)
+  infra.kv:              # key-value with TTL
+  infra.object_store:    # files and blobs
+  infra.secret_store:    # holds secrets
+  infra.ai:              # model inference
+  infra.email:           # outbound email
+  infra.agent:           # stateful agents</code></pre>
+  <p>Each key is the capability edge the engine resolves; the value (empty for "just make it exist") is that capability's provisioning config, read only by the adapter — the <a href="/docs/spec/manifest">manifest spec</a> owns the shape. The infra adapter owns the translation. On another provider, the same capabilities map to different resources — the cell's <code>.life</code> doesn't change.</p>
 
   <h2>Cloudflare</h2>
   <p>The first infrastructure adapter — itself a gene the engine loads (it bundles no adapters). Inherit it, then connect once:</p>

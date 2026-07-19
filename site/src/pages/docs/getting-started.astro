@@ -37,8 +37,8 @@ life evolve          # pull engine + deps + compile the harness (.claude/, AGENT
   <p>Recording the import is what makes the inherit <em>durable</em>: a session-start <code>evolve</code> reconciles the module tree against <code>imports:</code> (plus the baseline genome), so a gene that only pinned the lock would be pruned next session — the declared import is what survives. To pin a version or stage several at once, declare them by hand and inherit everything declared:</p>
   <pre><code># .life
 imports:
-  - known.life/markdown-memory
-  - known.life/sessions@1.2.3        # pin a version to freeze it</code></pre>
+  known.life/markdown-memory:
+  known.life/sessions@1.2.3:         # pin a version to freeze it</code></pre>
   <pre><code>life inherit     # fetch every declared import into .genome/, pin in .life.lock, wire the harness</code></pre>
   <p>Browse and inspect before importing — every gene page is agent-readable:</p>
   <pre><code>life ask &lt;name|path|cap&gt;   # one verb spans local / installed / genepool / engine
