@@ -1,29 +1,32 @@
 life: 1.0
 name: site
 summary: "The known.life genepool itself — an Astro SSR app on a Cloudflare Worker that IS the registry (publish · resolve · auth · scan · gene viewer) plus the docs site. This is the one production surface every other .life depends on: install.sh is served from here, /api/resolve/<gene>/latest is how genes are inherited, and the engine ships as the `life` package's files[\"life\"]. Deploys under the convention as a ci-auto unit (it's production, default-on); the live Cloudflare resources predate the convention, so config: pins their names and binding vars (env.KNOWN_KV / env.KNOWN_R2) rather than refactoring the worker. The deploy is THIS repo's own — the canonical dogfood worst case the ci-deploy-convention was designed against."
-
-# The registry CORE — the load-bearing capability every .life boots through
-# (resolve · publish · handshake auth · scan · lifecycle · the D1/R2/KV/AI data path) — lives
-# ONLY in the pool as the known.life/registry gene (floating latest). It is NOT in
-# this repo in any form: `imports:` materializes it into `.genome/registry/`
-# (gitignored, rehydrated per environment by `life inherit`, the same way any
-# imported gene materializes into `.genome/<gene>/`), and `src/middleware.ts` imports
-# `registryFetch` from there. Edit the gene (`life fetch registry` → mutate); the
-# next evolve floats to it. The NON-load-bearing surfaces (homepage, /docs,
-# marketing, static assets) stay Astro in this repo — a website, not infra.
 imports:
-  - known.life/registry
+  known.life/registry:
   # The multi-life viewer (served at /app) — same ownership cut as the
   # registry: the gene is the sole source, materialized into .genome/viewer/
   # and mounted from src/middleware.ts; this repo holds no copy.
-  - known.life/viewer
+  known.life/viewer:
 
-# CF-runtime config with no portable meaning — the exact pinned compatibility
-# the live worker runs on. nodejs_compat is required by the Astro CF adapter.
-cloudflare:
-  compatibility_date: "2026-05-01"
-  compatibility_flags:
-    - nodejs_compat
+  # CF-runtime config with no portable meaning — the exact pinned compatibility
+  # the live worker runs on. nodejs_compat is required by the Astro CF adapter.
+  known.life/cloudflare:
+    compatibility_date: "2026-05-01"
+    compatibility_flags:
+      - nodejs_compat
+
+  known.life/github:
+    # The build above embeds the repo-root installer, so an install.sh edit must
+    # trigger this unit's ci-auto deploy (engine ≥3.46.0 deploy_inputs) — without
+    # it, an installer change "deploys" as a silent no-op until the next site/ touch.
+    deploy_inputs:
+      - install.sh
+      # The lockfile: this unit's worker IS mostly vendored genes (registry, viewer
+      # — materialized from these pins at CI), so a lock-only re-pin is a real code
+      # change here. Without this, a gene patch published + re-pinned ships as a
+      # silent no-op deploy (lived 2026-07-18: registry@0.8.1's /jwks fix sat
+      # unshipped behind a green "deploy: skipped").
+      - .life.lock
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
 # (the trust-store/handshake root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
@@ -34,77 +37,59 @@ cloudflare:
 tests:
   - "npm ci && npm run test:coverage"
 
-# The infra addressed section — needs (bare capability names) + every deploy knob. The infra adapter owns this schema.
-infra:
-  # was `requires: infra.*` — the portable capability needs, bare names.
-  needs:
-    - compute
-    - route
-    - datastore
-    - kv
-    - object_store
-    - secret_store
-    - ai
-  # Deploy to the live Worker script name, not the unit's (`site`). Per-resource
-  # names + binding vars are pinned to the resources that predate the convention
-  # (the worker reads env.KNOWN_KV / env.KNOWN_R2 / env.DB), so `life deploy`
-  # binds the existing stores instead of provisioning fresh empty ones.
-  # The life-dataplane service binding: this repo's own data plane (dataplane/
-  # cell), reached in-process by the viewer's plane seam — same-account public
-  # worker->worker fetch is CF-blocked, the binding is the contract.
-  services:
-    DATAPLANE: life-dataplane
-  deploy_name: known-life
-  config:
+requires:
+  infra.compute:
+    # Deploy to the live Worker script name, not the unit's (`site`). Per-resource
+    # names + binding vars are pinned to the resources that predate the convention
+    # (the worker reads env.KNOWN_KV / env.KNOWN_R2 / env.DB), so `life deploy`
+    # binds the existing stores instead of provisioning fresh empty ones.
+    # The life-dataplane service binding: this repo's own data plane (dataplane/
+    # cell), reached in-process by the viewer's plane seam — same-account public
+    # worker->worker fetch is CF-blocked, the binding is the contract.
+    services:
+      DATAPLANE: life-dataplane
+    deploy_name: known-life
+    # Build: install deps, fold the root installer into the served assets (it's
+    # served at known.life/install.sh from the gene pool, not raw GitHub), then run
+    # the Astro Cloudflare build → dist/_worker.js (SSR module graph) + dist/ assets.
+    build: npm ci --no-audit --no-fund && cp ../install.sh public/install.sh && npm run build
+    artifact: dist/_worker.js
+    assets:
+      dir: ./dist
+      binding: ASSETS
+      not_found: 404-page
+    # Post-deploy smoke (engine ≥3.38.0): the genepool's two load-bearing surfaces
+    # answer after every CI deploy — the installer every cold-start curls, and the
+    # resolve endpoint every .life inherits through. A mismatch fails the deploy.
+    verify:
+      - /install.sh=200
+      - /api/resolve/life/latest=200
+      # The multi-life viewer's sign-in page (src/viewer, mounted at /app).
+      - /app=200
+    # Eyes on the one production surface every .life depends on (Law 13). `observe:`
+    # is the PORTABLE observability knob (cloudflare gene ≥1.36.8) — the adapter maps
+    # it to CF Workers Logs + Traces metadata. Read it back with `node scripts/
+    # observe.mjs`. Logs + traces share the Workers Logs free tier (200k events/day);
+    # `true` = full sampling (registry traffic is low, so well within it; use
+    # `observe: { sampling: N }` to dial down if volume ever climbs).
+    observe: true
+  infra.route:
+    # A public site on the apex custom domain. It brings its own worker, so it
+    # authenticates its own privileged paths (owner-gate on publish/lifecycle, the
+    # /exchange boot flow) — there is no injected gate; `public: true` is the honest
+    # marker that the surface itself is world-reachable.
+    route: known.life
+    public: true
+  infra.datastore:
     db_name: known-life-db
+  infra.kv:
     kv_title: known-life-known_kv
     kv_binding: KNOWN_KV
+  infra.object_store:
     bucket: known-life-known-r2
     r2_binding: KNOWN_R2
-  # Build: install deps, fold the root installer into the served assets (it's
-  # served at known.life/install.sh from the gene pool, not raw GitHub), then run
-  # the Astro Cloudflare build → dist/_worker.js (SSR module graph) + dist/ assets.
-  build: npm ci --no-audit --no-fund && cp ../install.sh public/install.sh && npm run build
-  artifact: dist/_worker.js
-  assets:
-    dir: ./dist
-    binding: ASSETS
-    not_found: 404-page
-  # A public site on the apex custom domain. It brings its own worker, so it
-  # authenticates its own privileged paths (owner-gate on publish/lifecycle, the
-  # /exchange boot flow) — there is no injected gate; `public: true` is the honest
-  # marker that the surface itself is world-reachable.
-  route: known.life
-  public: true
-  # Post-deploy smoke (engine ≥3.38.0): the genepool's two load-bearing surfaces
-  # answer after every CI deploy — the installer every cold-start curls, and the
-  # resolve endpoint every .life inherits through. A mismatch fails the deploy.
-  verify:
-    - /install.sh=200
-    - /api/resolve/life/latest=200
-    # The multi-life viewer's sign-in page (src/viewer, mounted at /app).
-    - /app=200
-  # Eyes on the one production surface every .life depends on (Law 13). `observe:`
-  # is the PORTABLE observability knob (cloudflare gene ≥1.36.8) — the adapter maps
-  # it to CF Workers Logs + Traces metadata. Read it back with `node scripts/
-  # observe.mjs`. Logs + traces share the Workers Logs free tier (200k events/day);
-  # `true` = full sampling (registry traffic is low, so well within it; use
-  # `observe: { sampling: N }` to dial down if volume ever climbs).
-  observe: true
-
-# The github addressed section — CI/deploy policy. The github gene owns this schema.
-github:
-  # The build above embeds the repo-root installer, so an install.sh edit must
-  # trigger this unit's ci-auto deploy (engine ≥3.46.0 deploy_inputs) — without
-  # it, an installer change "deploys" as a silent no-op until the next site/ touch.
-  deploy_inputs:
-    - install.sh
-    # The lockfile: this unit's worker IS mostly vendored genes (registry, viewer
-    # — materialized from these pins at CI), so a lock-only re-pin is a real code
-    # change here. Without this, a gene patch published + re-pinned ships as a
-    # silent no-op deploy (lived 2026-07-18: registry@0.8.1's /jwks fix sat
-    # unshipped behind a green "deploy: skipped").
-    - .life.lock
+  infra.secret_store:
+  infra.ai:
 
 ---
 
