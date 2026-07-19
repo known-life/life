@@ -14,6 +14,17 @@ describe("new-life scaffold", () => {
     expect(lifeStub("demo")).toBe(expected);
   });
 
+  it("seeds an epoch-valid head the current engine can parse", () => {
+    // Parity alone can't catch this: both seeds once agreed on a pre-epoch head
+    // (no `life: 1.0`), so every fresh repo failed to parse and pointed the user
+    // at `life codemod` on a seconds-old repo. The engine reads `life: 1.0` heads
+    // only — the seed's first line must carry the marker.
+    const installSh = readFileSync(fileURLToPath(new URL("../../install.sh", import.meta.url)), "utf8");
+    const heredoc = installSh.match(/cat > \.life << 'EOF'\n([\s\S]*?)\nEOF/);
+    expect(heredoc![1].split("\n")[0]).toBe("life: 1.0");
+    expect(lifeStub("demo").split("\n")[0]).toBe("life: 1.0");
+  });
+
   it("seeds .life, README, and .gitignore, installer derived from the mount's origin", () => {
     const files = scaffoldFiles("demo", "https://known.life");
     expect(files.map((f) => f.path)).toEqual([".life", "README.md", ".gitignore"]);

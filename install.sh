@@ -65,6 +65,7 @@ rm -f .genome/.setup.json
 # it only inserts secrets_worker_url after `name:`).
 if [ ! -f .life ]; then
   cat > .life << 'EOF'
+life: 1.0
 name: my-project
 summary: "A Life — just installed via known.life"
 imports:
