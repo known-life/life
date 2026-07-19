@@ -75,16 +75,16 @@ life deploy &lt;dir&gt;      # provision + ship a living directory</code></pre>
   <p>Names are owned by GitHub identities; versions are immutable; every publish is scanned for secrets/PII before it goes live. There's no publish key to lose — your lifekey (your GitHub identity) is the only credential, so you can publish from any machine that can sign with it.</p>
 
   <h2>7 · Update an owned gene</h2>
-  <p><strong>The genepool holds the source — there is no separate "source repo" for a gene.</strong> To change one you own, fetch its current files into a scratch directory, edit, and republish. The new version is a new immutable cut; consumers on a floating import pick it up automatically on their next session (<code>evolve</code> re-pins floats to latest), or on demand with <code>life inherit --refresh</code>.</p>
-  <pre><code># 1. Fetch the gene source into a scratch dir.
-life fetch &lt;name&gt; /tmp/edit-&lt;name&gt;
+  <p><strong>The genepool holds the source — there is no separate "source repo" for a gene.</strong> To change one you own, open it in the workbench, edit the files, and republish — name-only, no path to retype either end. The new version is a new immutable cut; consumers on a floating import pick it up automatically on their next session (<code>evolve</code> re-pins floats to latest), or on demand with <code>life inherit --refresh</code>.</p>
+  <pre><code># 1. Open the gene in the workbench (.life-staging/&lt;name&gt;/).
+life edit &lt;name&gt;
 
-# 2. Edit.
+# 2. Edit the files there.
 
 # 3. Republish — same lifekey that originally claimed the name. Bumps patch by default.
-life mutate /tmp/edit-&lt;name&gt;                     # 1.0.2 → 1.0.3
-life mutate /tmp/edit-&lt;name&gt; --bump minor        # 1.0.2 → 1.1.0
-life mutate /tmp/edit-&lt;name&gt; --version 2.0.0     # explicit pin</code></pre>
+life mutate &lt;name&gt;                     # 1.0.2 → 1.0.3
+life mutate &lt;name&gt; --bump minor        # 1.0.2 → 1.1.0
+life mutate &lt;name&gt; --version 2.0.0     # explicit pin</code></pre>
   <p>Rules of the road:</p>
   <ul>
     <li><strong>Versions are immutable</strong> — you cannot overwrite <code>1.0.2</code>. Cut a new version every edit. Nothing is ever removed: <code>life mutate --withdraw &lt;name&gt;@&lt;ver&gt;</code> yanks a version (flagged; old locks still resolve it) and <code>life mutate --deprecate &lt;name&gt;@&lt;ver&gt;</code> soft-deprecates it — new installs skip both.</li>

@@ -58,8 +58,8 @@ Useful verbs once the engine is in (`life` is on PATH after the first session-st
 - `life ask <name|path|cap>` — look up anything: local, installed, on known.life, or the engine itself.
 - `life explore` — browse the commons.
 - `life inherit known.life/<name>` — vendor a gene into `.genome/`.
-- `life fetch <name> <dir>` — pull a gene's source for editing.
-- `life mutate <dir>` — publish a gene; signed by your lifekey, no password.
+- `life edit <name>` — open a gene in the workbench (`.life-staging/<name>/`) for a round-trip edit; `life fetch <name> <dir>` is the lower-level pull to any dir.
+- `life mutate <name>` — publish a gene from its workbench (or an explicit dir); signed by your lifekey, no password.
 - `life evolve` — pull a newer engine, re-pin floating imports, regenerate the harness (runs automatically each session; run it to force a refresh).
 
 ## Understand

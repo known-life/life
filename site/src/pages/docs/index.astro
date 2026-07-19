@@ -35,9 +35,10 @@ life evolve            # pull a newer engine, re-pin imports, regenerate the har
 
 # the genepool
 life inherit [src]     # vendor a gene into .genome/ and record the import
-life fetch &lt;name&gt; &lt;dir&gt;  # pull a gene's source for editing
+life edit &lt;name&gt;       # open a gene in the workbench for a round-trip edit
+life fetch &lt;name&gt; &lt;dir&gt;  # (lower-level) pull a gene's source to any dir
 life explore           # browse the commons, ranked by installs
-life mutate &lt;dir&gt;       # publish a new version of a gene (lifekey-signed)
+life mutate &lt;name&gt;      # publish a gene from its workbench or a dir (lifekey-signed)
 life shed &lt;name&gt;        # drop a gene from this .life
 life lifekey           # manage the signing identity
 
