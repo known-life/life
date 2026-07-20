@@ -55,7 +55,7 @@ life deploy &lt;dir&gt;      # provision + ship a living directory</code></pre>
   <pre><code>life setup</code></pre>
   <p>Tell the agent <em>"set up known.life"</em> (or "bring this repo to life") and it follows the runbook at <a href="/install.txt">/install.txt</a>. It stops the user exactly once, for two credentials:</p>
   <ul>
-    <li><strong>A GitHub sign-in</strong> — the agent runs GitHub's device flow (it shows a short code, the user approves it in the browser). No personal access token to mint. <strong>No SSH paste to do by hand either:</strong> setup generates an Ed25519 lifekey and auto-registers its public half on <code>github.com/&lt;login&gt;.keys</code>. That key then signs every genepool write you publish.</li>
+    <li><strong>A GitHub sign-in</strong> — the agent runs GitHub's device flow (it shows a short code, the user approves it in the browser). No personal access token to mint. <strong>No key paste to do by hand either:</strong> setup generates an Ed25519 lifekey and enrols its public half at the registry — the sign-in's proof of push access to your repo is what authorizes the enrolment. That key then signs every genepool write you publish.</li>
     <li><strong>A Cloudflare consent</strong> (Workers · KV · D1 · R2) — the agent hands you one <a href="https://dash.cloudflare.com">dash.cloudflare.com</a> link; you sign in and click Authorize, choosing the account to deploy into. No token to create, nothing to paste, no account-id. known.life keeps the refresh token and brokers a short-lived deploy token per need — the container never holds a long-lived Cloudflare credential.</li>
   </ul>
   <p>The flow's contract:</p>
@@ -70,7 +70,7 @@ life deploy &lt;dir&gt;      # provision + ship a living directory</code></pre>
   <p>There's nothing special about the baseline genome — it's just a list of ordinary genepool genes (the Laws, session memory, a secret-leak guard, …) that <code>setup</code> installs for you. Browse them on <a href="/explore">known.life</a>, add or drop any from your <code>.life</code>, and publish your own the same way. The engine itself is just another gene too: <a href="/life"><code>life</code></a>.</p>
 
   <h2>6 · Publish your own gene</h2>
-  <p>Publishing is signed by your <a href="/lifekey">lifekey</a> — an Ed25519 key whose public half is on <code>github.com/&lt;login&gt;.keys</code> (your existing git SSH key, or the dedicated key <code>setup</code> registered for you). No password, no API key: a key GitHub already vouches for is the whole credential.</p>
+  <p>Publishing is signed by your <a href="/lifekey">lifekey</a> — a dedicated Ed25519 key <code>setup</code> generated for you, whose public half is enrolled at the registry against your repo. No password, no API key: your GitHub push access authorized the enrolment, and the signature is the whole credential.</p>
   <pre><code>life mutate &lt;dir&gt;      # claims the name on first publish, then cuts an immutable version</code></pre>
   <p>Names are owned by GitHub identities; versions are immutable; every publish is scanned for secrets/PII before it goes live. There's no publish key to lose — your lifekey (your GitHub identity) is the only credential, so you can publish from any machine that can sign with it.</p>
 

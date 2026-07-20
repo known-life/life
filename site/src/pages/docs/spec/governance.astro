@@ -7,7 +7,7 @@ import Docs from "../../../layouts/Docs.astro";
   <p class="lead">What the known.life genepool promises, who can do what, and — just as important — what the registry operator <em>cannot</em> do without it being publicly visible. This page is policy, not code; the mechanisms it leans on are specified in the <a href="/docs/spec/registry-protocol">registry protocol</a>.</p>
 
   <h2>Identity</h2>
-  <p>An account is a GitHub login, proven by signing with an SSH key that login publishes at <code>github.com/&lt;login&gt;.keys</code>. Whoever controls such a key controls the account's genes — there is no second factor at the registry. Securing your GitHub SSH keys <strong>is</strong> securing your publishing identity.</p>
+  <p>An account is a GitHub login, proven by signing with the Ed25519 <a href="/lifekey">lifekey</a> enrolled at the registry for that login's .life repo. Enrolment happens once, authorized by a GitHub sign-in proving <em>push access</em> to the repo — push access, not key possession alone, is the authority, which is also how rotation works: a collaborator with push access can re-enrol a new key. Whoever controls the enrolled key controls the account's genes — there is no second factor at the registry. Securing your GitHub account and the machine holding the private lifekey <strong>is</strong> securing your publishing identity.</p>
 
   <h2>Namespace</h2>
   <ul>

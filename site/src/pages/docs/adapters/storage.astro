@@ -27,5 +27,5 @@ import Docs from "../../../layouts/Docs.astro";
   <p>CI deploy credentials are never guessed: the infra adapter gene declares the env it needs (e.g. <code>CLOUDFLARE_API_TOKEN</code>), and the generated workflow references each name as a repo secret. The root <code>.life</code>'s <code>deploy:</code> block configures the branch, any setup step, and extra env.</p>
 
   <h2>Identity</h2>
-  <p>GitHub is also where a .life's identity is anchored: setup signs you in once (device flow — no personal access token), and your <a href="/lifekey">lifekey</a>'s public half is registered on <code>github.com/&lt;login&gt;.keys</code>. That key signs every genepool publish — a key GitHub already vouches for is the whole credential.</p>
+  <p>GitHub is also where a .life's identity is anchored: setup signs you in once (device flow — no personal access token), and your <a href="/lifekey">lifekey</a>'s public half is enrolled at the registry, authorized by that sign-in's proof of push access to your repo. That enrolled key signs every genepool publish — a key your GitHub push access vouched for is the whole credential.</p>
 </Docs>
