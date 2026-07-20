@@ -148,7 +148,7 @@ secret-text carry-through on redeploy. The `config:` overrides bind the live
 `known-life-*` resources the worker already reads.
 
 Backing data: **D1** (`known-life-db` — accounts, names, packages, versions,
-installs, deps, embeddings, `auth_challenge` (lifekey sign-in nonces — one row
+install_lives, deps, embeddings, `auth_challenge` (lifekey sign-in nonces — one row
 per challenge, strongly consistent so concurrent sign-ins don't collide);
 `schema.sql`), **KV** (`known-life-known_kv` — caches, rate limits, OAuth state),
 **R2** (`known-life-known-r2` —

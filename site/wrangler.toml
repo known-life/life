@@ -25,9 +25,9 @@ binding = "ASSETS"
 pattern = "known.life"
 custom_domain = true
 
-# D1 — accounts, names, packages, versions, installs, deps. The schema is
-# applied by deploy-site.yml via `wrangler d1 execute --file schema.sql` before
-# the worker upload; D1 is idempotent so re-applying is safe.
+# D1 — see the registry gene's schema.sql (schema.sql here is a symlink into
+# .genome/registry/ — the gene is the sole source). The engine's cloudflare
+# adapter applies it idempotently on every deploy.
 [[d1_databases]]
 binding = "DB"
 database_name = "known-life-db"
