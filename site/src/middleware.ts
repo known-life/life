@@ -90,19 +90,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (viewerRes) return viewerRes;
   }
 
-  // Legacy resolve alias: engines pinned before the /api/resolve move still
-  // call /resolve/<name>/<version> — and that includes every deployed .life's
-  // CI, which materializes its genome with its COMMITTED engine. The old
-  // surface going dark broke those materializes fleet-wide (2026-07-20).
-  // Rewrite onto the canonical /api/resolve route; never let this 404 while
-  // any pinned engine still speaks the old path.
-  if (path.startsWith("/resolve/")) {
-    const url = new URL(request.url);
-    url.pathname = "/api" + path;
-    const res = await registryFetch(new Request(url, request), env, ctx);
-    if (res) return res;
-  }
-
   const ownedOutright =
     path === "/healthz" ||
     path === "/skill" ||
