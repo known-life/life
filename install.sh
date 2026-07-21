@@ -69,7 +69,7 @@ life: 1.0
 name: my-project
 summary: "A Life — just installed via known.life"
 imports:
-  - known.life/claude-code
+  known.life/claude-code:
 
 ---
 
