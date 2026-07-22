@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { handleHandshakeNonce, handleHandshakeProve } from "../../.genome/registry/src/registry/routes/handshake";
+import { handleHandshakeNonce, handleHandshakeProve, handleHandshakePubkey } from "../../.genome/registry/src/registry/routes/handshake";
 import { MockD1 } from "./d1-mock";
 import { makeKey, type TestKey } from "./helpers";
 
@@ -166,5 +166,49 @@ describe("lifekey challenge/prove", () => {
     await challenge(e, "octocat"); // sweeps created_at < now-300
     const gone = await e.DB.prepare("SELECT count(*) c FROM auth_challenge WHERE nonce = ?").bind(stale).first();
     expect((gone as { c: number }).c).toBe(0);
+  });
+});
+
+// The READ side of enrolment — the machine-plane trust store a consumer worker
+// fetches to gate on a caller's lifekey (the lifekey gate-face; write/plan/
+// lifekey-gate.md). Additive route; never touches a private key or a nonce.
+describe("lifekey pubkey lookup (GET /api/handshake/pubkey)", () => {
+  const REPO = "octocat/dotfiles";
+  const get = (e: any, repo?: string) =>
+    handleHandshakePubkey(
+      new Request(`https://known.life/api/handshake/pubkey${repo === undefined ? "" : `?repo=${encodeURIComponent(repo)}`}`),
+      e,
+    );
+
+  it("returns the enrolled key + login for an enrolled repo", async () => {
+    const e = env();
+    const key = await makeKey();
+    await e.KNOWN_KV.put(`lifekey:pub:${REPO}`, key.opensshLine);
+    await e.KNOWN_KV.put(`lifekey:login:${REPO}`, "octocat");
+    const res = await get(e, REPO);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; repo: string; key: string; login: string };
+    expect(body.ok).toBe(true);
+    expect(body.repo).toBe(REPO);
+    expect(body.key).toBe(key.opensshLine);
+    expect(body.login).toBe("octocat");
+  });
+
+  it("404s when the repo has no enrolment", async () => {
+    expect((await get(env(), "octocat/never-enrolled")).status).toBe(404);
+  });
+
+  it("400s on a missing or malformed repo", async () => {
+    expect((await get(env())).status).toBe(400);
+    expect((await get(env(), "not-a-repo")).status).toBe(400);
+  });
+
+  it("exposes only the public line — never a private key or the nonce", async () => {
+    const e = env();
+    const key = await makeKey();
+    await e.KNOWN_KV.put(`lifekey:pub:${REPO}`, key.opensshLine);
+    const text = await (await get(e, REPO)).text();
+    expect(text).not.toMatch(/PRIVATE/i);
+    expect(text).not.toMatch(/nonce/i);
   });
 });
