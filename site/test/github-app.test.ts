@@ -513,10 +513,15 @@ describe("handleExchangeEnroll", () => {
     const r = await handleExchangeEnroll(ENROLLPOST({ repo: "known-life/foo", pubkey: OWNER_OPENSSH }), env);
     expect(r.status).toBe(200);
     expect(await r.json()).toMatchObject({ ok: true, repo: "known-life/foo", login: "octocat" });
-    expect((await env.KNOWN_KV.get("lifekey:pub:known-life/foo"))?.trim()).toBe(OWNER_OPENSSH);
-    // The enrolling login is recorded beside the key: it is the ONLY identity
+    // Stored as ONE atomic record {pubkey, login} — the two halves can't cross-pair
+    // under a concurrent re-enrolment, and the legacy pair is cleared (the reader
+    // prefers the record). The login recorded here is the ONLY identity
     // /api/auth/prove will mint from this repo's enrolled lifekey.
-    expect(await env.KNOWN_KV.get("lifekey:login:known-life/foo")).toBe("octocat");
+    const rec = JSON.parse((await env.KNOWN_KV.get("lifekey:rec:known-life/foo"))!);
+    expect(rec.pubkey.trim()).toBe(OWNER_OPENSSH.trim());
+    expect(rec.login).toBe("octocat");
+    expect(await env.KNOWN_KV.get("lifekey:pub:known-life/foo")).toBeNull();
+    expect(await env.KNOWN_KV.get("lifekey:login:known-life/foo")).toBeNull();
   });
 
   it("401 when no Authorization header is present", async () => {
@@ -529,7 +534,7 @@ describe("handleExchangeEnroll", () => {
     const env = enrollEnv();
     const r = await handleExchangeEnroll(ENROLLPOST({ repo: "known-life/foo", pubkey: OWNER_OPENSSH }), env);
     expect(r.status).toBe(401);
-    expect(await env.KNOWN_KV.get("lifekey:pub:known-life/foo")).toBeNull();
+    expect(await env.KNOWN_KV.get("lifekey:rec:known-life/foo")).toBeNull();
   });
 
   it("400 on a pubkey that isn't an ssh-ed25519 line", async () => {
