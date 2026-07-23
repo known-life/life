@@ -444,3 +444,91 @@ describe("POST /api/setup/cf-oauth/token (the brokered mint surface)", () => {
     expect(((await res.json()) as { error: string }).error).toBe("not_connected");
   });
 });
+
+describe("mintAccessToken — dead-grant vs transient (the 502→409 + no-strand fix)", () => {
+  // The DomVinyard/life 2026-07-22 break: the stored refresh token rotated out
+  // (CF `invalid_grant`), mintAccessToken threw, and the token handler wrapped
+  // EVERY throw as a 502 — so a dead grant looked like a known.life outage and
+  // silently killed that repo's CF deploys. A dead grant must now surface as a
+  // clean 409 grant_unusable → re-consent; only a genuinely transient failure
+  // stays a retryable 502. These pin both arms, credential-free (fetch stubbed).
+  const REPO = "octocat/life";
+  const baseGrant = (enc: string): CfGrant => ({
+    refresh_token_enc: enc,
+    account_id: "acc1",
+    account_name: "Acme",
+    accounts: [{ id: "acc1", name: "Acme" }],
+    repo: REPO,
+    updated_at: 1,
+  });
+  const cfJson = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  const withFetch = async (impl: () => Response, run: () => Promise<void>) => {
+    const real = globalThis.fetch;
+    globalThis.fetch = (async () => impl()) as typeof fetch;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = real;
+    }
+  };
+  const tokenReq = (e: any, bearer: string) =>
+    handleCfOAuthToken(
+      new Request(`https://known.life/api/setup/cf-oauth/token?repo=${encodeURIComponent(REPO)}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${bearer}` },
+      }),
+      e,
+    );
+
+  it("a dead refresh token (CF invalid_grant) makes mint return null — re-consent, not an error", async () => {
+    const e = env();
+    await putGrant(e, "octocat", REPO, baseGrant(await encryptSecret(e, "dead-refresh")));
+    await withFetch(() => cfJson(400, { error: "invalid_grant", error_description: "refresh token is not valid" }), async () => {
+      expect(await mintAccessToken(e, "octocat", REPO)).toBeNull();
+    });
+  });
+
+  it("a transient CF 5xx still THROWS (stays a retryable 502, not a false re-consent signal)", async () => {
+    const e = env();
+    await putGrant(e, "octocat", REPO, baseGrant(await encryptSecret(e, "live-refresh")));
+    await withFetch(() => cfJson(503, { error: "server_error" }), async () => {
+      await expect(mintAccessToken(e, "octocat", REPO)).rejects.toBeTruthy();
+    });
+  });
+
+  it("the token endpoint answers 409 grant_unusable (NOT 502) for a dead grant", async () => {
+    const e = env();
+    const bearer = await issueRegistryToken("github:octocat", e);
+    await putGrant(e, "octocat", REPO, baseGrant(await encryptSecret(e, "dead-refresh")));
+    await withFetch(() => cfJson(400, { error: "invalid_grant" }), async () => {
+      const res = await tokenReq(e, bearer);
+      expect(res.status).toBe(409);
+      expect(((await res.json()) as { error: string }).error).toBe("grant_unusable");
+    });
+  });
+
+  it("a transient CF 5xx keeps the token endpoint on 502 mint_failed (retryable)", async () => {
+    const e = env();
+    const bearer = await issueRegistryToken("github:octocat", e);
+    await putGrant(e, "octocat", REPO, baseGrant(await encryptSecret(e, "live-refresh")));
+    await withFetch(() => cfJson(503, { error: "server_error" }), async () => {
+      const res = await tokenReq(e, bearer);
+      expect(res.status).toBe(502);
+      expect(((await res.json()) as { error: string }).error).toBe("mint_failed");
+    });
+  });
+
+  it("a successful refresh rotates the refresh token, persists it, and caches the access token", async () => {
+    // The no-strand half: the rotated refresh token must be written back atomically
+    // with (before) caching, so a later mint reads the fresh token, never the spent one.
+    const e = env();
+    await putGrant(e, "octocat", REPO, baseGrant(await encryptSecret(e, "old-refresh")));
+    await withFetch(() => cfJson(200, { access_token: "cf-access-new", refresh_token: "new-refresh", expires_in: 3600 }), async () => {
+      expect((await mintAccessToken(e, "octocat", REPO))?.access_token).toBe("cf-access-new");
+    });
+    const g = await getGrant(e, "octocat", REPO);
+    expect(await decryptSecret(e, g!.refresh_token_enc)).toBe("new-refresh"); // rotation persisted
+    expect((await getCachedToken(e, "octocat", REPO))?.access_token).toBe("cf-access-new"); // shared with concurrent sessions
+  });
+});
