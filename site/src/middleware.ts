@@ -80,8 +80,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
       // The single entry here is TRANSPORT, not a data path: this repo's own
       // plane is a same-account worker (public worker→worker fetch is
       // CF-blocked), so its origin routes through the DATAPLANE service
-      // binding.
+      // binding. Keyed by the root `.life`'s `dataplane:` host — now the public
+      // `life-dataplane.i-808.workers.dev` (the plane went public `route: secure`
+      // so the native app reaches it directly). The nominal `https://life-dataplane`
+      // is kept as a transitional alias so a viewer deploy racing the root-`.life`
+      // host change never drops this life's binding; drop it once settled.
       planeTransports: {
+        "https://life-dataplane.i-808.workers.dev": (req: Request) =>
+          (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
+          Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
         "https://life-dataplane": (req: Request) =>
           (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
           Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
