@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   trustedKeysFor,
   verifyAgainstTrustStore,
+  enrolmentPair,
   K_AUTHPATH,
+  K_LIFEKEY,
+  K_LIFEKEY_LOGIN,
+  K_LIFEKEY_REC,
   logAuthDecision,
 } from "../../.genome/registry/src/registry/lib/trust-store";
 import { makeKey, type TestKey } from "./helpers";
@@ -90,5 +94,53 @@ describe("logAuthDecision — the .keys sunset's read-zero counters", () => {
     expect(row.count).toBe(2);
     expect(typeof row.last).toBe("string");
     expect(await kv.get(K_AUTHPATH("enrolled", "exchange"))).toBeNull();
+  });
+});
+
+// A GitHub `owner/repo` is case-insensitive — `DomVinyard/life` and
+// `domvinyard/life` are one repo — but a KV key is bytes, so an un-normalized
+// enrolment key made the store answer "not enrolled" for the repo it holds,
+// decided only by how the caller spelled it. Live on 2026-07-26: the enrolment sat
+// at `lifekey:rec:DomVinyard/life` while `cf:grant:` on the same store had always
+// lowercased, so the two halves of one auth chain disagreed — the data plane, whose
+// config spells the slug lowercase, got `not_enrolled` from prove for its own
+// identity, and the whole /v1/infra family was dead. It also cost a design
+// decision: a probe that lowercased the slug read as "this repo isn't enrolled",
+// and two workers were built on pinned key literals because of it.
+describe("enrolment keys are case-normalized (the slug is a repo, not bytes)", () => {
+  let k: TestKey;
+  beforeEach(async () => { k = await makeKey(); ownerKeys = ""; });
+
+  it.each([
+    ["the spelling it was written with", "DomVinyard/life"],
+    ["all lower case", "domvinyard/life"],
+    ["all upper case", "DOMVINYARD/LIFE"],
+    ["mixed the other way", "domVinyard/Life"],
+  ])("a record written as DomVinyard/life is found when asked with %s", async (_label, asked) => {
+    const kv = makeKV();
+    // Write through the same key builder a real enrolment uses.
+    await kv.put(K_LIFEKEY_REC("DomVinyard/life"), JSON.stringify({ pubkey: k.opensshLine, login: "DomVinyard" }));
+    const pair = await enrolmentPair(env(kv), asked);
+    expect(pair.pubkey).toBe(k.opensshLine);
+    // The DISPLAY case survives in the record's login — normalizing the KEY loses nothing.
+    expect(pair.login).toBe("DomVinyard");
+    const keys = await trustedKeysFor(env(kv), { repo: asked });
+    expect(keys.map((t) => t.key)).toEqual([k.opensshLine]);
+  });
+
+  it("the legacy pub/login pair normalizes the same way", async () => {
+    const kv = makeKV();
+    await kv.put(K_LIFEKEY("Org/Repo"), k.opensshLine);
+    await kv.put(K_LIFEKEY_LOGIN("Org/Repo"), "Alice");
+    const pair = await enrolmentPair(env(kv), "org/repo");
+    expect(pair.pubkey).toBe(k.opensshLine);
+    expect(pair.login).toBe("Alice");
+  });
+
+  it("a DIFFERENT repo is still not enrolled — normalizing must not widen the match", async () => {
+    const kv = makeKV();
+    await kv.put(K_LIFEKEY_REC("DomVinyard/life"), JSON.stringify({ pubkey: k.opensshLine, login: "DomVinyard" }));
+    expect((await enrolmentPair(env(kv), "domvinyard/other")).pubkey).toBeNull();
+    expect(await trustedKeysFor(env(kv), { repo: "someone/life" })).toEqual([]);
   });
 });
