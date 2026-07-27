@@ -143,7 +143,10 @@ which registry-gene version this deployment vendored out of `.life.lock`, and
 MCP handshake's `serverInfo.version`, and cannot know it itself — a Worker has no
 filesystem and a gene's version is assigned at publish). It was a literal in the
 gene bumped by hand at every publish, which is exactly the kind of value a
-structure already holds.
+structure already holds. Both ends REFUSE to guess: no registry pin in the lock
+throws the build, and a deployment that supplies no version fails the handshake
+saying so. Neither answers a placeholder — there is no version of "we don't know
+what we are" worth serving, so there is no second path to announce (Law 11.3).
 
 ## How it deploys
 

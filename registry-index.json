@@ -1,5 +1,5 @@
 {
- "count": 2417,
+ "count": 2418,
  "versions": [
   {
    "package": "anatomy",
@@ -14910,6 +14910,15 @@
    "version": "2.4.0",
    "content_hash": "190b017106179f53dd7f3ccdc41e9c51dc61ff8c3ebf73fbe7d6e3c98479fd39",
    "published_at": 1785171266090,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "registry",
+   "version": "3.0.0",
+   "content_hash": "48046f878fa3e3d9d3106354eb5e299f3fc60ebfef212c1d714c658d140d59ae",
+   "published_at": 1785171863790,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

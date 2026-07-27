@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { pathToFileURL } from "node:url";
 import { handleMcp } from "../../.genome/registry/src/registry/routes/mcp";
 import { registryVersion } from "../build/registry-version.mjs";
 import type { Env } from "../../.genome/registry/src/registry/lib/types";
@@ -13,21 +15,19 @@ import type { Env } from "../../.genome/registry/src/registry/lib/types";
 //
 // Now the CONSUMER derives it (build/registry-version.mjs reads the same pin) and
 // hands it to the gene on Env, so there is nothing left to drift. What is worth
-// holding is the WIRING: that the derivation finds a real version, and that the
-// gene serves whatever it is given rather than a number of its own.
+// holding is the WIRING: that the derivation finds a real version, and that a
+// deployment which fails to supply it FAILS rather than serving a placeholder.
 
 const lock = () =>
   JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../.life.lock"), "utf-8"));
 
-async function initialize(env: Partial<Env>): Promise<string> {
+async function initialize(env: Partial<Env>): Promise<Response> {
   const req = new Request("https://known.life/mcp", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
   });
-  const res = await handleMcp(req, env as Env);
-  const body = (await res.json()) as { result: { serverInfo: { version: string } } };
-  return body.result.serverInfo.version;
+  return handleMcp(req, env as Env);
 }
 
 describe("MCP serverInfo.version is derived, not maintained", () => {
@@ -39,13 +39,41 @@ describe("MCP serverInfo.version is derived, not maintained", () => {
 
   it("the gene serves what the consumer supplies, never a version of its own", async () => {
     // A literal in the gene would ignore this and answer its own number.
-    expect(await initialize({ REGISTRY_VERSION: "9.9.9" })).toBe("9.9.9");
-    expect(await initialize({ REGISTRY_VERSION: registryVersion() })).toBe(registryVersion());
+    for (const v of ["9.9.9", registryVersion()]) {
+      const body = (await (await initialize({ REGISTRY_VERSION: v })).json()) as {
+        result: { serverInfo: { version: string } };
+      };
+      expect(body.result.serverInfo.version).toBe(v);
+    }
   });
 
-  it("says 'unknown' rather than inventing one when nothing supplied it", async () => {
-    // A consumer that hasn't wired this up should be legible as such, not served
-    // a plausible number the gene made up (Law 11.3 — announce the fallthrough).
-    expect(await initialize({})).toBe("unknown");
+  it("FAILS the handshake when nothing supplied it, rather than serving a placeholder", async () => {
+    // It briefly answered "unknown" here. That is a degrade wearing the clothes
+    // of an announced fallthrough: there is no situation in which serving it is
+    // the right outcome, so it is a second path that is not load-bearing —
+    // exactly what Law 11.3 forbids. When the one path cannot do its job, say so
+    // and stop.
+    const res = await initialize({});
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: { message?: string }; result?: unknown };
+    expect(body.result).toBeUndefined();
+    expect(body.error?.message).toContain("REGISTRY_VERSION");
+  });
+});
+
+describe("the build-time derivation refuses to guess", () => {
+  it("throws on a lockfile with no registry pin, rather than returning a placeholder", () => {
+    // The same rule one layer earlier: no pin means the genome could not have
+    // materialized, so there is no build worth completing. A try/catch returning
+    // a string here is the swallowed error Law 11.3 names.
+    const empty = path.join(os.tmpdir(), "registry-version-no-pin.lock");
+    fs.writeFileSync(empty, JSON.stringify({ modules: {} }));
+    expect(() => registryVersion(pathToFileURL(empty))).toThrow(/no resolved registry pin/);
+  });
+
+  it("throws on a lockfile whose pin is not a version, rather than passing it through", () => {
+    const junk = path.join(os.tmpdir(), "registry-version-junk.lock");
+    fs.writeFileSync(junk, JSON.stringify({ modules: { registry: { resolved: "latest" } } }));
+    expect(() => registryVersion(pathToFileURL(junk))).toThrow(/no resolved registry pin/);
   });
 });
