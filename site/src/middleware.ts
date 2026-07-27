@@ -1,6 +1,9 @@
 import { defineMiddleware } from "astro:middleware";
 import { registryFetch } from "../../.genome/registry/src/registry/router";
 import type { Env } from "../../.genome/registry/src/registry/lib/types";
+
+// Replaced at build time by the vite `define` in astro.config.mjs.
+declare const __REGISTRY_VERSION__: string;
 import { viewerFetch } from "../../.genome/viewer/src/index";
 
 /**
@@ -30,6 +33,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // genepool Env. PUBLIC_URL is just where we're served, so derive it here.
   const env: Env = runtime.env;
   if (!env.PUBLIC_URL) env.PUBLIC_URL = new URL(request.url).origin;
+  // …and which registry-gene version this deployment vendored, which only THIS
+  // side knows: stamped in from the lockfile pin at build time
+  // (astro.config.mjs → build/registry-version.mjs). The gene serves it on the
+  // MCP handshake; without it the handshake says "unknown" rather than guessing.
+  if (!env.REGISTRY_VERSION) env.REGISTRY_VERSION = __REGISTRY_VERSION__;
   const ctx = runtime.ctx ?? { waitUntil() {} };
 
   // Agent-facing content negotiation for `/`: the site's thesis is

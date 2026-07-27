@@ -136,6 +136,15 @@ single SSR Worker plus edge static assets:
 - **The engine** — shipped as the `life` package's `files["life"]`, served from
   `/api/resolve/life/latest` like any other module (no separate static asset).
 
+`build/` is the build-time half that never ships: `registry-version.mjs` reads
+which registry-gene version this deployment vendored out of `.life.lock`, and
+`astro.config.mjs` stamps it into the worker through a vite `define` so
+`src/middleware.ts` can hand it to the gene on `Env` (the gene serves it as the
+MCP handshake's `serverInfo.version`, and cannot know it itself — a Worker has no
+filesystem and a gene's version is assigned at publish). It was a literal in the
+gene bumped by hand at every publish, which is exactly the kind of value a
+structure already holds.
+
 ## How it deploys
 
 Under the **ci-deploy-convention**: a push that changes `site/**` deploys this
