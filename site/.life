@@ -48,6 +48,17 @@ requires:
     # worker->worker fetch is CF-blocked, the binding is the contract.
     services:
       DATAPLANE: life-dataplane
+    vars:
+      # Which registry-gene version this deployment vendored — served as the MCP
+      # handshake's `serverInfo.version`. The worker cannot know it itself (no
+      # filesystem, and a gene's version is assigned at publish, not written into
+      # the gene), so the cloudflare adapter resolves `{{gene:}}` from THIS repo's
+      # `.life.lock` at deploy: the same pin the engine re-verifies on install, so
+      # the reported version can never disagree with the code that shipped.
+      # It was a literal in the gene bumped by hand — it drifted two majors once —
+      # and then briefly a vite `define` here, which was the same stamping done by
+      # hand when the substrate already had `vars:` (Law 1.1).
+      REGISTRY_VERSION: "{{gene:registry}}"
     deploy_name: known-life
     # Build: install deps, fold the root installer into the served assets (it's
     # served at known.life/install.sh from the gene pool, not raw GitHub), then run
