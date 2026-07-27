@@ -28,7 +28,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // The .life declares its bindings under the genepool's own names (env.DB,
   // env.KNOWN_KV, env.KNOWN_R2 — see site/.life), so the runtime env IS the
   // genepool Env. PUBLIC_URL is just where we're served, so derive it here.
-  const env: Env = runtime.env;
+  // `DATAPLANE_ORIGIN` / `DATAPLANE` are this DEPLOYMENT's own bindings (site/.life
+  // `vars:` + `services:`), not part of the registry gene's Env — the gene is what
+  // every genepool consumer inherits, and this life's plane is not its business.
+  const env: Env & { DATAPLANE_ORIGIN?: string } = runtime.env;
   if (!env.PUBLIC_URL) env.PUBLIC_URL = new URL(request.url).origin;
   const ctx = runtime.ctx ?? { waitUntil() {} };
 
@@ -79,20 +82,21 @@ export const onRequest = defineMiddleware(async (context, next) => {
       // with the session's IdP-signed identity token — the plane authorizes.
       // The single entry here is TRANSPORT, not a data path: this repo's own
       // plane is a same-account worker (public worker→worker fetch is
-      // CF-blocked), so its origin routes through the DATAPLANE service
-      // binding. Keyed by the root `.life`'s `dataplane:` host — now the public
-      // `life-dataplane.i-808.workers.dev` (the plane went public `route: secure`
-      // so the native app reaches it directly). The nominal `https://life-dataplane`
-      // is kept as a transitional alias so a viewer deploy racing the root-`.life`
-      // host change never drops this life's binding; drop it once settled.
-      planeTransports: {
-        "https://life-dataplane.i-808.workers.dev": (req: Request) =>
-          (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
-          Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
-        "https://life-dataplane": (req: Request) =>
-          (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
-          Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
-      },
+      // CF-blocked), so its origin routes through the DATAPLANE service binding.
+      //
+      // The key is `DATAPLANE_ORIGIN` (site/.life `vars:`), not a literal. Two
+      // literals lived here — the real host and a nominal `https://life-dataplane`
+      // alias kept "until settled" — and a key that must equal a host stated
+      // elsewhere is a key that fails silently: no error, just a fall-through to the
+      // public fetch Cloudflare blocks. Unset, there is no transport entry at all,
+      // which is the honest state rather than a key that matches nothing.
+      planeTransports: env.DATAPLANE_ORIGIN
+        ? {
+            [env.DATAPLANE_ORIGIN]: (req: Request) =>
+              (env as unknown as { DATAPLANE?: { fetch(r: Request): Promise<Response> } }).DATAPLANE?.fetch(req) ??
+              Promise.resolve(new Response("dataplane binding missing", { status: 502 })),
+          }
+        : {},
     });
     if (viewerRes) return viewerRes;
   }

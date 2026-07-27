@@ -59,6 +59,15 @@ requires:
       # and then briefly a vite `define` here, which was the same stamping done by
       # hand when the substrate already had `vars:` (Law 1.1).
       REGISTRY_VERSION: "{{gene:registry}}"
+      # The origin the viewer will present for THIS life's plane — the key the
+      # transport map below matches on (src/middleware.ts). It was a hardcoded
+      # `life-dataplane.i-808.workers.dev` in the worker source, a second statement of
+      # a host the root `.life` already states, and a silent one: if the two ever
+      # disagree the key stops matching and the viewer falls back to a public
+      # worker->worker fetch that Cloudflare blocks. `{{workers_dev}}` derives the
+      # account half at deploy, so the only thing written by hand is the script name —
+      # which is the same `life-dataplane` the service binding above already names.
+      DATAPLANE_ORIGIN: "https://life-dataplane.{{workers_dev}}"
     deploy_name: known-life
     # Build: install deps, fold the root installer into the served assets (it's
     # served at known.life/install.sh from the gene pool, not raw GitHub), then run
