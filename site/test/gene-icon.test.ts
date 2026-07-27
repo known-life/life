@@ -1,0 +1,87 @@
+import { describe, it, expect } from "vitest";
+import { registryFetch } from "../../.genome/registry/src/registry/router";
+import { handleIcon } from "../../.genome/registry/src/registry/routes/icon";
+// @ts-expect-error — plain .mjs, shared with scripts/put-icons.mjs.
+import { iconKey } from "../../.genome/registry/src/registry/lib/icons.mjs";
+import type { Env } from "../../.genome/registry/src/registry/lib/types";
+
+// A gene's icon is addressed by the gene's NAME — `GET /:name/icon` reads
+// `icons/<name>.png` from the pool's object store — so no consumer keeps a
+// name→asset map. The three things worth holding to:
+//   • the key is DERIVED from the name (the one thing the upload script and the
+//     route must agree on, which is why they import the same function),
+//   • a gene with no art answers 404 rather than something broken, because the
+//     consumer's fallback is a real design (a drawn glyph tile), and
+//   • the route is reached through the router, at the path consumers derive.
+
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** An Env whose R2 holds exactly the given keys. */
+function envWith(objects: Record<string, Uint8Array>): Env {
+  return {
+    KNOWN_R2: {
+      async get(key: string) {
+        const bytes = objects[key];
+        if (!bytes) return null;
+        return {
+          body: new Blob([bytes as BlobPart]).stream(),
+          httpMetadata: { contentType: "image/png" },
+          httpEtag: '"etag-for-test"',
+        };
+      },
+    },
+  } as unknown as Env;
+}
+
+describe("a gene's icon is served by the pool that holds the gene", () => {
+  it("addresses the icon by the gene's own name", () => {
+    expect(iconKey("expo")).toBe("icons/expo.png");
+    expect(iconKey("stripe-billing")).toBe("icons/stripe-billing.png");
+  });
+
+  it("serves the bytes for a gene that has art", async () => {
+    const res = await handleIcon(envWith({ [iconKey("expo")]: PNG }), "expo");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/png");
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG);
+  });
+
+  it("caches for a day rather than forever — gene art gets redrawn", async () => {
+    const res = await handleIcon(envWith({ [iconKey("expo")]: PNG }), "expo");
+    const cc = res.headers.get("Cache-Control") ?? "";
+    expect(cc).toContain("max-age=86400");
+    expect(cc).not.toContain("immutable");
+    expect(res.headers.get("ETag")).toBeTruthy();
+  });
+
+  it("404s for a gene with no art, so the consumer draws its own fallback", async () => {
+    const res = await handleIcon(envWith({}), "a-gene-published-tomorrow");
+    expect(res.status).toBe(404);
+    // Cached, but briefly: publishing art must show up without a purge.
+    expect(res.headers.get("Cache-Control")).toContain("max-age=300");
+  });
+
+  it("is reachable at /:name/icon through the router", async () => {
+    const env = envWith({ [iconKey("queue")]: PNG });
+    const res = await registryFetch(
+      new Request("https://known.life/queue/icon"),
+      env,
+      { waitUntil() {} },
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(200);
+    expect(res!.headers.get("Content-Type")).toBe("image/png");
+  });
+
+  it("does not swallow paths that only look like it", async () => {
+    const env = envWith({});
+    // A POST is not this route, and a deeper path is nobody's — both must fall
+    // through to Astro (null) rather than 404 from the genepool.
+    for (const req of [
+      new Request("https://known.life/queue/icon", { method: "POST" }),
+      new Request("https://known.life/queue/icon/large"),
+    ]) {
+      expect(await registryFetch(req, env, { waitUntil() {} })).toBeNull();
+    }
+  });
+});
