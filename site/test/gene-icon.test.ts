@@ -18,16 +18,22 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /** An Env whose R2 holds exactly the given keys. */
 function envWith(objects: Record<string, Uint8Array>): Env {
+  const meta = (bytes: Uint8Array) => ({
+    size: bytes.byteLength,
+    httpMetadata: { contentType: "image/png" },
+    httpEtag: '"etag-for-test"',
+  });
   return {
     KNOWN_R2: {
       async get(key: string) {
         const bytes = objects[key];
         if (!bytes) return null;
-        return {
-          body: new Blob([bytes as BlobPart]).stream(),
-          httpMetadata: { contentType: "image/png" },
-          httpEtag: '"etag-for-test"',
-        };
+        return { ...meta(bytes), body: new Blob([bytes as BlobPart]).stream() };
+      },
+      // HEAD reads metadata only — no body, and no bytes off R2 either.
+      async head(key: string) {
+        const bytes = objects[key];
+        return bytes ? meta(bytes) : null;
       },
     },
   } as unknown as Env;
@@ -71,6 +77,22 @@ describe("a gene's icon is served by the pool that holds the gene", () => {
     expect(res).not.toBeNull();
     expect(res!.status).toBe(200);
     expect(res!.headers.get("Content-Type")).toBe("image/png");
+  });
+
+  it("answers HEAD about art that is there, instead of 404ing over it", async () => {
+    // A GET-only route sends HEAD to the site's own 404, so a probe asking
+    // "does this icon exist?" is told no about a file sitting in the store.
+    const env = envWith({ [iconKey("queue")]: PNG });
+    const res = await registryFetch(
+      new Request("https://known.life/queue/icon", { method: "HEAD" }),
+      env,
+      { waitUntil() {} },
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(200);
+    expect(res!.headers.get("Content-Type")).toBe("image/png");
+    expect(res!.headers.get("Content-Length")).toBe(String(PNG.byteLength));
+    expect((await res!.arrayBuffer()).byteLength).toBe(0);
   });
 
   it("does not swallow paths that only look like it", async () => {
