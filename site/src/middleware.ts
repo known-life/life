@@ -101,31 +101,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (viewerRes) return viewerRes;
   }
 
-  // --- The Book of Life: one URL per chapter, two editions ---
-  //
-  // The canon is negotiated the same way `/` is. A browser gets the rendered
-  // page; an agent (`Accept: */*` — curl, a fetch tool, another .life) gets the
-  // markdown twin the build prerendered at the same path + `.md`. Both editions
-  // are generated from the SAME gene files at build time, so negotiation can
-  // never hand out two different books.
-  //
-  // Every branch reads the ASSETS binding directly rather than falling through to
-  // Astro, because both editions are prerendered: the worker's only job on a book
-  // path is to CHOOSE. `site/.life` lists these paths under `assets: dynamic:` so
-  // the worker runs ahead of the asset layer and gets to make that choice at all
-  // — without it the static HTML would answer first and `Accept` would be moot.
-  if (request.method === "GET" && (path === "/book" || path.startsWith("/book/"))) {
-    const assets = (env as unknown as { ASSETS: { fetch(u: string): Promise<Response> } }).ASSETS;
-    const wantsHtml = (request.headers.get("accept") ?? "").includes("text/html");
-    const bare = path.replace(/\/$/, "");
-    const target = !path.endsWith(".md") && !wantsHtml ? `${bare}.md` : path;
-    const res = await assets.fetch(new URL(target, request.url).toString());
-    // A miss on the markdown twin is a real 404 for that chapter, not a reason to
-    // silently serve the page instead — the two editions are generated together,
-    // so a twin that is absent means the canon itself is wrong (Law 11.3).
-    return res;
-  }
-
   const ownedOutright =
     path === "/healthz" ||
     path === "/skill" ||

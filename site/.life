@@ -91,13 +91,6 @@ requires:
       dir: ./dist
       binding: ASSETS
       not_found: 404-page
-      # The Book of Life is content-negotiated per URL (src/middleware.ts): the
-      # rendered page for a browser, the prerendered `.md` twin for an agent. The
-      # worker must therefore see a book request BEFORE the asset layer answers
-      # it — without these the static HTML wins every time and `Accept` is moot.
-      dynamic:
-        - /book
-        - /book/*
     # Post-deploy smoke (engine ≥3.38.0): the genepool's two load-bearing surfaces
     # answer after every CI deploy — the installer every cold-start curls, and the
     # resolve endpoint every .life inherits through. A mismatch fails the deploy.
@@ -160,9 +153,9 @@ single SSR Worker plus edge static assets:
 - **The Book of Life** (`/book`) — the canon AND the normative spec, in five
   books, rendered from the `life-guide` and `laws` genes rather than authored
   here (`src/lib/book.ts` derives it from their file tree; nothing declares a
-  table of contents). Two editions per URL — the page, and a markdown twin at
-  `+.md` — negotiated on `Accept`, which is why `/book*` is under `assets:
-  dynamic:` above. Depth, and how to change the book (never here):
+  table of contents). Two editions: the rendered page, and a markdown twin at the
+  same path + `.md` (`/book.md` is the whole canon). Depth, the redirect seam,
+  and how to change the book (never here):
   [.life.knowledge/book-of-life-surface.md](.life.knowledge/book-of-life-surface.md).
 - **The multi-life viewer** (served at `/app`) — sign in with GitHub (through
   this worker's own OAuth bridge — no new secrets), open any life you can

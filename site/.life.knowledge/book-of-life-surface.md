@@ -1,5 +1,5 @@
 ---
-summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions per URL and the Accept negotiation that needs `assets: dynamic:`, the file-link rewrite, and where the old /docs/spec pages went."
+summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, why the Accept negotiation was tried and dropped, and where the old /docs pages went."
 ---
 
 # The /book surface — rendering the canon, not copying it
@@ -26,7 +26,6 @@ rather than promising to keep it in step.
 | `src/lib/book-markdown.ts` | The machine edition — one chapter, one book, or the whole canon, assembled from the same entries the pages render. Everything it adds is a locator, never a restatement. |
 | `src/pages/book/**` | The rendered edition (`Book.astro` layout — a serif measure, deliberately unlike `/docs`) plus the `.md` endpoints beside each page. |
 | `build/remark-canon-links.mjs` | Chapters cross-link as *files* (`../05-spec/02-life-schema.md`), because agents read them from disk as often as from the web. This runs the naming rule backwards into `/book/spec/life-schema`. A link it cannot resolve is left visibly unrewritten rather than guessed at. |
-| `src/middleware.ts` | The `Accept` negotiation (below). |
 | `test/book.test.ts` | Gates the convention both halves depend on: the source shape, every cross-link resolving, and the rewrite's exact inverse cases. |
 
 `site/.life` imports both genes, so `.life.lock` pins *which edition of the canon
@@ -36,31 +35,29 @@ shape at publish time; `test/book.test.ts` holds it for the vendored copy this
 worker actually builds from — a different moment, and a different failure (a
 stale `.genome/` renders a book the pool has moved past).
 
-## Two editions, one URL
+## Two editions
 
-Every book URL answers twice:
+Every chapter exists twice: the rendered page, and a prerendered markdown twin at
+the same path + `.md`. `/book.md` is the whole canon in one fetch (~300KB), which
+is the shape an agent actually wants. Both are generated from the same entries in
+the same build, so the two editions cannot disagree.
 
-- a browser (`Accept: text/html`) gets the rendered page;
-- anything else — curl, an agent's fetch tool, another `.life` — gets the
-  prerendered markdown twin at the same path + `.md`.
-
-`/book.md` is the whole canon in one fetch (~300KB), which is the shape an agent
-actually wants. Both editions are generated from the same entries in the same
-build, so negotiation cannot hand out two different books.
-
-**This is why `/book` and `/book/*` are listed under `assets: dynamic:` in
-`site/.life`.** Cloudflare's asset layer answers before the Worker by default; on
-a book path the Worker's only job is to *choose*, and without `run_worker_first`
-the static HTML would win every request and `Accept` would be moot. Both branches
-then read the ASSETS binding directly rather than falling through to Astro —
-nothing here is server-rendered, so there is nothing to fall through to.
+**There is no `Accept` negotiation, and the attempt is worth recording.** The
+first shape served both editions from one URL, choosing in the middleware — which
+requires the Worker to run *ahead of* the asset layer (`run_worker_first`, via
+`assets: dynamic:`). Shipped, it did not fire: `/book` with `Accept: */*` returned
+HTML in production. Rather than keep a feature I could not verify, the `.md` URL
+is the one canonical agent path — explicit, cacheable, linkable, and true.
 
 ## Where the old spec pages went
 
-`/docs/spec/*` and `/docs/interface` are now Book V. The redirects are declared in
-`astro.config.mjs` and emitted to `dist/_redirects`, which Cloudflare's asset
-layer applies — note it applies only to asset-served requests, so a path routed
-worker-first would need handling in the middleware instead.
+`/docs/spec/*`, `/docs/interface`, and `/docs/adapters/*` are now Book V and
+Practice ch7. The redirects are declared once in `astro.config.mjs` with
+`build: { redirects: false }`, which emits them as **worker routes**. The default
+is a `dist/_redirects` asset file, and Cloudflare documents that for Workers
+static assets — but on this deployment it is not applied: every legacy path 404'd
+in production with the file sitting in `dist/` (verified live 2026-07-28). A
+redirect that exists only in a file nothing reads is a lying config.
 
 **Governance stayed site-side**, at `/docs/governance`. It is *this registry's*
 operating policy — namespace rules, operator scope, takedowns — not the protocol,

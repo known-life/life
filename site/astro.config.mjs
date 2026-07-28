@@ -25,6 +25,13 @@ export default defineConfig({
   // so there is nothing left to keep in step; these keep every published link
   // working. Governance stays site-side: it is THIS registry's operating policy,
   // not the protocol, and does not belong in a gene every .life inherits.
+  // Emit the redirects as WORKER ROUTES, not as a `_redirects` asset file.
+  // Cloudflare documents `_redirects` for Workers static assets, and Astro's CF
+  // adapter writes one — but on this deployment it is not applied: every legacy
+  // path 404'd in production while the file sat in `dist/` (verified live,
+  // 2026-07-28). A redirect that exists only in a file nothing reads is a lying
+  // config, so the one that runs is the one declared here.
+  build: { redirects: false },
   redirects: {
     "/docs/interface": "/book/spec/life-schema",
     "/docs/spec/manifest": "/book/spec/manifest-format",
