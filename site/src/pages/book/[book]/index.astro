@@ -1,0 +1,68 @@
+---
+import { render } from "astro:content";
+import BookLayout from "../../../layouts/Book.astro";
+import { getCanon } from "../../../lib/book.ts";
+
+export async function getStaticPaths() {
+  const canon = await getCanon();
+  return canon.map((book) => ({ params: { book: book.slug }, props: { book } }));
+}
+
+const { book } = Astro.props;
+const { Content } = await render(book.preface);
+---
+
+<BookLayout
+  title={book.title}
+  description={book.blurb}
+  book={book.slug}
+  markdown={`/book/${book.slug}.md`}
+>
+  <p class="book-mark">Book {book.numeral}</p>
+  <Content />
+
+  <nav class="chapter-index">
+    {book.chapters.map((c, i) => (
+      <a href={c.href}>
+        <span>{String(i + 1).padStart(2, "0")}</span>
+        {c.title}
+      </a>
+    ))}
+  </nav>
+</BookLayout>
+
+<style>
+  .book-mark {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--text-dim);
+    margin-bottom: 0.9rem;
+  }
+
+  .chapter-index {
+    display: flex;
+    flex-direction: column;
+    margin-top: 3rem;
+    border-top: 1px solid var(--border-dim);
+    font-family: var(--font-sans);
+  }
+  .chapter-index a {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border-dim);
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .chapter-index a:hover {
+    color: var(--text);
+  }
+  .chapter-index span {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+</style>

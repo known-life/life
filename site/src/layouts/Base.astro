@@ -41,6 +41,9 @@ const ogImage = `${site}/og.jpg`;
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@600;700;800&family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;1,400&family=Spline+Sans+Mono:wght@400;500&family=Caveat:wght@600&display=swap" rel="stylesheet" />
+  {/* Pages with their own head needs (the book loads a serif) fill this rather
+      than growing the site-wide font request for every visitor. */}
+  <slot name="head" />
 </head>
 <body>
   <slot />

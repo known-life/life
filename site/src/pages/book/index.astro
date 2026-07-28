@@ -1,0 +1,231 @@
+---
+import Base from "../../layouts/Base.astro";
+import Nav from "../../components/Nav.astro";
+import { getCanon } from "../../lib/book.ts";
+
+const canon = await getCanon();
+const chapterCount = canon.reduce((n, b) => n + b.chapters.length, 0);
+---
+
+<Base
+  title="The Book of Life"
+  description="The canon of the Life protocol, in five books: Genesis, The Law, Practice, Chronicles, and The Spec. Rendered from the gene itself, so it cannot drift."
+>
+  <link
+    slot="head"
+    href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+    rel="stylesheet"
+  />
+  <Nav />
+  <div class="container title-page">
+    <header class="frontispiece">
+      <p class="above">The canon of the Life protocol</p>
+      <h1>The Book<br />of Life</h1>
+      <p class="lead">
+        Five books, read as one. Not a description of the system — the canon <em>is</em> the
+        source: every chapter below is a markdown page in the <a href="/life-guide">life-guide</a>
+        gene, and the constitution is rendered from the <a href="/laws">laws</a> gene's own
+        <code>LAWS.md</code>. This page is generated from those files, so it cannot say something
+        they do not.
+      </p>
+      <p class="meta">
+        <span>{canon.length} books</span>
+        <span>{chapterCount} chapters</span>
+        <a href="/book.md">the whole canon as one file</a>
+      </p>
+    </header>
+
+    <ol class="canon">
+      {canon.map((book) => (
+        <li class="book">
+          <a class="book-head" href={book.href}>
+            <span class="numeral">{book.numeral}</span>
+            <span class="book-name">
+              <strong>{book.title}</strong>
+              <em>{book.blurb}</em>
+            </span>
+          </a>
+          <ol class="chapters">
+            {book.chapters.map((c) => (
+              <li><a href={c.href}>{c.title}</a></li>
+            ))}
+          </ol>
+        </li>
+      ))}
+    </ol>
+
+    <section class="colophon">
+      <h2>How to read it</h2>
+      <p>
+        <strong>If you are a person:</strong> read <em>Genesis</em> once, then reach for whichever
+        book the question belongs to. <em>Practice</em> is the working half; <em>Chronicles</em>
+        answers "why is this rule like this"; <em>The Spec</em> is what you would implement
+        against.
+      </p>
+      <p>
+        <strong>If you are an agent:</strong> every page here has a plain-markdown twin at the same
+        path with <code>.md</code> appended, and the entire canon is one fetch away at
+        <a href="/book.md"><code>known.life/book.md</code></a>. Requesting any book URL without
+        <code>Accept: text/html</code> returns the markdown directly. Inside a <code>.life</code>,
+        the same text is already installed — <code>life ask life-guide</code>.
+      </p>
+      <p>
+        <strong>The Law is here and injected.</strong> Book II renders the constitution; it does
+        not hold a copy of it. Every <code>.life</code> receives the same text in full at the top
+        of every session, from the <code>laws</code> gene, whether or not it ever opens this book.
+      </p>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .title-page {
+    max-width: 780px;
+    padding-top: 3.5rem;
+    padding-bottom: 6rem;
+  }
+
+  .frontispiece {
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border-dim);
+  }
+
+  .above {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    font-family: "Unbounded", var(--font-sans);
+    font-size: clamp(2.8rem, 8vw, 4.6rem);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    margin-bottom: 1.75rem;
+  }
+
+  .lead {
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 1.22rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    max-width: 34rem;
+  }
+  .lead em {
+    color: var(--text);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+  }
+
+  .canon {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .book {
+    padding: 2.4rem 0;
+    border-bottom: 1px solid var(--border-dim);
+  }
+
+  .book-head {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    align-items: baseline;
+    color: inherit;
+  }
+
+  .numeral {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .book-head:hover .numeral {
+    color: var(--accent);
+  }
+
+  .book-name strong {
+    display: block;
+    font-family: "Unbounded", var(--font-sans);
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+  .book-name em {
+    font-family: "EB Garamond", Georgia, serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+  }
+
+  .chapters {
+    list-style: none;
+    margin: 1.1rem 0 0 3.5rem;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.1rem 1.5rem;
+  }
+  .chapters a {
+    display: block;
+    padding: 0.3rem 0;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+  }
+  .chapters a:hover {
+    color: var(--text);
+  }
+
+  .colophon {
+    margin-top: 3.5rem;
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+  .colophon h2 {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    margin-bottom: 1.2rem;
+  }
+  .colophon p {
+    margin-bottom: 1rem;
+  }
+  .colophon strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .colophon code {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    color: var(--text);
+  }
+
+  @media (max-width: 620px) {
+    .book-head {
+      grid-template-columns: 2.2rem 1fr;
+    }
+    .chapters {
+      margin-left: 2.2rem;
+    }
+  }
+</style>

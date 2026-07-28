@@ -8,6 +8,15 @@ imports:
   # and mounted from src/middleware.ts; this repo holds no copy.
   known.life/viewer:
 
+  # The Book of Life at /book is RENDERED from these two genes — the canon's
+  # chapters are life-guide's own markdown files, and Book II's binding text is
+  # the laws gene's LAWS.md. The site holds no copy, so these are code imports
+  # like registry/viewer above, not documentation references: `.life.lock` pins
+  # which edition of the canon this deployment serves, and `deploy_inputs:
+  # .life.lock` (below) already redeploys the worker when either pin moves.
+  known.life/life-guide:
+  known.life/laws:
+
   # CF-runtime config with no portable meaning — the exact pinned compatibility
   # the live worker runs on. nodejs_compat is required by the Astro CF adapter.
   known.life/cloudflare:
@@ -82,6 +91,13 @@ requires:
       dir: ./dist
       binding: ASSETS
       not_found: 404-page
+      # The Book of Life is content-negotiated per URL (src/middleware.ts): the
+      # rendered page for a browser, the prerendered `.md` twin for an agent. The
+      # worker must therefore see a book request BEFORE the asset layer answers
+      # it — without these the static HTML wins every time and `Accept` is moot.
+      dynamic:
+        - /book
+        - /book/*
     # Post-deploy smoke (engine ≥3.38.0): the genepool's two load-bearing surfaces
     # answer after every CI deploy — the installer every cold-start curls, and the
     # resolve endpoint every .life inherits through. A mismatch fails the deploy.
@@ -139,7 +155,15 @@ single SSR Worker plus edge static assets:
   copy; the gene is the sole source. Its credential-free vitest suite
   (`npm test`) lives in `site/test/`.
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
-  to static assets.
+  to static assets. The on-ramp only: quick start, the adapter references, and
+  this registry's governance policy.
+- **The Book of Life** (`/book`) — the canon AND the normative spec, in five
+  books, rendered from the `life-guide` and `laws` genes rather than authored
+  here (`src/lib/book.ts` derives it from their file tree; nothing declares a
+  table of contents). Two editions per URL — the page, and a markdown twin at
+  `+.md` — negotiated on `Accept`, which is why `/book*` is under `assets:
+  dynamic:` above. Depth, and how to change the book (never here):
+  [.life.knowledge/book-of-life-surface.md](.life.knowledge/book-of-life-surface.md).
 - **The multi-life viewer** (served at `/app`) — sign in with GitHub (through
   this worker's own OAuth bridge — no new secrets), open any life you can
   reach LIVE through its own data plane (discovered from its root `.life`
@@ -163,17 +187,12 @@ single SSR Worker plus edge static assets:
 - **The engine** — shipped as the `life` package's `files["life"]`, served from
   `/api/resolve/life/latest` like any other module (no separate static asset).
 
-`build/` is the build-time half that never ships: `registry-version.mjs` reads
-which registry-gene version this deployment vendored out of `.life.lock`, and
-`astro.config.mjs` stamps it into the worker through a vite `define` so
-`src/middleware.ts` can hand it to the gene on `Env` (the gene serves it as the
-MCP handshake's `serverInfo.version`, and cannot know it itself — a Worker has no
-filesystem and a gene's version is assigned at publish). It was a literal in the
-gene bumped by hand at every publish, which is exactly the kind of value a
-structure already holds. Both ends REFUSE to guess: no registry pin in the lock
-throws the build, and a deployment that supplies no version fails the handshake
-saying so. Neither answers a placeholder — there is no version of "we don't know
-what we are" worth serving, so there is no second path to announce (Law 11.3).
+`build/` is the build-time half that never ships — today one remark plugin,
+`remark-canon-links.mjs`, which rewrites the Book of Life's file-relative chapter
+links into book URLs. (It once also stamped the vendored registry-gene version
+into the worker through a vite `define`; that is now `vars: REGISTRY_VERSION:
+"{{gene:registry}}"` above — the substrate already had a way, so the hand-rolled
+one is gone.)
 
 ## How it deploys
 
