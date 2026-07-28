@@ -159,3 +159,60 @@ describe("native custom-scheme client", () => {
     expect(e.KNOWN_KV._m.has("oauth-consent:github:octocat:https://external.example.com")).toBe(true);
   });
 });
+
+// ── the content-type both halves must accept ─────────────────────────────────
+//
+// This worker is Astro SSR, and Astro's `security.checkOrigin` rejects any POST
+// carrying a FORM content-type whose Origin does not match the site — BEFORE any
+// handler here runs. A native app redirecting to a custom scheme has no such
+// Origin, so a form-encoded request never reached this file: it got Astro's
+// plain-text 403 "Cross-site POST form submissions are forbidden", carrying no
+// `error` field to say why. JSON is the only shape a native client can send.
+//
+// `/token` already read both. `/revoke` read ONLY form — so the two halves of one
+// session's lifecycle disagreed, and sign-out's "best effort" revoke had never
+// once revoked anything: the missing `token` param made it a silent 200 no-op,
+// and the local clear hid it while the refresh token stayed live server-side.
+describe("token endpoints accept JSON, because a native client cannot send a form", () => {
+  const jsonReq = (path: string, body: unknown) =>
+    new Request(`https://known.life${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it("revoke actually revokes when the body is JSON", async () => {
+    const kv = makeKV({ "mcp-oauth:refresh:rt-live": JSON.stringify({ subject: "github:octocat" }) });
+    const res = await handleRevoke(jsonReq("/api/oauth/revoke", { token: "rt-live" }), env(kv));
+    expect(res.status).toBe(200);
+    expect(await kv.get("mcp-oauth:refresh:rt-live")).toBe(null);
+  });
+
+  it("revoke still accepts form-urlencoded — the browser half is unchanged", async () => {
+    const kv = makeKV({ "mcp-oauth:refresh:rt-live": JSON.stringify({ subject: "github:octocat" }) });
+    const res = await handleRevoke(
+      new Request("https://known.life/api/oauth/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token: "rt-live" }).toString(),
+      }),
+      env(kv),
+    );
+    expect(res.status).toBe(200);
+    expect(await kv.get("mcp-oauth:refresh:rt-live")).toBe(null);
+  });
+
+  it("revoking an unknown token is still a 200 no-op (RFC 7009), not an error", async () => {
+    const res = await handleRevoke(jsonReq("/api/oauth/revoke", { token: "never-existed" }), env());
+    expect(res.status).toBe(200);
+  });
+
+  it("a token request with neither content-type is refused by NAME, not ignored", async () => {
+    const res = await handleToken(
+      new Request("https://known.life/api/oauth/token", { method: "POST", headers: { "Content-Type": "text/plain" }, body: "x" }),
+      env(),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json() as any).error).toBe("invalid_request");
+  });
+});
