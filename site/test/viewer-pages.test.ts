@@ -68,32 +68,38 @@ afterEach(() => vi.unstubAllGlobals());
 const get = (path: string) => viewerFetch(new Request(`${ORIGIN}${path}`, { headers: { Cookie: sessionCookie } }), cfg);
 
 describe("viewer pages (mocked GitHub)", () => {
-  it("dashboard lists lives first with detection badges", async () => {
+  it("dashboard shows lives and the genepool — and nothing that is neither", async () => {
     const res = await get("/app");
     expect(res?.status).toBe(200);
     const html = await res!.text();
     expect(html).toContain("Your lives");
     expect(html).toContain("DomVinyard/<strong>life</strong>");   // life card
-    // A repo the SERVER already settled as not-a-life is DROPPED, never rendered.
-    // Only `isLife === null` (still unchecked) rides to the client as a candidate
-    // the sweep may promote — see the partition in the viewer's pages.ts. This
-    // used to assert a "plain repo row"; the dashboard has no such section, and
-    // the stale expectation survived because site's suite only runs when site or
-    // the lock changes, so the viewer bump that removed the row never re-ran it.
-    expect(html).not.toContain("DomVinyard/plain");
     expect(html).toContain("New Life");
     // What REPLACED the repo listing, asserted so the swap is pinned from both
     // sides: the row is gone AND the genepool is there. An absence alone would
     // still pass against a dashboard that rendered neither.
     expect(html).toContain("Genepool");
+    // A repo the SERVER already settled as not-a-life is DROPPED, never rendered:
+    // the full repo listing that used to carry it is gone, and its one real job
+    // (surfacing lives past the detection window) moved into the grid. Only
+    // `isLife === null` (still unchecked) rides to the client as a candidate the
+    // sweep may promote — see the partition in the viewer's pages.ts. This used
+    // to assert a "plain repo row"; the stale expectation survived because site's
+    // suite only runs when site or the lock changes, so the viewer bump that
+    // removed the row never re-ran it.
+    expect(html).not.toContain("DomVinyard/plain");
+    expect(html).not.toMatch(/All repositories/i);
   });
 
-  it("says so plainly when the genepool does not answer", async () => {
+  it("says so plainly when the genepool does not answer — and still renders your lives", async () => {
     // `idpFetch` in this suite returns 500, which is the pool being unreachable.
     // The dashboard must NAME that rather than render an empty list that reads
-    // as "there are no genes" (Law 11.3 — no silent fallthrough).
+    // as "there are no genes" (Law 11.3 — no silent fallthrough). And the outage
+    // must cost the genes section ONLY: a pool that is down taking the lives with
+    // it would be the whole screen lost for half a reason.
     const html = await (await get("/app"))!.text();
     expect(html).toContain("The genepool didn't answer");
+    expect(html).toContain("DomVinyard/<strong>life</strong>");
   });
 
   it("avatar menu dismisses on pointerdown, not click (iOS Safari fires no document click on body taps)", async () => {
