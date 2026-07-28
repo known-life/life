@@ -69,4 +69,56 @@ describe("GET /explore", () => {
     expect(html.headers.get("Content-Type")).toMatch(/text\/html/);
     expect(await html.text()).toContain("<");
   });
+
+  // The markdown arm is the CLI's, and it used to hand back all ~80 genes at
+  // full summary — ~19 KB per `life explore`, with the organ set a new .life
+  // should meet first buried in one operator's long tail. It now meets the
+  // BASELINE first with summaries and lists the rest by name. The tier is
+  // DERIVED from setup's own lib/defaults.txt, never a list kept in the
+  // registry — these two cases pin both halves of that.
+  describe("the baseline tier", () => {
+    // Minimal KV/R2 so loadVersionFiles can reconstruct setup's file set:
+    // KV always misses (so the R2 path runs), R2 serves one blob.
+    const withSetup = (defaults: string) => {
+      db.raw(`INSERT INTO names (name, owner_account, created_at) VALUES (?, ?, ?)`, "setup", OWNER.id, 1);
+      db.raw(
+        `INSERT INTO packages (name, owner_account, summary, latest_version, install_count, verified_state,
+                               created_at, updated_at, superseded_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        "setup", OWNER.id, "the come-alive flow", "2.39.3", 18, "scanned", 1, 1, null,
+      );
+      db.raw(
+        `INSERT INTO versions (package, version, content_hash, manifest_json, published_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        "setup", "2.39.3", "hash1", JSON.stringify({ "lib/defaults.txt": "sha1" }), 1,
+      );
+      return {
+        DB: db,
+        KNOWN_KV: { get: async () => null, put: async () => {} },
+        KNOWN_R2: { get: async () => ({ text: async () => defaults }) },
+      } as any;
+    };
+    const mdWith = (e: any) =>
+      handleExplore(new Request("https://known.life/explore", { headers: { Accept: "text/markdown" } }), e)
+        .then((r) => r.text());
+
+    it("meets the baseline first and lists the rest by name only", async () => {
+      const body = await mdWith(withSetup("known.life/laws\n# a comment\n\n"));
+      expect(body).toContain("explore — the baseline organ set");
+      expect(body).toContain("**laws**@1.61.0");
+      // book-of-life is off the baseline: named, but its summary is not carried.
+      expect(body).toContain("beyond the baseline — 2 gene(s)");
+      expect(body).toContain("book-of-life ⤳");
+      expect(body).not.toContain("the superseded one");
+    });
+
+    // A tier that cannot be derived must not be invented: with no `setup` to
+    // read, the route falls back to exactly the flat list it always served.
+    it("falls back to the flat install-ranked list when no baseline is derivable", async () => {
+      const body = await mdWith(env(db));
+      expect(body).toContain("explore — top packages");
+      expect(body).toContain("the superseded one");
+      expect(body).not.toContain("beyond the baseline");
+    });
+  });
 });
