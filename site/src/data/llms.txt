@@ -66,7 +66,7 @@ Useful verbs once the engine is in (`life` is on PATH after the first session-st
 
 - [What Life is](https://known.life/): The protocol, in one page.
 - [Quick start](https://known.life/docs/quick-start): Repo to living repo in five minutes.
-- [The Book of Life](https://known.life/book.md): THE canon and the spec, whole, in one file — five books: Genesis (what a .life is), The Law (the constitution, verbatim), Practice (how a life is lived), Chronicles (how it got this shape), The Spec (the manifest grammar + conformance fixtures, the exhaustive field reference, the engine surface, the session lifecycle, the registry wire protocol). Rendered edition at https://known.life/book; every chapter has a markdown twin at its own URL with `.md` appended.
+- [The Book of Life](https://known.life/book.md): THE canon and the spec, whole, in one file — {{books}}. Rendered edition at https://known.life/book; every chapter has a markdown twin at its own URL with `.md` appended.
 - [The manifest grammar](https://known.life/book/spec/manifest-format.md): The normative shape of a `.life` head, and the fixtures a conforming parser must pass.
 - [The registry protocol](https://known.life/book/spec/registry-protocol.md): The wire contract this genepool implements — resolve, publish, provenance, transparency.
 - [Docs](https://known.life/docs): The on-ramp — capabilities, infra adapters, the harness layer.

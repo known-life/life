@@ -53,7 +53,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if ((!wantsHtml || agentUa) && !previewBot) {
       // Serve the runbook BODY (200), not a redirect: an agent curling `/`
       // without -L gets a bodyless 302 and reads the site as broken (lived
-      // 2026-07-18). `/llms.txt` is a static asset excluded from the worker
+      // 2026-07-18). `/llms.txt` prerenders to a static asset (from
+      // `src/pages/llms.txt.ts`) and is excluded from the worker
       // via _routes.json — an internal Astro rewrite has no route to land on —
       // but the ASSETS binding reaches it in-process (site/.life assets:).
       // ASSETS is always bound in production (site/.life); if it ever isn't,

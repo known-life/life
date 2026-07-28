@@ -136,6 +136,25 @@ export async function getCanon(): Promise<Book[]> {
   return cached;
 }
 
+const COUNTS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+/**
+ * `"six books"` and `"six books: Genesis, The Law, …"` — the canon's own shape as
+ * a sentence, for the places prose has to state it (meta descriptions, the docs
+ * on-ramp, the agent index). Derived for the same reason the index is: a
+ * hand-written "in five books" is a claim that goes stale the day a book lands,
+ * and this one already did.
+ */
+export async function canonSize(): Promise<string> {
+  const n = (await getCanon()).length;
+  return `${COUNTS[n] ?? n} books`;
+}
+
+export async function canonPhrase(): Promise<string> {
+  const canon = await getCanon();
+  return `${await canonSize()}: ${canon.map((b) => b.title).join(", ")}`;
+}
+
 /** The editorial note shown above an opening chapter, if it has one. */
 export function openingNote(bookSlug: string, chapterSlug: string): string | null {
   const o = OPENINGS[bookSlug];

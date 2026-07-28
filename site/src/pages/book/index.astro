@@ -1,15 +1,17 @@
 ---
 import Base from "../../layouts/Base.astro";
 import Nav from "../../components/Nav.astro";
-import { getCanon } from "../../lib/book.ts";
+import { getCanon, canonPhrase, canonSize } from "../../lib/book.ts";
 
 const canon = await getCanon();
 const chapterCount = canon.reduce((n, b) => n + b.chapters.length, 0);
+const size = await canonSize();
+const Size = size[0].toUpperCase() + size.slice(1);
 ---
 
 <Base
   title="The Book of Life"
-  description="The canon of the Life protocol, in six books: Genesis, The Law, Practice, Chronicles, The Spec, and The Case. Rendered from the gene itself, so it cannot drift."
+  description={`The canon of the Life protocol, in ${await canonPhrase()}. Rendered from the gene itself, so it cannot drift.`}
 >
   <link
     slot="head"
@@ -22,7 +24,7 @@ const chapterCount = canon.reduce((n, b) => n + b.chapters.length, 0);
       <p class="above">The canon of the Life protocol</p>
       <h1>The Book<br />of Life</h1>
       <p class="lead">
-        Six books, read as one. Not a description of the system — the canon <em>is</em> the
+        {Size}, read as one. Not a description of the system — the canon <em>is</em> the
         source: every chapter below is a markdown page in the <a href="/life-guide">life-guide</a>
         gene, and the constitution is rendered from the <a href="/laws">laws</a> gene's own
         <code>LAWS.md</code>. This page is generated from those files, so it cannot say something

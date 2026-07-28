@@ -1,5 +1,5 @@
 {
- "count": 2551,
+ "count": 2554,
  "versions": [
   {
    "package": "anatomy",
@@ -14033,6 +14033,24 @@
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
   },
   {
+   "package": "life-guide",
+   "version": "0.38.3",
+   "content_hash": "8bf5f40e5f6e550dc95167b3f62d3afdbcd7015afdcf56b66e1ac85767c9cfb2",
+   "published_at": 1785279364300,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life-guide",
+   "version": "0.38.4",
+   "content_hash": "ebb6ad6cdfba60fc1700808c27f217a68754cf6ddc0ca2968a4b100c36b5958c",
+   "published_at": 1785279891812,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
    "package": "life-lib",
    "version": "1.0.0",
    "content_hash": "ae9da7b0c33ba63164c1730cac2ff90dbb52dbb435e3be73df2379339367e1b8",
@@ -21840,6 +21858,15 @@
    "version": "1.18.7",
    "content_hash": "e4c064dae5ff8bcb86d0bd92906e89d059cc23f341ad660e49b125450185ae51",
    "published_at": 1785272096305,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBP/aUqmgYTCkP5iiZQRphhEj26OYRziER8Myq5vaHJ9"
+  },
+  {
+   "package": "think",
+   "version": "1.18.8",
+   "content_hash": "1b897e8c0b0437d1596b5181238b0fda6dc6512ffce335321be79aeb20b04ef5",
+   "published_at": 1785279839278,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBP/aUqmgYTCkP5iiZQRphhEj26OYRziER8Myq5vaHJ9"

@@ -1,5 +1,5 @@
 ---
-summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, why the Accept negotiation was tried and dropped, and where the old /docs pages went."
+summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went."
 ---
 
 # The /book surface — rendering the canon, not copying it
@@ -26,7 +26,8 @@ rather than promising to keep it in step.
 | `src/lib/book-markdown.ts` | The machine edition — one chapter, one book, or the whole canon, assembled from the same entries the pages render. Everything it adds is a locator, never a restatement. |
 | `src/pages/book/**` | The rendered edition (`Book.astro` layout — a serif measure, deliberately unlike `/docs`) plus the `.md` endpoints beside each page. |
 | `build/remark-canon-links.mjs` | Chapters cross-link as *files* (`../05-spec/02-life-schema.md`), because agents read them from disk as often as from the web. This runs the naming rule backwards into `/book/spec/life-schema`. A link it cannot resolve is left visibly unrewritten rather than guessed at. |
-| `test/book.test.ts` | Gates the convention both halves depend on: the source shape, every cross-link resolving, and the rewrite's exact inverse cases. |
+| `src/pages/llms.txt.ts` + `src/data/llms.txt` | The agent index. The prose is plain text beside the endpoint; the endpoint's only job is to fill `{{books}}` from the real canon. |
+| `test/book.test.ts` | Gates the convention both halves depend on: the source shape, every cross-link resolving, the rewrite's exact inverse cases, and that no `.astro` page writes the canon's size down. |
 
 `site/.life` imports both genes, so `.life.lock` pins *which edition of the canon
 this deployment serves*, and the existing `deploy_inputs: .life.lock` redeploys
@@ -34,6 +35,22 @@ the worker when either pin moves. The gene's own publish gate holds the same
 shape at publish time; `test/book.test.ts` holds it for the vendored copy this
 worker actually builds from — a different moment, and a different failure (a
 stale `.genome/` renders a book the pool has moved past).
+
+## Nothing outside the book states its shape either
+
+Deriving the index was only half of it. Four surfaces *around* the book wrote the
+canon's shape down in prose — the `/book` meta description and frontispiece, the
+`/docs` on-ramp paragraph and its "where to read what" table, the docs sidebar,
+and `/llms.txt` — and when Book VI landed, two of them said **five books** while
+the book beside them rendered six. That is the same failure the index is built to
+be immune to, one layer out.
+
+All four now read `canonSize()` / `canonPhrase()` from `src/lib/book.ts`, and
+`/llms.txt` moved from `public/` (a static file, unable to interpolate) to a
+prerendered endpoint over the same prose. `test/book.test.ts` holds it: **no
+`.astro` file may contain a book count at all.** The rule is deliberately blunt —
+a correct hand-written count is indistinguishable from one that has not gone
+stale *yet*.
 
 ## Two editions
 

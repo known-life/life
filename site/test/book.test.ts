@@ -70,6 +70,27 @@ describe("the canon source obeys the convention the site decodes", () => {
     expect(broken).toEqual([]);
   });
 
+  it("lets no rendered page state the canon's size by hand", () => {
+    // Every page that has to say how big the canon is reads it from `book.ts`
+    // (`canonSize` / `canonPhrase`). This is not style: `/docs` and `/llms.txt`
+    // both said "five books" for as long as there were six, because both had
+    // written the number down. A count in an `.astro` file is that bug again.
+    const src = resolve(__dirname, "../src");
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith(".astro")) {
+          const m = readFileSync(p, "utf8").match(/\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+books\b/i);
+          if (m) offenders.push(`${p.slice(src.length + 1)}: "${m[0]}"`);
+        }
+      }
+    };
+    walk(src);
+    expect(offenders).toEqual([]);
+  });
+
   it("renders the two openings from their real files, not from a copy", () => {
     // Book I opens with the always-on page and Book II with the constitution;
     // both are read where they live, so the book cannot hold a stale restatement.

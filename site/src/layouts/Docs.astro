@@ -1,6 +1,7 @@
 ---
 import Base from "./Base.astro";
 import Nav from "../components/Nav.astro";
+import { getCanon } from "../lib/book.ts";
 
 interface Props {
   title: string;
@@ -19,11 +20,12 @@ const sections = [
 // Everything conceptual and everything normative is the Book of Life, rendered
 // from the genes. These docs are the on-ramp to it, never a second copy of it —
 // the adapter and spec pages that used to sit here had already gone stale
-// against the genes they restated, which is why they are gone.
+// against the genes they restated, which is why they are gone. The book rows are
+// derived for the same reason: a sidebar that names some of the canon by hand is
+// a stale index the moment the canon grows.
 { group: "The Book of Life" },
   { label: "The canon", href: "/book" },
-  { label: "Practice", href: "/book/practice" },
-  { label: "The Spec", href: "/book/spec" },
+  ...(await getCanon()).map((b) => ({ label: b.title, href: b.href })),
 ];
 ---
 

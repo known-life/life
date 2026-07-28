@@ -1,21 +1,28 @@
 ---
 import Docs from "../../layouts/Docs.astro";
+import { getCanon, canonSize } from "../../lib/book.ts";
+
+// The book rows below are derived from the canon, not listed here. An on-ramp
+// that names the books by hand is a second table of contents, and the second
+// copy is the one that goes stale — which this page proved when Book VI landed.
+const canon = await getCanon();
+const size = await canonSize();
 ---
 
 <Docs title="Overview">
   <h1>Life</h1>
   <p class="lead">Life is a protocol for agent-legible repos. A <code>.life</code> file in any directory tells an agent what that directory is, what it needs, what it provides, and which commands are safe to run. A repo with a <code>.life</code> at root is <strong>a .life</strong> — a repo that remembers, acts, and evolves.</p>
 
-  <p>These pages are the on-ramp: how to get a repo running, and what this genepool promises the repos that depend on it. <strong>Everything conceptual and everything normative is <a href="/book">the Book of Life</a></strong> — the canon, in five books, rendered from the <code>life-guide</code> and <code>laws</code> genes every <code>.life</code> already carries. That is deliberate: the reference and the thing it describes ship as one artifact, so they cannot drift apart. A page here that explained the protocol would be a second copy, and the second copy is always the one that goes stale.</p>
+  <p>These pages are the on-ramp: how to get a repo running, and what this genepool promises the repos that depend on it. <strong>Everything conceptual and everything normative is <a href="/book">the Book of Life</a></strong> — the canon, in {size}, rendered from the <code>life-guide</code> and <code>laws</code> genes every <code>.life</code> already carries. That is deliberate: the reference and the thing it describes ship as one artifact, so they cannot drift apart. A page here that explained the protocol would be a second copy, and the second copy is always the one that goes stale.</p>
 
   <h2>Where to read what</h2>
   <table>
     <tbody>
       <tr><td><a href="/docs/quick-start">Quick start</a></td><td>Repo to living repo in five minutes.</td></tr>
       <tr><td><a href="/docs/getting-started">Getting started</a></td><td>The walkthrough — what the agent does, step by step.</td></tr>
-      <tr><td><a href="/book/genesis">Genesis</a></td><td>What a <code>.life</code> is: the thesis, the building blocks, the lexicon.</td></tr>
-      <tr><td><a href="/book/practice">Practice</a></td><td>How a life is lived: context, composing cells, gene anatomy, adapters, connecting services, building, verification.</td></tr>
-      <tr><td><a href="/book/spec">The Spec</a></td><td>Normative: the manifest grammar and its conformance fixtures, the exhaustive field reference, the engine surface, the session lifecycle, the registry wire protocol.</td></tr>
+      {canon.map((book) => (
+        <tr><td><a href={book.href}>{book.title}</a></td><td>{book.blurb}</td></tr>
+      ))}
       <tr><td><a href="/docs/governance">Governance</a></td><td>What this registry promises, and what its operator cannot do unseen.</td></tr>
     </tbody>
   </table>
