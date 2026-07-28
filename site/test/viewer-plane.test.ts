@@ -3,7 +3,7 @@
 // the session's IdP-signed identity token as the bearer — the plane
 // authorizes, the viewer only authenticates. No plane in the manifest → the
 // honest planeless page; no identity token in the session → sign in again.
-// Fidelity source: knowledge/viewer-app-parity-plan.md.
+// Fidelity source: .life.knowledge/viewer-app-parity-plan.md.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { viewerFetch } from "../../.genome/viewer/src/router";
 import { seal } from "../../.genome/viewer/src/crypto";

@@ -26,8 +26,8 @@ describe("viewer markdown", () => {
   });
 
   it("passes relative links and images through untouched (no resolver seam)", () => {
-    const html = renderMarkdown("[kb](knowledge/foo.md) ![img](../pic.png)");
-    expect(html).toContain('href="knowledge/foo.md"');
+    const html = renderMarkdown("[kb](.life.knowledge/foo.md) ![img](../pic.png)");
+    expect(html).toContain('href=".life.knowledge/foo.md"');
     expect(html).toContain('src="../pic.png"');
     const abs = renderMarkdown("[x](https://a.b)");
     expect(abs).toContain('href="https://a.b"');

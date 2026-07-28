@@ -1,7 +1,7 @@
 // Node 05b's remainder: the Genes browser (App-Store style, /v1/genes) and the
 // commit view (/v1/commits/{sha}) — plane-served, transcribed from the RN
 // screens in DomVinyard/justin make/mobile (app/genes/*, app/commit/[sha]).
-// Fidelity source: knowledge/viewer-app-parity-plan.md.
+// Fidelity source: .life.knowledge/viewer-app-parity-plan.md.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { viewerFetch } from "../../.genome/viewer/src/router";
 import { seal } from "../../.genome/viewer/src/crypto";
