@@ -101,6 +101,36 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (viewerRes) return viewerRes;
   }
 
+  // --- Where the old docs pages went ---
+  //
+  // Seven pages moved into the Book of Life (`/docs/spec/*`, `/docs/interface`,
+  // `/docs/adapters/*`); this keeps every published link working. It is a
+  // migration table, not a registry — it shrinks to nothing as the links die,
+  // and it is the ONLY declaration of these redirects.
+  //
+  // It lives here because the two framework-native routes both failed on this
+  // deployment, each verified live rather than assumed:
+  //   · Astro's default emits `dist/_redirects`. Cloudflare documents that file
+  //     for Workers static assets; here nothing parses it — all seven 404'd with
+  //     the file sitting in the bundle (2026-07-28).
+  //   · `build: { redirects: false }` puts them in the SSR manifest instead.
+  //     They 404'd again — a static build has no handler behind the entry.
+  // What DOES hold is the seam this worker already runs on: an asset miss falls
+  // through to the middleware, which is the only reason a gene page like `/laws`
+  // answers at all. A redirect declared where it actually runs beats a prettier
+  // one that silently doesn't (Law 5.10 — a config that lies is worse than none).
+  const MOVED: Record<string, string> = {
+    "/docs/interface": "/book/spec/life-schema",
+    "/docs/spec/manifest": "/book/spec/manifest-format",
+    "/docs/spec/registry-protocol": "/book/spec/registry-protocol",
+    "/docs/spec/governance": "/docs/governance",
+    "/docs/adapters/harness": "/book/practice/adapters",
+    "/docs/adapters/infrastructure": "/book/practice/adapters",
+    "/docs/adapters/storage": "/book/practice/adapters",
+  };
+  const moved = MOVED[path.replace(/\/$/, "")];
+  if (moved) return Response.redirect(new URL(moved, request.url).toString(), 301);
+
   const ownedOutright =
     path === "/healthz" ||
     path === "/skill" ||

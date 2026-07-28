@@ -52,12 +52,22 @@ is the one canonical agent path — explicit, cacheable, linkable, and true.
 ## Where the old spec pages went
 
 `/docs/spec/*`, `/docs/interface`, and `/docs/adapters/*` are now Book V and
-Practice ch7. The redirects are declared once in `astro.config.mjs` with
-`build: { redirects: false }`, which emits them as **worker routes**. The default
-is a `dist/_redirects` asset file, and Cloudflare documents that for Workers
-static assets — but on this deployment it is not applied: every legacy path 404'd
-in production with the file sitting in `dist/` (verified live 2026-07-28). A
-redirect that exists only in a file nothing reads is a lying config.
+Practice ch7. The seven redirects are declared **once, in `src/middleware.ts`** —
+and getting there cost two live failures worth recording, because both
+framework-native routes look right and neither works on this deployment:
+
+1. Astro's default emits `dist/_redirects`. Cloudflare documents that file for
+   Workers static assets; here nothing parses it — all seven 404'd in production
+   with the file sitting in the bundle.
+2. `build: { redirects: false }` moves them into the SSR manifest instead. They
+   404'd again — a `output: "static"` build has no handler behind the entry.
+
+What holds is the seam this worker already runs on: **an asset miss falls through
+to the middleware**, which is the only reason a gene page like `/laws` answers at
+all. Declare a redirect where it actually runs. The general lesson, twice over:
+this deployment's asset layer does less than the docs promise, so anything
+resting on it (`_redirects`, `run_worker_first`) must be verified live before it
+is believed — and a config that lies is worse than no config (Law 5.10).
 
 **Governance stayed site-side**, at `/docs/governance`. It is *this registry's*
 operating policy — namespace rules, operator scope, takedowns — not the protocol,

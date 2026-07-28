@@ -18,34 +18,6 @@ const dep = (name) => fileURLToPath(new URL(`./node_modules/${name}`, import.met
 export default defineConfig({
   site: "https://known.life",
   output: "static",
-  // The spec moved into the Book of Life. It used to be hand-written HTML here,
-  // beside a `life-guide` gene that documented the same fields — two sources, and
-  // the docs copy was the one that had gone stale (it still described the
-  // open-world head the epoch-2 waist replaced). The canon renders from the gene,
-  // so there is nothing left to keep in step; these keep every published link
-  // working. Governance stays site-side: it is THIS registry's operating policy,
-  // not the protocol, and does not belong in a gene every .life inherits.
-  // Emit the redirects as WORKER ROUTES, not as a `_redirects` asset file.
-  // Cloudflare documents `_redirects` for Workers static assets, and Astro's CF
-  // adapter writes one — but on this deployment it is not applied: every legacy
-  // path 404'd in production while the file sat in `dist/` (verified live,
-  // 2026-07-28). A redirect that exists only in a file nothing reads is a lying
-  // config, so the one that runs is the one declared here.
-  build: { redirects: false },
-  redirects: {
-    "/docs/interface": "/book/spec/life-schema",
-    "/docs/spec/manifest": "/book/spec/manifest-format",
-    "/docs/spec/registry-protocol": "/book/spec/registry-protocol",
-    "/docs/spec/governance": "/docs/governance",
-    // The three adapter pages went the same way, and for the same reason: they
-    // restated the `claude-code` / `cloudflare` / `github` genes by hand, and had
-    // drifted (the harness page still taught `surfaces:`, a key the epoch-2 waist
-    // retired). The shape they share is one book chapter; the per-adapter detail
-    // is each gene's own doc, which is the only copy that ships with the code.
-    "/docs/adapters/harness": "/book/practice/adapters",
-    "/docs/adapters/infrastructure": "/book/practice/adapters",
-    "/docs/adapters/storage": "/book/practice/adapters",
-  },
   adapter: cloudflare({
     platformProxy: { enabled: true }, // local `astro dev` gets D1/KV/R2 bindings
   }),
