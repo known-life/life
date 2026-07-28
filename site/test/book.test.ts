@@ -21,7 +21,10 @@ import { remarkCanonLinks } from "../build/remark-canon-links.mjs";
  */
 
 const KNOWLEDGE = resolve(__dirname, "../../.genome/life-guide/.life.knowledge");
-const BOOKS = ["01-genesis", "02-law", "03-practice", "04-chronicles", "05-spec"];
+// Named, never counted: a canon that accepts "however many dirs exist" cannot
+// catch the book added by accident. Extending it is a deliberate edit, made in
+// the same change that adds the book (the gene's own publish gate says the same).
+const BOOKS = ["01-genesis", "02-law", "03-practice", "04-chronicles", "05-spec", "06-case"];
 
 /** Run the remark plugin over one link node, as if from `file`. */
 function rewrite(url: string, file: string): string {
@@ -34,7 +37,7 @@ function rewrite(url: string, file: string): string {
 const chapterIn = (book: string) => join(KNOWLEDGE, book, "01-x.md");
 
 describe("the canon source obeys the convention the site decodes", () => {
-  it("is exactly five ordinal book directories, nothing loose", () => {
+  it("is exactly six ordinal book directories, nothing loose", () => {
     const entries = readdirSync(KNOWLEDGE, { withFileTypes: true });
     expect(entries.filter((e) => e.isDirectory()).map((e) => e.name).sort()).toEqual(BOOKS);
     expect(entries.filter((e) => e.isFile()).map((e) => e.name)).toEqual([]);

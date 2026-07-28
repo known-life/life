@@ -64,6 +64,7 @@ const BLURBS: Record<string, string> = {
   practice: "How a life is actually lived — the working chapters.",
   chronicles: "How Life got this shape, and what each rule is a scar of.",
   spec: "Where the book stops explaining and starts binding.",
+  case: "Why this shape and not another — argued, not asserted.",
 };
 
 const NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];

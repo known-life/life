@@ -150,7 +150,7 @@ single SSR Worker plus edge static assets:
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
   to static assets. The on-ramp only: quick start, the adapter references, and
   this registry's governance policy.
-- **The Book of Life** (`/book`) — the canon AND the normative spec, in five
+- **The Book of Life** (`/book`) — the canon AND the normative spec, in six
   books, rendered from the `life-guide` and `laws` genes rather than authored
   here (`src/lib/book.ts` derives it from their file tree; nothing declares a
   table of contents). Two editions: the rendered page, and a markdown twin at the

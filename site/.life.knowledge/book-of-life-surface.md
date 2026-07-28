@@ -5,7 +5,7 @@ summary: "How known.life/book is built — the Book of Life rendered from the li
 # The /book surface — rendering the canon, not copying it
 
 `known.life/book` is the Book of Life: the canon of the Life protocol and its
-normative spec, in five books. **None of it is authored in this repo.** Every
+normative spec, in six books. **None of it is authored in this repo.** Every
 chapter is a markdown page of the `known.life/life-guide` gene, and Book II's
 first chapter is the `known.life/laws` gene's own `LAWS.md` — the same file that
 is injected into every session in full. The site renders those genes; it holds no
