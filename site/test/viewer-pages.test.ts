@@ -82,6 +82,18 @@ describe("viewer pages (mocked GitHub)", () => {
     // the lock changes, so the viewer bump that removed the row never re-ran it.
     expect(html).not.toContain("DomVinyard/plain");
     expect(html).toContain("New Life");
+    // What REPLACED the repo listing, asserted so the swap is pinned from both
+    // sides: the row is gone AND the genepool is there. An absence alone would
+    // still pass against a dashboard that rendered neither.
+    expect(html).toContain("Genepool");
+  });
+
+  it("says so plainly when the genepool does not answer", async () => {
+    // `idpFetch` in this suite returns 500, which is the pool being unreachable.
+    // The dashboard must NAME that rather than render an empty list that reads
+    // as "there are no genes" (Law 11.3 — no silent fallthrough).
+    const html = await (await get("/app"))!.text();
+    expect(html).toContain("The genepool didn't answer");
   });
 
   it("avatar menu dismisses on pointerdown, not click (iOS Safari fires no document click on body taps)", async () => {
