@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { setSuperseded, getPackage, topPackages } from "../../.genome/registry/src/registry/lib/db";
+import { setRetired, getPackage, topPackages, isRetired } from "../../.genome/registry/src/registry/lib/db";
 import { listMarkdown } from "../../.genome/registry/src/registry/lib/pages";
 import { MockD1 } from "./d1-mock";
 
@@ -31,30 +31,51 @@ beforeEach(async () => {
 describe("superseded_by", () => {
   it("sets and reads the successor pointer; null is live", async () => {
     expect((await getPackage(env(db), "book-of-life"))?.superseded_by).toBeNull();
-    await setSuperseded(env(db), "book-of-life", "life-guide");
+    await setRetired(env(db), "book-of-life", "life-guide", null);
     expect((await getPackage(env(db), "book-of-life"))?.superseded_by).toBe("life-guide");
   });
 
   it("explore ranks live genes first — a superseded @9 sinks below a live @3", async () => {
     // Before: pure install order — the legacy gene leads.
     expect((await topPackages(env(db))).map((p) => p.name)).toEqual(["book-of-life", "life-guide"]);
-    await setSuperseded(env(db), "book-of-life", "life-guide");
+    await setRetired(env(db), "book-of-life", "life-guide", null);
     // After: the live successor leads despite 3× fewer installs.
     expect((await topPackages(env(db))).map((p) => p.name)).toEqual(["life-guide", "book-of-life"]);
   });
 
   it("clearing the pointer (null) un-retires the gene back to install order", async () => {
-    await setSuperseded(env(db), "book-of-life", "life-guide");
-    await setSuperseded(env(db), "book-of-life", null);
+    await setRetired(env(db), "book-of-life", "life-guide", null);
+    await setRetired(env(db), "book-of-life", null, null);
     expect((await getPackage(env(db), "book-of-life"))?.superseded_by).toBeNull();
     expect((await topPackages(env(db))).map((p) => p.name)).toEqual(["book-of-life", "life-guide"]);
   });
 
   it("the explore markdown badges a superseded gene with its successor", async () => {
-    await setSuperseded(env(db), "book-of-life", "life-guide");
+    await setRetired(env(db), "book-of-life", "life-guide", null);
     const md = listMarkdown("explore", await topPackages(env(db)));
     expect(md).toContain("superseded by **life-guide**");
     // the live successor's row carries no supersede tag
     expect(md).toMatch(/life-guide\*\*@1\.0\.0 — 3 installs — /);
+  });
+
+  // Retirement with NO successor — the case the pool could not express before,
+  // which left `think` and `harness` carrying it as prose in their summaries.
+  // It must sink and badge exactly like a rename, without inventing a successor.
+  it("a reason with no successor retires the gene: sinks, badges, stays resolvable", async () => {
+    await setRetired(env(db), "book-of-life", null, "the thesis it embodied was retired");
+    const p = (await getPackage(env(db), "book-of-life"))!;
+    expect(p.superseded_by).toBe(null);
+    expect(p.retired_reason).toBe("the thesis it embodied was retired");
+    expect(isRetired(p)).toBe(true);
+    expect((await topPackages(env(db))).map((r) => r.name)).toEqual(["life-guide", "book-of-life"]);
+  });
+
+  // The predicate is what makes "superseded but not retired" unrepresentable:
+  // one concept, read the same way at every sink, badge and warn.
+  it("isRetired is true for either mark and false only when both are clear", () => {
+    expect(isRetired({ superseded_by: "life-guide", retired_reason: null })).toBe(true);
+    expect(isRetired({ superseded_by: null, retired_reason: "gone" })).toBe(true);
+    expect(isRetired({ superseded_by: "life-guide", retired_reason: "gone" })).toBe(true);
+    expect(isRetired({ superseded_by: null, retired_reason: null })).toBe(false);
   });
 });
