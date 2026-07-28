@@ -74,7 +74,13 @@ describe("viewer pages (mocked GitHub)", () => {
     const html = await res!.text();
     expect(html).toContain("Your lives");
     expect(html).toContain("DomVinyard/<strong>life</strong>");   // life card
-    expect(html).toContain("DomVinyard/plain");                    // plain repo row
+    // A repo the SERVER already settled as not-a-life is DROPPED, never rendered.
+    // Only `isLife === null` (still unchecked) rides to the client as a candidate
+    // the sweep may promote — see the partition in the viewer's pages.ts. This
+    // used to assert a "plain repo row"; the dashboard has no such section, and
+    // the stale expectation survived because site's suite only runs when site or
+    // the lock changes, so the viewer bump that removed the row never re-ran it.
+    expect(html).not.toContain("DomVinyard/plain");
     expect(html).toContain("New Life");
   });
 
