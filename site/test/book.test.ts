@@ -148,35 +148,76 @@ describe("file links become book URLs", () => {
  * restatement by necessity: `05-spec/01-manifest-format.md` writes the head
  * grammar out in prose because a spec has to be readable as law, not inferred
  * from an implementation. That is the right call — but it makes the chapter the
- * one place in the book that can quietly disagree with the engine it specifies.
+ * one place in the book that can quietly stop being true about the engine it
+ * specifies, and nothing would notice until someone wrote a conforming
+ * implementation against a spec that had stopped being true.
  *
- * The prose stays hand-written. The machine-checkable claims inside it do not
- * get to drift: the two key regexes the chapter quotes are the two the engine
- * actually parses with. If `grammar.js` tightens a character class and the
- * chapter does not, this fails — which is the whole point, because nothing else
- * would notice until a conforming implementation was written against a spec that
- * had stopped being true.
+ * The prose stays hand-written. Its normative claims get executed. This runs the
+ * chapter's own rules through the engine's real parser — the same `grammar.js`
+ * the chapter names as the reference implementation — so a rule the engine
+ * changes and the chapter does not is a failing test, not a latent lie.
  *
  * (The rest of Book V needs no gate: `03-engine-surface.md` deliberately refuses
  * to table the verb inventory, deriving it from what `life` prints instead.)
  */
-describe("the spec's head grammar still matches the engine that parses it", () => {
-  const grammar = readFileSync(resolve(__dirname, "../../.genome/life/kernel/lib/grammar.js"), "utf8");
+describe("Book V's head grammar is still true of the engine that parses it", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { parseHead, TOP_KEY, NESTED_KEY } = require("../../.genome/life/kernel/lib/grammar.js");
   const chapter = readFileSync(join(KNOWLEDGE, "05-spec/01-manifest-format.md"), "utf8");
 
-  /** The source of a named regex constant in the engine's grammar, without anchors. */
-  const engineRegex = (name: string) => {
-    const m = grammar.match(new RegExp(`const ${name} = /\\^(.+)\\$/`));
-    if (!m) throw new Error(`grammar.js no longer declares ${name} — re-true the spec chapter`);
-    return m[1];
+  /** The head grammar's own error text for an input the chapter says is fatal. */
+  const rejects = (head: string): string => {
+    try {
+      parseHead(head, "spec");
+    } catch (e) {
+      return String((e as Error).message);
+    }
+    throw new Error(`the chapter says this is fatal, the engine accepted it:\n${head}`);
   };
 
-  it("quotes the engine's own top-level and nested key classes", () => {
-    for (const name of ["TOP_KEY", "NESTED_KEY"]) {
-      const pattern = engineRegex(name);
-      expect(chapter, `${name} (${pattern}) is missing from the manifest chapter`).toContain(
-        `\`${pattern}\``,
-      );
+  it("quotes the engine's own key classes, character for character", () => {
+    // Read off the exported regexes rather than the chapter's neighbours: these
+    // two ARE the contract an implementer would copy out of the spec.
+    for (const re of [TOP_KEY, NESTED_KEY]) {
+      const pattern = re.source.replace(/^\^|\$$/g, "");
+      expect(chapter, `${pattern} is missing from the manifest chapter`).toContain(`\`${pattern}\``);
     }
+  });
+
+  it("types scalars the way the chapter says — and nothing else", () => {
+    const { data } = parseHead(
+      ['life: "1.0"', "version: 1.0", "count: 3", "on: true", "off: false", "empty:"].join("\n"),
+      "spec",
+    );
+    // "`true`/`false` and integer literals are the only non-string types."
+    expect(data.count).toBe(3);
+    expect(data.on).toBe(true);
+    expect(data.off).toBe(false);
+    // "decimals stay strings … the Norway problem cannot exist"
+    expect(data.version).toBe("1.0");
+    expect(data.life).toBe("1.0");
+    // "A `key:` with no value and no indented block is uniformly `null`."
+    expect(data.empty).toBeNull();
+  });
+
+  it("is fatal on exactly what the chapter says is fatal, with the message it quotes", () => {
+    // Each pair is a rule the chapter states in prose and an error string it
+    // prints in backticks. Named, never inferred: adding a rule to the chapter
+    // is a deliberate edit here too — but the ENGINE half is what this checks.
+    const fatal = [
+      { rule: "a tab in indentation", head: "a:\tb\n", cited: "tab character" },
+      { rule: "an unquoted scalar with a colon", head: "summary: a: b\n", cited: "plain scalar contains ':'" },
+      { rule: "the same key twice", head: "name: a\nname: b\n", cited: "duplicate key 'name'" },
+    ];
+    for (const { rule, head, cited } of fatal) {
+      expect(rejects(head), rule).toContain(cited);
+      expect(chapter, `the chapter no longer quotes \`${cited}\``).toContain(`\`${cited}\``);
+    }
+  });
+
+  it("carries file, line and column on every rejection, as the chapter promises", () => {
+    // "anything outside the subset is a fatal error with line, column, and the fix"
+    expect(rejects("a:\tb\n")).toMatch(/^spec:\d+:\d+: /);
+    expect(rejects("a:\tb\n")).toContain("fix:");
   });
 });
