@@ -1,4 +1,5 @@
 import { getCollection, type CollectionEntry } from "astro:content";
+import { withBindingText } from "../../build/law-binding.mjs";
 
 /**
  * The Book of Life, derived — never declared.
@@ -21,6 +22,14 @@ export type Chapter = {
   title: string;
   href: string;
   entry: CollectionEntry<"canon"> | CollectionEntry<"scripture">;
+  /**
+   * The chapter as the web publishes it: the gene's own body, with Book II's
+   * on-disk pointer to a Law swapped for that Law's binding text (see
+   * `build/law-binding.mjs`). Every other chapter is its body, byte for byte.
+   * The `.md` edition serves this, and the rendered pages run the same function
+   * through remark, so the two editions carry the same text.
+   */
+  markdown: string;
 };
 
 export type Book = {
@@ -92,6 +101,12 @@ export async function getCanon(): Promise<Book[]> {
   const pages = await getCollection("canon");
   const scripture = await getCollection("scripture");
 
+  // The constitution, read once for the whole build: Book II's commentary
+  // chapters are rendered with the Law each one comments on (build/law-binding.mjs).
+  const lawsEntry = scripture.find((s) => s.id === OPENINGS.law.id);
+  if (!lawsEntry) throw new Error(`book: ${OPENINGS.law.id} not found`);
+  const lawsText = lawsEntry.body ?? "";
+
   const dirs = [...new Set(pages.map((p) => p.id.split("/")[0]))].sort();
 
   cached = dirs.map((dir, i) => {
@@ -106,7 +121,13 @@ export async function getCanon(): Promise<Book[]> {
       .sort((a, b) => a.id.localeCompare(b.id))
       .map((entry) => {
         const s = unordinal(entry.id.split("/")[1]);
-        return { slug: s, title: h1(entry.body ?? ""), href: `/book/${slug}/${s}`, entry };
+        return {
+          slug: s,
+          title: h1(entry.body ?? ""),
+          href: `/book/${slug}/${s}`,
+          entry,
+          markdown: withBindingText(entry.body ?? "", lawsText),
+        };
       });
 
     const opening = OPENINGS[slug];
@@ -118,6 +139,7 @@ export async function getCanon(): Promise<Book[]> {
         title: opening.title,
         href: `/book/${slug}/${opening.slug}`,
         entry,
+        markdown: entry.body ?? "",
       });
     }
 

@@ -180,12 +180,12 @@ single SSR Worker plus edge static assets:
 - **The engine** — shipped as the `life` package's `files["life"]`, served from
   `/api/resolve/life/latest` like any other module (no separate static asset).
 
-`build/` is the build-time half that never ships — today one remark plugin,
-`remark-canon-links.mjs`, which rewrites the Book of Life's file-relative chapter
-links into book URLs. (It once also stamped the vendored registry-gene version
-into the worker through a vite `define`; that is now `vars: REGISTRY_VERSION:
-"{{gene:registry}}"` above — the substrate already had a way, so the hand-rolled
-one is gone.)
+`build/` is the build-time half that never ships — the Book of Life's two source
+transforms: `remark-canon-links.mjs` rewrites file-relative chapter links into
+book URLs, and `law-binding.mjs` renders each Law's binding text into its Book II
+commentary, where the gene's on-disk pointer to `LAWS.md` sits (a path no web
+reader can open). Both editions run the latter — `src/lib/book.ts` for the
+markdown twin, `remark-law-binding.mjs` for the page.
 
 ## How it deploys
 

@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import cloudflare from "@astrojs/cloudflare";
 import { fileURLToPath } from "node:url";
 import { remarkCanonLinks } from "./build/remark-canon-links.mjs";
+import { remarkLawBinding } from "./build/remark-law-binding.mjs";
 
 // The registry core is the known.life/registry gene, materialized into
 // ../.genome/registry and imported by src/middleware.ts. Its npm deps live in
@@ -23,7 +24,9 @@ export default defineConfig({
   }),
   // The Book of Life's chapters cross-link as files (they are read from disk as
   // often as from the web); this turns those `.md` links into book URLs.
-  markdown: { remarkPlugins: [remarkCanonLinks] },
+  // `remarkLawBinding` runs FIRST because it re-parses the page it rewrites —
+  // it must not land on a tree another plugin has already edited.
+  markdown: { remarkPlugins: [remarkLawBinding, remarkCanonLinks] },
   vite: {
     resolve: {
       alias: {

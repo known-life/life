@@ -1,5 +1,5 @@
 ---
-summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went."
+summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, how Book II's commentaries get the Law's binding text rendered in instead of a filesystem path, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went."
 ---
 
 # The /book surface — rendering the canon, not copying it
@@ -26,6 +26,7 @@ rather than promising to keep it in step.
 | `src/lib/book-markdown.ts` | The machine edition — one chapter, one book, or the whole canon, assembled from the same entries the pages render. Everything it adds is a locator, never a restatement. |
 | `src/pages/book/**` | The rendered edition (`Book.astro` layout — a serif measure, deliberately unlike `/docs`) plus the `.md` endpoints beside each page. |
 | `build/remark-canon-links.mjs` | Chapters cross-link as *files* (`../05-spec/02-life-schema.md`), because agents read them from disk as often as from the web. This runs the naming rule backwards into `/book/spec/life-schema`. A link it cannot resolve is left visibly unrewritten rather than guessed at. |
+| `build/law-binding.mjs` + `build/remark-law-binding.mjs` | Book II's commentary chapters, given the text they comment on — see below. |
 | `src/pages/llms.txt.ts` + `src/data/llms.txt` | The agent index. The prose is plain text beside the endpoint; the endpoint's only job is to fill `{{books}}` from the real canon. |
 | `test/book.test.ts` | Gates the convention both halves depend on: the source shape, every cross-link resolving, the rewrite's exact inverse cases, and that no `.astro` page writes the canon's size down. |
 
@@ -35,6 +36,42 @@ the worker when either pin moves. The gene's own publish gate holds the same
 shape at publish time; `test/book.test.ts` holds it for the vendored copy this
 worker actually builds from — a different moment, and a different failure (a
 stale `.genome/` renders a book the pool has moved past).
+
+## Book II shows the clauses, it does not point at them
+
+The sixteen commentary chapters of Book II open the same way — `# Law N · <emoji>
+<title>`, then a pointer: *"Binding text: `.genome/laws/LAWS.md`, Law N — the only
+source of truth. This is commentary."* On disk that is exactly right; an agent
+reading the gene has the file a path away. **On the web it is a dead end.** The
+book shipped for months with sixteen pages arguing about clauses they never
+showed, and the only thing offered instead was a filesystem path a browser cannot
+open. `/book/law/the-laws` had the whole constitution, but nothing carried a
+reader from the commentary on Law 1 to Law 1.
+
+`build/law-binding.mjs` swaps the pointer for the thing it points at: it parses
+`LAWS.md` with **the `laws` gene's own convention** (`## <n>. <emoji> <title>`,
+body until the next `## ` — a port of the `lawsBlock` loop in that gene's
+`hooks/session-start-inject.js`, which the isolate forces to stay self-contained
+and un-importable), matches each chapter to the Law its H1 declares, and renders
+that Law's clauses in where the pointer was, closed by a rule. So the page reads:
+title, binding text, `---`, commentary.
+
+Two things make this a rendering rather than the second copy the whole surface
+exists to avoid. The clauses are read from the `laws` gene at build time and
+authored nowhere — not here, not in `life-guide`. And the join is derived: the
+chapter's own H1 says which Law it is, so a chapter added or a Law renumbered
+needs nothing here. `test/law-binding.test.ts` holds the join — every chapter
+finds its Law, its H1 title matches `LAWS.md`, a page carries no other Law's
+clauses, and a chapter naming a Law that does not exist **throws** rather than
+rendering commentary with nothing to comment on.
+
+One transform, two pipelines, because the editions are compiled differently:
+`src/lib/book.ts` applies it to every chapter body (`Chapter.markdown`, which is
+the whole `.md` edition), and `remark-law-binding.mjs` applies it inside Astro's
+markdown compile. Both call the same function over the same source, so the two
+editions cannot disagree about the constitution either. The remark half runs
+*first* in `astro.config.mjs` — it re-parses the page it rewrites, so it must not
+land on a tree `remarkCanonLinks` has already edited.
 
 ## Nothing outside the book states its shape either
 

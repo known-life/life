@@ -7,12 +7,18 @@ import { getCanon, type Book, type Chapter } from "./book.ts";
  *
  * Everything added here is a locator (where this came from, what it is called,
  * where the rest is), never a restatement of content.
+ *
+ * `chapter.markdown`, not `chapter.entry.body`: Book II's commentary chapters are
+ * published with the Law they comment on rendered in, because their on-disk
+ * pointer to `.genome/laws/LAWS.md` is a dead end for anyone who arrived over
+ * HTTP (build/law-binding.mjs). Still one source — the clauses are read from the
+ * `laws` gene, which is also where the rendered pages get them.
  */
 
 const SITE = "https://known.life";
 
 function chapterSection(book: Book, chapter: Chapter, depth: number): string {
-  const body = (chapter.entry.body ?? "").trim();
+  const body = chapter.markdown.trim();
   // The page's own H1 is the chapter title; nest it under the book heading so
   // the assembled file has one coherent outline instead of a run of H1s.
   const nested = body.replace(/^#\s+/, "#".repeat(depth) + " ");
@@ -25,7 +31,7 @@ export function chapterMarkdown(book: Book, chapter: Chapter): string {
     `<!-- The Book of Life · Book ${book.numeral}: ${book.title} · ${SITE}${chapter.href}`,
     `     Source: the known.life/life-guide gene. Whole canon: ${SITE}/book.md -->`,
     "",
-    (chapter.entry.body ?? "").trim(),
+    chapter.markdown.trim(),
     "",
   ].join("\n");
 }
