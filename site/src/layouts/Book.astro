@@ -245,6 +245,21 @@ const canon = await getCanon();
     margin-bottom: 0.45rem;
   }
 
+  /* The drill-down under each law heading on the constitution page. Quiet on
+     purpose: the Law is what you came to read, the commentary is the door out. */
+  .book-content .law-drill {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    margin: -0.35rem 0 1.15rem;
+  }
+  .book-content .law-drill a {
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+  .book-content .law-drill a:hover {
+    color: var(--accent);
+  }
+
   .book-content blockquote {
     margin: 1.4rem 0;
     padding-left: 1.1rem;

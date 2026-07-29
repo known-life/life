@@ -78,6 +78,26 @@ export function declaredLaw(body) {
 }
 
 /**
+ * Law number → the slug of the chapter that comments on it, derived from the
+ * commentary chapters themselves: the filename gives the URL (the canon's
+ * `<ordinal>-<slug>` rule), the H1 gives the Law. No table, so a chapter renamed
+ * or a Law renumbered needs nothing here — and a Law with no commentary yet
+ * simply has no entry, which is the honest state rather than a dead link.
+ *
+ * This is the return trip. `withBindingText` carries the constitution INTO the
+ * commentary; this carries a reader from the constitution OUT to it, so the one
+ * page that holds every Law and every clause is also where you drill down from.
+ */
+export function commentarySlugs(chapters) {
+  const slugs = new Map();
+  for (const { file, body } of chapters) {
+    const n = declaredLaw(body);
+    if (n !== null) slugs.set(n, file.replace(/^\d+-/, "").replace(/\.md$/, ""));
+  }
+  return slugs;
+}
+
+/**
  * The on-disk pointer, in whatever form the gene writes it. Removed once the text
  * it points at is on the page: a "the real thing is over there" note sitting above
  * the real thing is noise, and the path it names does not exist for a web reader.

@@ -65,6 +65,17 @@ finds its Law, its H1 title matches `LAWS.md`, a page carries no other Law's
 clauses, and a chapter naming a Law that does not exist **throws** rather than
 rendering commentary with nothing to comment on.
 
+The return trip is the other half of the same seam. `/book/law/the-laws` is the
+one page that holds every Law and every clause, and it was a wall you could read
+but not leave — sixteen commentaries linked *to* it and nothing linked back. Each
+law heading now carries a drill-down to its commentary, derived the same way in
+reverse (`commentarySlugs()`: the chapter's filename gives the URL, its H1 gives
+the Law), and a Law nothing comments on simply gets no link rather than a dead
+one. **The `.md` editions differ here on purpose**: the binding text is content,
+so the markdown twin carries it, but the drill-down is navigation, and
+`/book/law/the-laws.md` is the constitution as an agent should receive it — byte
+for byte what `LAWS.md` says, with no inserted links to read past.
+
 One transform, two pipelines, because the editions are compiled differently:
 `src/lib/book.ts` applies it to every chapter body (`Chapter.markdown`, which is
 the whole `.md` edition), and `remark-law-binding.mjs` applies it inside Astro's
@@ -72,6 +83,12 @@ markdown compile. Both call the same function over the same source, so the two
 editions cannot disagree about the constitution either. The remark half runs
 *first* in `astro.config.mjs` — it re-parses the page it rewrites, so it must not
 land on a tree `remarkCanonLinks` has already edited.
+
+**Verifying a remark change locally needs `rm -rf .astro dist` first.** Astro's
+content layer caches rendered markdown, so a plugin edit with no source edit
+rebuilds from the cache and the change silently does not appear — which reads
+exactly like a plugin that does not fire. CI never hits this (fresh checkout); a
+session checking its own work does, every time.
 
 ## Nothing outside the book states its shape either
 

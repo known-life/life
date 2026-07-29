@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { parseLaws, declaredLaw, withBindingText } from "../build/law-binding.mjs";
+import { parseLaws, declaredLaw, withBindingText, commentarySlugs } from "../build/law-binding.mjs";
 
 /**
  * Book II's commentary chapters are published with the Law each one comments on
@@ -130,6 +130,30 @@ describe("every commentary chapter is joined to the Law it comments on", () => {
       expect(body, `${file} still points at the file on disk`).toMatch(/^> Binding text:/m);
       expect(withBindingText(body, LAWS_MD), file).not.toMatch(/^> Binding text:/m);
     }
+  });
+});
+
+describe("the constitution can be drilled out of, not just into", () => {
+  it("gives every law a commentary chapter to drill down to", () => {
+    const slugs = commentarySlugs(commentaries);
+    for (const law of parseLaws(LAWS_MD)) {
+      expect(slugs.get(law.n), `Law ${law.n} drill-down`).toMatch(/^[a-z0-9-]+$/);
+    }
+  });
+
+  it("points each law at the chapter that is actually about it", () => {
+    const slugs = commentarySlugs(commentaries);
+    for (const { file, body } of commentaries) {
+      expect(slugs.get(declaredLaw(body)!), file).toBe(file.replace(/^\d+-/, "").replace(/\.md$/, ""));
+    }
+    // Distinct slugs — two laws sharing a chapter means a duplicated H1 ordinal,
+    // which would silently send a reader to the wrong commentary.
+    expect(new Set(slugs.values()).size).toBe(slugs.size);
+  });
+
+  it("offers no drill-down for a law nothing comments on", () => {
+    // A dead link is worse than no link: it claims a page the canon does not have.
+    expect(commentarySlugs([{ file: "01-evolve.md", body: "# Law 1 · 🔒 x" }]).get(9)).toBeUndefined();
   });
 });
 
