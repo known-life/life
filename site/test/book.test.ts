@@ -142,3 +142,41 @@ describe("file links become book URLs", () => {
     expect(rewrite("./09-building.md", "/repo/knowledge/some-page.md")).toBe("./09-building.md");
   });
 });
+
+/**
+ * Book V is the normative half of the canon, and one chapter of it is a
+ * restatement by necessity: `05-spec/01-manifest-format.md` writes the head
+ * grammar out in prose because a spec has to be readable as law, not inferred
+ * from an implementation. That is the right call — but it makes the chapter the
+ * one place in the book that can quietly disagree with the engine it specifies.
+ *
+ * The prose stays hand-written. The machine-checkable claims inside it do not
+ * get to drift: the two key regexes the chapter quotes are the two the engine
+ * actually parses with. If `grammar.js` tightens a character class and the
+ * chapter does not, this fails — which is the whole point, because nothing else
+ * would notice until a conforming implementation was written against a spec that
+ * had stopped being true.
+ *
+ * (The rest of Book V needs no gate: `03-engine-surface.md` deliberately refuses
+ * to table the verb inventory, deriving it from what `life` prints instead.)
+ */
+describe("the spec's head grammar still matches the engine that parses it", () => {
+  const grammar = readFileSync(resolve(__dirname, "../../.genome/life/kernel/lib/grammar.js"), "utf8");
+  const chapter = readFileSync(join(KNOWLEDGE, "05-spec/01-manifest-format.md"), "utf8");
+
+  /** The source of a named regex constant in the engine's grammar, without anchors. */
+  const engineRegex = (name: string) => {
+    const m = grammar.match(new RegExp(`const ${name} = /\\^(.+)\\$/`));
+    if (!m) throw new Error(`grammar.js no longer declares ${name} — re-true the spec chapter`);
+    return m[1];
+  };
+
+  it("quotes the engine's own top-level and nested key classes", () => {
+    for (const name of ["TOP_KEY", "NESTED_KEY"]) {
+      const pattern = engineRegex(name);
+      expect(chapter, `${name} (${pattern}) is missing from the manifest chapter`).toContain(
+        `\`${pattern}\``,
+      );
+    }
+  });
+});
