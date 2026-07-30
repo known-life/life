@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { generateKeyPairSync, sign as nodeSign } from "node:crypto";
 import { handshakeMessage } from "../../.genome/registry/src/registry/lib/handshake";
-import { CHECKS_READ_PERMS, COMMENT_WRITE_PERMS } from "../../.genome/registry/src/registry/lib/github-app";
+import {
+  APP_PERMS,
+  CHECKS_READ_PERMS,
+  COMMENT_WRITE_PERMS,
+  MANIFEST_PERMS,
+  PR_READ_PERMS,
+} from "../../.genome/registry/src/registry/lib/github-app";
 import {
   handleExchangeCheckRuns,
+  handleExchangePr,
   handleExchangePrComment,
 } from "../../.genome/registry/src/registry/routes/git-broker";
 
@@ -58,7 +65,14 @@ const env = () =>
     PUBLIC_URL: "https://known.life",
   }) as any;
 
-function gh({ mintStatus = 200, checkRuns = [] as any[], totalCount = undefined as number | undefined } = {}) {
+function gh({
+  mintStatus = 200,
+  checkRuns = [] as any[],
+  totalCount = undefined as number | undefined,
+  pr = { state: "open", draft: false, merged: false, mergeable: true, mergeable_state: "clean", head: { ref: "claude/x", sha: SHA }, base: { ref: "main" } } as any,
+  prStatus = 200,
+  filePages = [] as string[][],
+} = {}) {
   const seen: { mint?: any; calls: string[] } = { calls: [] };
   vi.stubGlobal(
     "fetch",
@@ -70,6 +84,17 @@ function gh({ mintStatus = 200, checkRuns = [] as any[], totalCount = undefined 
         seen.mint = JSON.parse(init.body);
         if (mintStatus !== 200) return new Response("refused", { status: mintStatus });
         return new Response(JSON.stringify({ token: "op-tok" }), { status: 200 });
+      }
+      if (/\/pulls\/\d+\/files\?/.test(u)) {
+        expect((init.headers?.Authorization ?? "").replace(/^Bearer\s+/, "")).toBe("op-tok");
+        const page = Number(new URL(u).searchParams.get("page"));
+        const batch = filePages[page - 1] ?? [];
+        return new Response(JSON.stringify(batch.map((filename) => ({ filename }))), { status: 200 });
+      }
+      if (/\/pulls\/\d+$/.test(u)) {
+        expect((init.headers?.Authorization ?? "").replace(/^Bearer\s+/, "")).toBe("op-tok");
+        if (prStatus !== 200) return new Response("nope", { status: prStatus });
+        return new Response(JSON.stringify(pr), { status: 200 });
       }
       if (/\/check-runs\?/.test(u)) {
         expect((init.headers?.Authorization ?? "").replace(/^Bearer\s+/, "")).toBe("op-tok");
@@ -136,6 +161,28 @@ describe("/exchange/check-runs", () => {
     expect(seen.calls.length).toBe(0);
   });
 
+  it("a vanished ref is a named ANSWER, not a 502", async () => {
+    // A force-push or a deleted branch removes the commit. Reported as a 502 it looks
+    // like a broken op, so a polling watcher retries to its budget and then says
+    // "timeout" — a report about waiting, for a head that was never coming back.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: any, init: any = {}) => {
+        const u = String(url);
+        if (/\/repos\/[^?]+\/installation$/.test(u)) return new Response(JSON.stringify({ id: 99 }), { status: 200 });
+        if (/access_tokens$/.test(u) && init.method === "POST") return new Response(JSON.stringify({ token: "op-tok" }), { status: 200 });
+        if (/\/check-runs\?/.test(u)) return new Response("Not Found", { status: 404 });
+        throw new Error(`unexpected fetch: ${u}`);
+      }),
+    );
+    const r = await handleExchangeCheckRuns(post("/exchange/check-runs", { repo: REPO, sha: SHA, ...sign("check-runs", SHA) }), env());
+    expect(r.status).toBe(200);
+    const b = (await r.json()) as any;
+    expect(b.ok).toBe(false);
+    expect(b.reason).toBe("ref_not_found");
+    expect(b.runs).toBeUndefined();
+  });
+
   it("an ungranted permission says so, and names the fix", async () => {
     // The expected state until the App owner accepts the widened grant. It must
     // read as two clicks pending, never as a bug or a missing App.
@@ -182,6 +229,18 @@ describe("/exchange/pr-comment", () => {
     expect(seen.calls.length).toBe(0);
   });
 
+  it("a pr-read signature cannot be replayed as a comment", async () => {
+    // pr and pr-comment differ only in whether the caller can WRITE, and both are
+    // signed over the same (repo, pr) subject — so action separation is the only
+    // thing standing between a read delegation and a public comment.
+    const seen = gh();
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = nodeSign(null, Buffer.from(handshakeMessage("pr", REPO, "1", ts)), owner.privateKey).toString("base64");
+    const r = await handleExchangePrComment(post("/exchange/pr-comment", { repo: REPO, pr: 1, body: "hi", sig, ts }), env());
+    expect(r.status).toBe(401);
+    expect(seen.mint).toBeUndefined();
+  });
+
   it("a check-runs signature cannot be replayed as a comment", async () => {
     // Domain separation by action, which is why the handshake includes it.
     const seen = gh();
@@ -190,5 +249,116 @@ describe("/exchange/pr-comment", () => {
     const r = await handleExchangePrComment(post("/exchange/pr-comment", { repo: REPO, pr: 1, body: "hi", sig, ts }), env());
     expect(r.status).toBe(401);
     expect(seen.mint).toBeUndefined();
+  });
+});
+
+describe("/exchange/pr", () => {
+  const signPr = (subject: string) => sign("pr", subject);
+
+  it("reads the PR's facts with pull_requests:READ and no write anywhere", async () => {
+    const seen = gh();
+    const r = await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 1, ...signPr("1") }), env());
+    const raw = await r.text();
+    expect(r.status).toBe(200);
+    expect(raw).not.toContain("op-tok");
+    const b = JSON.parse(raw);
+    expect(b.ok).toBe(true);
+    expect(b.head_ref).toBe("claude/x");
+    expect(b.head_sha).toBe(SHA);
+    expect(b.base_ref).toBe("main");
+    expect(b.merged).toBe(false);
+    expect(seen.mint.permissions).toEqual(PR_READ_PERMS);
+    // This op reads. The merge lives behind /exchange/merge-pr, sha-pinned.
+    expect(seen.mint.permissions.pull_requests).toBe("read");
+    expect(seen.mint.permissions.contents).toBeUndefined();
+    expect(seen.mint.permissions.issues).toBeUndefined();
+  });
+
+  it("does not fetch files unless asked", async () => {
+    // The default caller (an agent asking 'is this mergeable?') pays for one GitHub
+    // call, not four.
+    const seen = gh({ filePages: [["a.md"]] });
+    const b = (await (await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 1, ...signPr("1") }), env())).json()) as any;
+    expect(b.files).toBeUndefined();
+    expect(seen.calls.some((u) => u.includes("/files"))).toBe(false);
+  });
+
+  it("pages the changed files and reports the list complete", async () => {
+    gh({ filePages: [Array.from({ length: 100 }, (_, i) => `a${i}.md`), ["tail.md"]] });
+    const b = (await (await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 1, files: true, ...signPr("1") }), env())).json()) as any;
+    expect(b.files.length).toBe(101);
+    expect(b.files[100]).toBe("tail.md");
+    expect(b.files_truncated).toBe(false);
+  });
+
+  it("says TRUNCATED rather than hand back a short list that reads complete", async () => {
+    // The whole reason this flag exists: an automerge policy asking 'is every changed
+    // file inside a reversible class?' over a silently-cut list answers yes about
+    // files it never saw, and merges substrate. It must fail closed, so it must know.
+    gh({ filePages: [0, 1, 2].map((p) => Array.from({ length: 100 }, (_, i) => `p${p}-${i}.md`)) });
+    const b = (await (await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 1, files: true, ...signPr("1") }), env())).json()) as any;
+    expect(b.files.length).toBe(300);
+    expect(b.files_truncated).toBe(true);
+  });
+
+  it("passes a still-computing mergeable through as null, never as false", async () => {
+    // GitHub returns null while it computes the merge; coercing that to false would
+    // read as 'conflicted' and a caller would report a blocked PR that is fine.
+    gh({ pr: { state: "open", mergeable: null, mergeable_state: "unknown", head: { ref: "claude/x", sha: SHA }, base: { ref: "main" } } });
+    const b = (await (await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 1, ...signPr("1") }), env())).json()) as any;
+    expect(b.mergeable).toBeNull();
+    expect(b.mergeable_state).toBe("unknown");
+  });
+
+  it("a missing PR is not_found, not a 502", async () => {
+    gh({ prStatus: 404 });
+    const r = await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 4242, ...signPr("4242") }), env());
+    expect(r.status).toBe(200);
+    const b = (await r.json()) as any;
+    expect(b.ok).toBe(false);
+    expect(b.reason).toBe("not_found");
+  });
+
+  it("a signature for one PR does not read another", async () => {
+    const seen = gh();
+    const r = await handleExchangePr(post("/exchange/pr", { repo: REPO, pr: 999, ...signPr("1") }), env());
+    expect(r.status).toBe(401);
+    expect(seen.mint).toBeUndefined();
+  });
+
+  it("a malformed pr number is refused before any GitHub call", async () => {
+    const seen = gh();
+    for (const pr of [0, -1, 1.5, "1", undefined]) {
+      const r = await handleExchangePr(post("/exchange/pr", { repo: REPO, pr, ...signPr(String(pr)) }), env());
+      expect(r.status).toBe(400);
+    }
+    expect(seen.calls.length).toBe(0);
+  });
+});
+
+describe("MANIFEST_PERMS — the grant a FRESH App registration declares", () => {
+  it("covers every op's grant, so a new .life's ops don't 422 forever", async () => {
+    // This is the failure a hand-maintained union produces: an op ships, its perms
+    // constant is added, and the manifest is not — so every EXISTING installation
+    // works (its owner widened the App by hand) and every NEW registration 422s on
+    // that op, permanently, with nothing in the diff pointing at why.
+    for (const set of [APP_PERMS, PR_READ_PERMS, CHECKS_READ_PERMS, COMMENT_WRITE_PERMS]) {
+      for (const [k, v] of Object.entries(set)) {
+        expect(MANIFEST_PERMS[k], `manifest is missing ${k}`).toBeDefined();
+        // Not merely present — present at AT LEAST the privilege the op requests.
+        const rank: Record<string, number> = { read: 1, write: 2, admin: 3 };
+        expect(rank[MANIFEST_PERMS[k]], `manifest has ${k}:${MANIFEST_PERMS[k]}, op needs ${v}`).toBeGreaterThanOrEqual(rank[v]);
+      }
+    }
+  });
+
+  it("a read set never DOWNGRADES a write one", async () => {
+    // pull_requests appears as read (PR_READ_PERMS) and write (COMMENT_WRITE_PERMS).
+    // A plain ordered spread would have let declaration order decide, and the
+    // resulting manifest would silently break commenting on a fresh App.
+    expect(PR_READ_PERMS.pull_requests).toBe("read");
+    expect(COMMENT_WRITE_PERMS.pull_requests).toBe("write");
+    expect(MANIFEST_PERMS.pull_requests).toBe("write");
+    expect(MANIFEST_PERMS.contents).toBe("write");
   });
 });
