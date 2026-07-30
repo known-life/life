@@ -1,5 +1,5 @@
 {
- "count": 2613,
+ "count": 2618,
  "versions": [
   {
    "package": "anatomy",
@@ -7311,6 +7311,24 @@
   },
   {
    "package": "git-sync",
+   "version": "1.24.0",
+   "content_hash": "ea39a51812255e38fbafe482133c6db5d97140c65c0609ee44354b26ca9daa62",
+   "published_at": 1785397397691,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "git-sync",
+   "version": "1.24.1",
+   "content_hash": "0836bcc69642a9e3cba92848a054d52f2372920274e87946d2210b6b4d3a8100",
+   "published_at": 1785408693976,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "git-sync",
    "version": "1.3.0",
    "content_hash": "215bd4fc2ab62d1cb11cfc7d95b226cc0ec480b29daca6d5e86509035bc8d6c8",
    "published_at": 1780641635409,
@@ -13611,6 +13629,15 @@
   },
   {
    "package": "life",
+   "version": "5.9.21",
+   "content_hash": "b76fc15c6bcd822094b9b0ced5892376c0f2b04de3033a52879e3463d87eb741",
+   "published_at": 1785397009804,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life",
    "version": "5.9.3",
    "content_hash": "c773ba416aae0a05fb4006bb6ad7cfb6361df771f8df38cceff43afacebe6ca1",
    "published_at": 1785265305230,
@@ -16335,6 +16362,15 @@
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "registry",
+   "version": "3.1.10",
+   "content_hash": "9642f63ce68dc9530c954eaa38aa6fe99cc54b24d620b5fefdf7c05fecd32e8f",
+   "published_at": 1785408826291,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBP/aUqmgYTCkP5iiZQRphhEj26OYRziER8Myq5vaHJ9"
   },
   {
    "package": "registry",
@@ -19626,6 +19662,15 @@
    "version": "1.31.11",
    "content_hash": "08ea8f5aaaa2475a58ed7e46a6df0d7279c9f588339485dee23443d71dcbe2f3",
    "published_at": 1785381042096,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "sessions",
+   "version": "1.31.12",
+   "content_hash": "e2dc2485b59546ef32a5eed6b57704c6145a5da9611de9715280064f99fe1d2c",
+   "published_at": 1785397041807,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

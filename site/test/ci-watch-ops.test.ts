@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { generateKeyPairSync, sign as nodeSign } from "node:crypto";
 import { handshakeMessage } from "../../.genome/registry/src/registry/lib/handshake";
-import { CHECKS_READ_PERMS, ISSUE_WRITE_PERMS } from "../../.genome/registry/src/registry/lib/github-app";
+import { CHECKS_READ_PERMS, COMMENT_WRITE_PERMS } from "../../.genome/registry/src/registry/lib/github-app";
 import {
   handleExchangeCheckRuns,
   handleExchangePrComment,
@@ -157,9 +157,12 @@ describe("/exchange/pr-comment", () => {
     expect(raw).not.toContain("op-tok");
     const b = JSON.parse(raw);
     expect(b.url).toBe("https://github.com/o/r/pull/1#c7");
-    // issues:write only — no pull_requests, so this op cannot merge or close.
-    expect(seen.mint.permissions).toEqual(ISSUE_WRITE_PERMS);
-    expect(seen.mint.permissions.pull_requests).toBeUndefined();
+    expect(seen.mint.permissions).toEqual(COMMENT_WRITE_PERMS);
+    // pull_requests:write is REQUIRED, not incidental: POST /issues/{n}/comments
+    // 403s on a pull request without it, which issues:write alone does not reveal
+    // until the POST — the mint succeeds first (verified live 2026-07-30).
+    expect(seen.mint.permissions.pull_requests).toBe("write");
+    // But contents stays out: this op can comment, never commit.
     expect(seen.mint.permissions.contents).toBeUndefined();
   });
 
