@@ -1,5 +1,5 @@
 {
- "count": 2628,
+ "count": 2632,
  "versions": [
   {
    "package": "anatomy",
@@ -8043,6 +8043,15 @@
    "version": "4.2.7",
    "content_hash": "f508bedbcfa1c343e818e48361bd85e020f6798c270b0904629a05083094083b",
    "published_at": 1785381319454,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "github",
+   "version": "4.2.8",
+   "content_hash": "30ce21ee074fb93a210735cda0382d5640a1ff96a02a2d29af544aa50c5b7764",
+   "published_at": 1785410971806,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -16401,6 +16410,15 @@
   },
   {
    "package": "registry",
+   "version": "3.1.13",
+   "content_hash": "6bb92a87720546105bd74233c2950e1bff14c9e7fed144a95a30bd6ea26ddc51",
+   "published_at": 1785411284952,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBP/aUqmgYTCkP5iiZQRphhEj26OYRziER8Myq5vaHJ9"
+  },
+  {
+   "package": "registry",
    "version": "3.1.2",
    "content_hash": "164517a8570c4e5b080f948e88bb7104cef25529b80d3d5eb6d802b95a33e6f0",
    "published_at": 1785255777960,
@@ -19824,6 +19842,24 @@
    "version": "1.32.5",
    "content_hash": "f2bbd2cc4396725267b670df1726ff183581749026864b3cc77ae0ead666821f",
    "published_at": 1785410761321,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "sessions",
+   "version": "1.32.6",
+   "content_hash": "b2edadea5afc8d0f1fbbaac11fd1e0106c6b7d7c2a9e4bc7fea6da88ce31544e",
+   "published_at": 1785411205711,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "sessions",
+   "version": "1.32.7",
+   "content_hash": "802665d543ca41367cb6a6e30f3997a0dc322aac3eee5a3993f70b774a1642fe",
+   "published_at": 1785411560495,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

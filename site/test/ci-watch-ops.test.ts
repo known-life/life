@@ -152,11 +152,28 @@ describe("/exchange/check-runs", () => {
     expect(seen.mint).toBeUndefined();
   });
 
-  it("a malformed sha is refused before any GitHub call", async () => {
+  it("takes a BRANCH or tag, not only a sha", async () => {
+    // GitHub's check-runs endpoint accepts any ref, and both callers use that: a
+    // watcher pins the head it watched, an agent asks about `main`. A hex-only rule
+    // here was stricter than the API being wrapped and rejected `ref=main` outright —
+    // found by calling the live probe, not by reading the code.
+    for (const ref of ["main", "release/2.1", "v1.0.0", "feature_x", SHA, SHA.slice(0, 7)]) {
+      const seen = gh({ checkRuns: [{ name: "g", status: "completed", conclusion: "success" }] });
+      const r = await handleExchangeCheckRuns(post("/exchange/check-runs", { repo: REPO, sha: ref, ...sign("check-runs", ref) }), env());
+      expect(r.status, `ref ${ref} was refused`).toBe(200);
+      expect(seen.calls.some((u) => u.includes(encodeURIComponent(ref)))).toBe(true);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("a ref that could escape the URL path is refused before any GitHub call", async () => {
+    // The ref lands in a path segment, so the charset is the guard. Refusing here
+    // rather than leaning on encodeURIComponent means a malformed ref costs no token
+    // mint and no GitHub call — the mint is the expensive, credential-touching half.
     const seen = gh();
-    for (const sha of ["zzz", "", "abc", undefined]) {
-      const r = await handleExchangeCheckRuns(post("/exchange/check-runs", { repo: REPO, sha, ...sign("check-runs", String(sha)) }), env());
-      expect(r.status).toBe(400);
+    for (const ref of ["", "../../etc", "a..b", "-flag", "has space", "star*", "q?x", "a".repeat(201), undefined]) {
+      const r = await handleExchangeCheckRuns(post("/exchange/check-runs", { repo: REPO, sha: ref, ...sign("check-runs", String(ref)) }), env());
+      expect(r.status, `ref ${JSON.stringify(ref)} was ACCEPTED`).toBe(400);
     }
     expect(seen.calls.length).toBe(0);
   });
