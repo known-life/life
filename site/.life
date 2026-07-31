@@ -30,16 +30,28 @@ imports:
     # it, an installer change "deploys" as a silent no-op until the next site/ touch.
     deploy_inputs:
       - install.sh
-      # The lockfile used to be listed here too: this unit's worker IS mostly
-      # vendored genes (registry, viewer — materialized from these pins at CI), so
-      # a lock-only re-pin is a real code change here, and without it a gene patch
-      # published + re-pinned shipped as a silent no-op deploy (lived 2026-07-18:
-      # registry@0.8.1's /jwks fix sat unshipped behind a green "deploy: skipped").
-      # The engine derives that edge now (life ≥5.8.0): a lock entry that MOVED
-      # marks every cell declaring that gene in `imports:` changed, for both the
-      # deploy and the test rail. Since this cell declares registry and viewer, the
-      # hand-written entry said nothing the tree did not already say — and said it
-      # more bluntly, firing on any gene's re-pin rather than on ours.
+      # This unit's worker IS mostly vendored genes (registry, viewer, and the
+      # canon from life-guide + laws — all materialized from these pins at CI),
+      # so a lock-only re-pin is a real code change here.
+      #
+      # This entry was removed once on the belief that the engine derives the
+      # edge (life ≥5.8.0) — "a lock entry that MOVED marks every cell declaring
+      # that gene in imports: changed, for both the deploy and the test rail".
+      # That is true of the TEST rail and of ci_hook jobs, which gate on the
+      # engine's content-addressed `--gene-changed` predicate. It is NOT true of
+      # the ci-auto deploy matrix: the github adapter emits `chk <unit> <paths>`,
+      # a plain git diff over declared paths, which knows nothing about gene
+      # pins. So removing this restored the exact failure it was meant to have
+      # outgrown — registry@0.8.1's /jwks fix in 2026-07-18, and again on
+      # 2026-07-31, when registry@3.1.14 (the resolve lifecycle headers) pinned
+      # green and known.life kept serving the old build.
+      #
+      # `artifacts` carries the identical line for the identical reason. Two
+      # cells hand-declaring one universal fact is the tell that the deploy
+      # matrix wants the derived edge the other two rails already have; until it
+      # has it, the blunt entry that fires on any re-pin beats the precise one
+      # that never fires at all.
+      - .life.lock
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
 # (the trust-store/handshake root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
