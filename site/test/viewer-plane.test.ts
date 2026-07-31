@@ -24,7 +24,13 @@ const cfg: ViewerConfig = {
 // The manifest is the discovery surface: DomVinyard/life declares a plane (and
 // an artifact host); DomVinyard/bare is a life without one; DomVinyard/plain
 // has no .life at all.
-const LIFE_MANIFEST = `name: life\ndataplane: ${PLANE}\nartifacts: https://artifact.example\n---\nbody`;
+// QUOTED, and that is not stylistic. The `.life` head is a strict subset of
+// YAML in which a plain scalar may not contain `:`, so an unquoted URL is a head
+// the engine REFUSES — and since the viewer stopped carrying its own lenient
+// parser and started reading through `known.life/lifefile` (2026-07-30), it
+// refuses it too. Unquoted, this fixture made every test in this file render the
+// 422 "has a .life that does not parse" page instead of the app.
+const LIFE_MANIFEST = `name: life\ndataplane: "${PLANE}"\nartifacts: "https://artifact.example"\n---\nbody`;
 const BARE_MANIFEST = `name: bare\nsummary: a life with no plane yet\n---\nbody`;
 
 const seenAuth: string[] = [];

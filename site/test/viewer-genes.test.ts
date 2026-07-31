@@ -19,7 +19,9 @@ const cfg: ViewerConfig = {
   sessionSecret: SECRET,
 };
 
-const LIFE_MANIFEST = `name: life\ndataplane: ${PLANE}\n---\nbody`;
+// QUOTED: the head grammar forbids `:` in a plain scalar, so an unquoted URL is
+// a `.life` the engine — and now the viewer — REFUSES (see viewer-lifefile.test.ts).
+const LIFE_MANIFEST = `name: life\ndataplane: "${PLANE}"\n---\nbody`;
 
 const SHA = "0123abcd0123abcd0123abcd0123abcd0123abcd";
 

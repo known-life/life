@@ -3,7 +3,7 @@ import { viewerFetch } from "../../.genome/viewer/src/router";
 import { seal } from "../../.genome/viewer/src/crypto";
 import { readSession } from "../../.genome/viewer/src/session";
 import { renderMarkdown } from "../../.genome/viewer/src/markdown";
-import { parseLifeFile, lifeMeta } from "../../.genome/viewer/src/lifefile";
+import { lifeMeta } from "../../.genome/viewer/src/lifefile";
 import { validRepoName, scaffoldFiles } from "../../.genome/viewer/src/scaffold";
 import type { ViewerConfig } from "../../.genome/viewer/src/config";
 
@@ -45,7 +45,9 @@ function mock(url: string): Response {
 
   if (u.origin === "https://api.github.com") {
     if (p === "/repos/DomVinyard/evil/contents/.life") {
-      return new Response(`name: evil\ndataplane: ${PLANE}\n---\nBody`, { status: 200 });
+      // Quoted — the head grammar forbids `:` in a plain scalar, so an unquoted
+      // URL is a `.life` the viewer refuses before it renders anything hostile.
+      return new Response(`name: evil\ndataplane: "${PLANE}"\n---\nBody`, { status: 200 });
     }
     if (p.includes("..")) return json({ boom: true }, 500);
     return new Response("{}", { status: 404 });
@@ -185,17 +187,27 @@ describe("markdown pathological inputs", () => {
 });
 
 describe(".life parsing edges", () => {
-  it("CRLF, tabs, comments, and duplicate keys degrade gracefully", () => {
-    const { head, body } = parseLifeFile("name: a\r\nsummary: \"s\"\r\nname: b\r\n---\r\nBody\r\n");
-    expect(head.name).toBe("b"); // last wins, no throw
-    expect(body).toContain("Body");
+  // These two used to assert that a CRLF head with a DUPLICATE key parsed
+  // "last wins, no throw", and that a lone `---` yielded an empty head. Both
+  // described the viewer's own lenient parser, which is gone: it reads through
+  // `known.life/lifefile` now, and the engine refuses a duplicate key outright.
+  // An assertion that a head parses when the engine would reject it is not an
+  // edge case, it is a second, disagreeing definition of the language.
+  it("CRLF is invisible, but a DUPLICATE key is refused — not silently last-wins", () => {
+    const clean = lifeMeta('name: a\r\nsummary: "s"\r\n---\r\nBody\r\n');
+    expect(clean.name).toBe("a");
+    expect(clean.error).toBe(null);
+
+    const dup = lifeMeta('name: a\r\nsummary: "s"\r\nname: b\r\n---\r\nBody\r\n');
+    expect(dup.error).toMatch(/duplicate key/i);
+    expect(dup.name).toBe(null);   // never "b" — a refused head yields nothing
   });
 
-  it("a file that is ALL yaml (no ---) has an empty body; all-markdown gets an empty head", () => {
-    expect(parseLifeFile("name: x").body).toBe("");
-    const md = parseLifeFile("---\njust markdown");
-    expect(Object.keys(md.head)).toHaveLength(0);
-    expect(md.body).toBe("just markdown");
+  it("a head with no rule reads; a file that is all markdown declares nothing", () => {
+    expect(lifeMeta("name: x").name).toBe("x");
+    const md = lifeMeta("---\njust markdown");
+    expect(md.name).toBe(null);
+    expect(md.error).toBe(null);   // nothing declared is not the same as broken
   });
 
   it("url-shaped head values that are not http(s) never become clickable schemes", () => {
