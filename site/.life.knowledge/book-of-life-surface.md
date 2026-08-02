@@ -1,5 +1,5 @@
 ---
-summary: "How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, how Book II's commentaries get the Law's binding text rendered in instead of a filesystem path, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went."
+summary: "How known.life/book renders the Book of Life from the life-guide and laws genes instead of copying it: canon/scripture collections, derived index with no table of contents, page + .md twin editions, file-link rewrite, Book II commentaries with Law clauses rendered in, and canonSize() everywhere."
 ---
 
 # The /book surface — rendering the canon, not copying it
@@ -152,3 +152,7 @@ Never here. `life edit life-guide` → edit the chapter → `life mutate life-gu
 → `life evolve`, and the site picks it up on the next deploy. The same for the
 Laws via the `laws` gene. If a change to the canon requires a change in `site/`,
 that is the signal something has been hard-coded that should have been derived.
+
+## Summary (unabridged)
+
+How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, how Book II's commentaries get the Law's binding text rendered in instead of a filesystem path, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went.
