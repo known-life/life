@@ -115,7 +115,7 @@ export function withBindingText(body, spineFile = LAWS_SPINE) {
       " the only source of truth, injected in full into every waking. Everything after" +
       ` the rule below is commentary. [The whole constitution →](${CANON_URL})`,
     "",
-    law.clauses.map((c) => `- **${c.id}** ${c.body}`).join("\n"),
+    law.clauses.map((c) => `- **${c.slug}** ${c.body}`).join("\n"),
     "",
     "---",
     "",
@@ -156,7 +156,7 @@ export function constitutionMarkdown(slugs = new Map(), spineFile = LAWS_SPINE) 
         "",
       );
     }
-    out.push(g.clauses.map((c) => `- **${c.id}** ${c.body}`).join("\n"), "");
+    out.push(g.clauses.map((c) => `- **${c.slug}** ${c.body}`).join("\n"), "");
   }
   return out.join("\n");
 }

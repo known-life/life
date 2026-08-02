@@ -44,8 +44,8 @@ describe("the laws gene is the only reader of its own format", () => {
     const seen = new Map();
     for (const g of groups) {
       for (const c of g.clauses) {
-        expect(seen.has(c.id), `clause ${c.id} claimed twice`).toBe(false);
-        seen.set(c.id, g.key);
+        expect(seen.has(c.slug), `clause ${c.slug} claimed twice`).toBe(false);
+        seen.set(c.slug, g.key);
       }
     }
   });
@@ -73,12 +73,12 @@ describe("every commentary chapter is joined to the law it comments on", () => {
       const id = declaredLaw(c.body);
       const out = withBindingText(c.body, SPINE);
       for (const clause of byKey.get(id).clauses) {
-        expect(out, `${c.file} is missing its own clause ${clause.id}`).toContain(`**${clause.id}**`);
+        expect(out, `${c.file} is missing its own clause ${clause.slug}`).toContain(`**${clause.slug}**`);
       }
       for (const other of groups) {
         if (other.key === id) continue;
         for (const clause of other.clauses) {
-          expect(out, `${c.file} leaked ${other.key}'s clause ${clause.id}`).not.toContain(`**${clause.id}**`);
+          expect(out, `${c.file} leaked ${other.key}'s clause ${clause.slug}`).not.toContain(`**${clause.slug}**`);
         }
       }
     }
