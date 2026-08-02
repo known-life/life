@@ -90,7 +90,7 @@ life teardown <dir>          # destroy infra (--confirm)
 - **Infra** — `infra.compute`, `infra.datastore`, etc. The engine translates to vendor resources. The agent never names vendor products.
 - **Genes** — capabilities are published to and resolved from the [known.life](https://known.life) genepool (`imports: known.life/<name>@<version>`). The genepool is the source of truth — genes don't live in this repo.
 - **Identity** — writes (`mutate`) are signed by your **lifekey**: an Ed25519 key whose public half is **enrolled at known.life** (keyed by your repo, proven at setup by GitHub push access — the dedicated key `setup` generates and enrols for you). No password, no API key, no publish key to store — a signed challenge against the enrolled key is the only credential.
-- **Harness / infra / repo are adapters — and adapters are genes.** The engine bundles none of them; it ships only the adapter *contract* and loads whatever adapter genes are installed in `.genome/` (`claude-code`, `codex`, `cloudflare`, `github`, …). Adding a provider is publishing a gene, not releasing the engine.
+- **Harness / infra / repo are adapters — and adapters are genes.** The engine bundles none of them; it ships only the adapter *contract* and loads whatever adapter genes are installed in `.genome/` (`claude-code`, `cloudflare`, `github`, `anthropic`, …). Adding a provider is publishing a gene, not releasing the engine.
 - **Tests** — the failing test is the product.
 
 ## Source

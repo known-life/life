@@ -51,9 +51,8 @@ STEP 2 — Orient
 After the first `evolve` (automatic on session start) the engine is also on PATH
 as bare `life`; until then call it as `./.life.engine`.
 
-That's ARC 1. The repo is Life-aware. The harness layer (`.claude/`, `AGENTS.md`,
-`.cursor/`) is compiled output — `evolve` writes it and it's gitignored; never
-hand-edit or commit it.
+That's ARC 1. The repo is Life-aware. The harness layer (`.claude/`) is compiled
+output — `evolve` writes it and it's gitignored; never hand-edit or commit it.
 
 
 CHECKPOINT — ask the user before ARC 2

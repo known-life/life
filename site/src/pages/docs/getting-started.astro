@@ -7,7 +7,7 @@ import Docs from "../../layouts/Docs.astro";
   <p class="lead">You don't install Life by hand — you tell your coding agent to become it. Everything below is something the agent does; the human just talks.</p>
 
   <h2>0 · The one move</h2>
-  <p>In any repo, with any capable coding agent (Claude Code, Codex, …), say:</p>
+  <p>In any repo, with Claude Code, say:</p>
   <pre><code>Read known.life and make this repo Life-aware.</code></pre>
   <p>The agent fetches <a href="/install.txt">/install.txt</a> and does the rest. (In a hurry? The <a href="/docs/quick-start">Quick Start</a> is the five-minute version.) The rest of this page is what that means — and how to go from "Life-aware" to fully <em>alive</em>.</p>
 
@@ -28,7 +28,7 @@ import Docs from "../../layouts/Docs.astro";
   <pre><code>life status      # what's here, what's connected, what's missing</code></pre>
   <pre><code>life ask &lt;path&gt;   # what governs a directory
 life test            # verify the repo against reality
-life evolve          # pull engine + deps + compile the harness (.claude/, AGENTS.md, .cursor/)</code></pre>
+life evolve          # pull engine + deps + compile the harness (.claude/)</code></pre>
   <p>The harness layer is <strong>compiled output</strong> — gitignore it and let <code>evolve</code> rebuild it each session. <code>evolve</code> runs automatically on session start and after every <code>inherit</code>, so you rarely invoke it by hand. Commit <code>.life</code> and <code>.life.engine</code>; never hand-edit <code>.claude/</code>.</p>
 
   <h2>3 · Add capabilities — import from the genepool</h2>

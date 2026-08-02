@@ -43,12 +43,10 @@ write them yourself if you're staging the repo by hand):
 .genome/              # vendored genes — rehydrated from .life.lock
 .claude/*             # harness compilation
 !.claude/settings.json   # …except the compiled settings, which IS tracked
-.cursor/              # harness compilation (Cursor)
-AGENTS.md             # harness compilation (agents.md convention)
 ```
 
-Never hand-edit anything under `.genome/`, `.claude/` (except by re-running
-`life evolve`), `.cursor/`, or `AGENTS.md` — they are regenerated and your
+Never hand-edit anything under `.genome/` or `.claude/` (except by re-running
+`life evolve`) — they are regenerated and your
 edits will be clobbered. Edit the source in the gene and `life mutate` it,
 or edit the `.life` body that compiles into them.
 
