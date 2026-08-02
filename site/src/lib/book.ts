@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { getCollection, type CollectionEntry } from "astro:content";
 import { withBindingText } from "../../build/law-binding.mjs";
 
@@ -105,7 +106,9 @@ export async function getCanon(): Promise<Book[]> {
   // chapters are rendered with the Law each one comments on (build/law-binding.mjs).
   const lawsEntry = scripture.find((s) => s.id === OPENINGS.law.id);
   if (!lawsEntry) throw new Error(`book: ${OPENINGS.law.id} not found`);
-  const lawsText = lawsEntry.body ?? "";
+  // The laws gene reads its own clause files; the book hands it the spine path
+  // and renders what comes back, so the format has exactly one reader.
+  const lawsSpine = fileURLToPath(new URL("../../../.genome/laws/LAWS.md", import.meta.url));
 
   const dirs = [...new Set(pages.map((p) => p.id.split("/")[0]))].sort();
 
@@ -126,7 +129,7 @@ export async function getCanon(): Promise<Book[]> {
           title: h1(entry.body ?? ""),
           href: `/book/${slug}/${s}`,
           entry,
-          markdown: withBindingText(entry.body ?? "", lawsText),
+          markdown: withBindingText(entry.body ?? "", lawsSpine),
         };
       });
 

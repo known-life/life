@@ -1,3 +1,6 @@
+import { createRequire } from "node:module";
+const { readLaws } = createRequire(import.meta.url)("../../.genome/laws/hooks/session-start-inject.js");
+
 /**
  * Book II's commentary chapters, given the text they comment on.
  *
@@ -28,53 +31,9 @@
  * ordinal is split off the title here because the chapter H1 already carries
  * "Law N ·" — repeating it would be the restatement this whole file avoids.
  */
-export function parseLaws(text) {
-  const laws = [];
-  let inFrontmatter = false;
-  let frontmatterSeen = false;
-  let current = null;
-
-  for (const line of String(text).split("\n")) {
-    // The first `---` pair is LAWS.md's own comment block. A later one is an hr
-    // inside a law's body and belongs to it, exactly as the gene's parser treats it.
-    if (/^---[ \t]*$/.test(line)) {
-      if (!frontmatterSeen) {
-        inFrontmatter = true;
-        frontmatterSeen = true;
-        continue;
-      }
-      if (inFrontmatter) {
-        inFrontmatter = false;
-        continue;
-      }
-    }
-    if (inFrontmatter) continue;
-
-    const heading = line.match(/^##[ \t]+(.*)$/);
-    if (heading) {
-      const rest = heading[1];
-      const ordinal = rest.match(/^(\d+)\.[ \t]+/);
-      const afterOrdinal = ordinal ? rest.slice(ordinal[0].length) : rest;
-      const emoji = afterOrdinal.match(/^[^ \t]+/);
-      current = {
-        n: ordinal ? Number(ordinal[1]) : laws.length + 1,
-        emoji: emoji ? emoji[0] : "",
-        title: (emoji ? afterOrdinal.slice(emoji[0].length) : afterOrdinal).replace(/^[ \t]+/, ""),
-        lines: [],
-      };
-      laws.push(current);
-      continue;
-    }
-    if (current) current.lines.push(line);
-  }
-
-  return laws.map(({ lines, ...law }) => ({ ...law, body: lines.join("\n").trim() }));
-}
-
-/** `# Law 7 · 💬 You never narrate, only report` → `7`, or null for any other page. */
 export function declaredLaw(body) {
-  const m = String(body).match(/^#[ \t]+Law[ \t]+(\d+)[ \t]*·/m);
-  return m ? Number(m[1]) : null;
+  const m = String(body).match(/^#[ \t]+⚖([a-z0-9-]+)[ \t]*·/m);
+  return m ? m[1] : null;
 }
 
 /**
@@ -113,20 +72,21 @@ const CANON_URL = "https://known.life/book/law/the-laws";
  * DOES declare a Law and cannot be matched to one throws rather than quietly
  * rendering commentary with nothing to comment on.
  */
-export function withBindingText(body, lawsText) {
-  const n = declaredLaw(body);
-  if (n === null) return String(body);
+export function withBindingText(body, spineFile) {
+  const id = declaredLaw(body);
+  if (id === null) return String(body);
 
-  const law = parseLaws(lawsText).find((l) => l.n === n);
-  if (!law) throw new Error(`law-binding: chapter declares Law ${n}, but LAWS.md has no Law ${n}`);
+  const { groups } = readLaws(spineFile);
+  const law = groups.find((g) => g.key === id);
+  if (!law) throw new Error(`law-binding: chapter declares ⚖${id}, but the laws gene has no group '${id}'`);
 
   const block = [
     "",
-    `> **Law ${law.n} — the binding text**, rendered from the \`laws\` gene's own \`LAWS.md\`:` +
+    `> **⚖${law.key} — the binding text**, rendered from the \`laws\` gene's own clause files:` +
       " the only source of truth, injected in full into every waking. Everything after" +
       ` the rule below is commentary. [The whole constitution →](${CANON_URL})`,
     "",
-    law.body,
+    law.clauses.map((c) => `- **${c.id}** ${c.body}`).join("\n"),
     "",
     "---",
     "",
@@ -134,5 +94,5 @@ export function withBindingText(body, lawsText) {
 
   return String(body)
     .replace(POINTER, "")
-    .replace(/^(#[ \t]+Law[ \t]+\d+[ \t]*·[^\n]*\n)/m, `$1${block}`);
+    .replace(/^(#[ \t]+⚖[a-z0-9-]+[ \t]*·[^\n]*\n)/m, `$1${block}`);
 }

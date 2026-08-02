@@ -44,7 +44,6 @@ export function remarkLawBinding() {
   // inserted markdown gets parsed by the very same parser as the page around it
   // rather than by a second one that would drift from it.
   const processor = this;
-  const lawsText = readFileSync(LAWS_FILE, "utf8");
   const slugs = commentarySlugs(
     readdirSync(COMMENTARY_DIR)
       .filter((file) => /^\d+-.*\.md$/.test(file))
@@ -73,7 +72,7 @@ export function remarkLawBinding() {
     const source = String(file.value ?? "");
     if (declaredLaw(source) === null) return;
 
-    const rendered = withBindingText(source, lawsText);
+    const rendered = withBindingText(source, LAWS_FILE);
     if (rendered === source) return;
 
     tree.children = processor.parse(rendered).children;

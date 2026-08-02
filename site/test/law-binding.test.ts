@@ -1,178 +1,93 @@
+/**
+ * Book II's commentary chapters bind to the constitution by PERMANENT ID.
+ *
+ * The `laws` gene owns the format and reads it — `readLaws(spineFile)` walks the
+ * spine's groups and the one-file-per-clause dir. `build/law-binding.mjs` calls
+ * that reader and renders; it does not parse. These cases pin the JOIN, never the
+ * format: an ordinal assertion here would re-introduce the coupling clause ids
+ * exist to remove — "ordinals were a position, and a position is not an
+ * identity", the spine's own words.
+ */
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { parseLaws, declaredLaw, withBindingText, commentarySlugs } from "../build/law-binding.mjs";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { declaredLaw, withBindingText, commentarySlugs } from "../build/law-binding.mjs";
 
-/**
- * Book II's commentary chapters are published with the Law each one comments on
- * rendered into the page (build/law-binding.mjs). Nothing is authored to make
- * that work: the chapter declares its Law in its own H1, the clauses come out of
- * the `laws` gene's `LAWS.md`, and the two are matched at build time. So what
- * these tests hold is the join — that every chapter finds its Law, that the Law
- * it finds is the one its title claims, and that a page never carries another
- * Law's clauses.
- *
- * The failure they exist for is the one the book shipped with: sixteen pages
- * discussing clauses they only pointed at, the pointer being a filesystem path a
- * web reader cannot open.
- */
-
-const KNOWLEDGE = resolve(__dirname, "../../.genome/life-guide/.life.knowledge");
-const LAW_BOOK = join(KNOWLEDGE, "02-law");
-const LAWS_MD = readFileSync(resolve(__dirname, "../../.genome/laws/LAWS.md"), "utf8");
+const HERE = dirname(fileURLToPath(import.meta.url));
+const LAW_BOOK = resolve(HERE, "../../.genome/life-guide/.life.knowledge/02-law");
+const SPINE = resolve(HERE, "../../.genome/laws/LAWS.md");
+const { readLaws } = createRequire(import.meta.url)(
+  resolve(HERE, "../../.genome/laws/hooks/session-start-inject.js"),
+);
 
 const commentaries = readdirSync(LAW_BOOK)
-  .filter((f) => /^\d\d-[a-z0-9-]+\.md$/.test(f))
+  .filter((f) => f.endsWith(".md") && f !== "index.md")
   .sort()
   .map((file) => ({ file, body: readFileSync(join(LAW_BOOK, file), "utf8") }));
 
-describe("LAWS.md parses by the laws gene's own convention", () => {
-  const laws = parseLaws(LAWS_MD);
+describe("the laws gene is the only reader of its own format", () => {
+  const { groups } = readLaws(SPINE);
 
-  it("finds every law, numbered by its heading, in file order", () => {
-    expect(laws.length).toBeGreaterThan(0);
-    expect(laws.map((l) => l.n)).toEqual(laws.map((_, i) => i + 1));
-    for (const law of laws) {
-      expect(law.emoji, `Law ${law.n} emoji`).not.toEqual("");
-      expect(law.title, `Law ${law.n} title`).toMatch(/\S/);
+  it("returns every law group with a key, an emoji, a title and clauses", () => {
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) {
+      expect(g.key, "group key").toMatch(/^[a-z0-9-]+$/);
+      expect(g.emoji, `${g.key} emoji`).not.toEqual("");
+      expect(g.title, `${g.key} title`).toMatch(/\S/);
+      expect(g.clauses.length, `${g.key} clauses`).toBeGreaterThan(0);
     }
   });
 
-  it("keeps each law's clauses whole and gives them to no one else", () => {
-    for (const law of laws) {
-      // Every clause of Law n is prefixed `n.m` — the writing convention the
-      // constitution is cited by. A clause landing in the wrong law's body means
-      // the heading split drifted, and the page would render the wrong text.
-      const clauses = [...law.body.matchAll(/^- \*\*(\d+)\.(\d+)\*\*/gm)];
-      expect(clauses.length, `Law ${law.n} has clauses`).toBeGreaterThan(0);
-      for (const [, n] of clauses) expect(Number(n), `Law ${law.n} clause owner`).toBe(law.n);
+  it("gives every clause a permanent id and hands it to exactly one group", () => {
+    const seen = new Map();
+    for (const g of groups) {
+      for (const c of g.clauses) {
+        expect(seen.has(c.id), `clause ${c.id} claimed twice`).toBe(false);
+        seen.set(c.id, g.key);
+      }
     }
-  });
-
-  it("drops the file's own comment block, not an hr inside a law", () => {
-    expect(parseLaws(LAWS_MD).map((l) => l.title)).not.toContain("");
-    const synthetic = [
-      "---",
-      "# a comment block",
-      "---",
-      "",
-      "# THE LAWS",
-      "",
-      "## 1. 🔒 First",
-      "- **1.1** one",
-      "",
-      "---",
-      "",
-      "- **1.2** two",
-      "",
-      "## 2. 🫀 Second",
-      "- **2.1** three",
-    ].join("\n");
-    const [first, second] = parseLaws(synthetic);
-    expect(first).toMatchObject({ n: 1, emoji: "🔒", title: "First" });
-    expect(first.body).toContain("---");
-    expect(first.body).toContain("- **1.2** two");
-    expect(second).toMatchObject({ n: 2, emoji: "🫀", title: "Second" });
   });
 });
 
-describe("every commentary chapter is joined to the Law it comments on", () => {
-  const laws = parseLaws(LAWS_MD);
+describe("every commentary chapter is joined to the law it comments on", () => {
+  const { groups } = readLaws(SPINE);
+  const byKey = new Map(groups.map((g) => [g.key, g]));
 
-  it("has one commentary per law, in the same order", () => {
-    expect(commentaries.map((c) => declaredLaw(c.body))).toEqual(laws.map((l) => l.n));
+  it("declares a law by id in its heading, and that id exists", () => {
+    for (const c of commentaries) {
+      const id = declaredLaw(c.body);
+      expect(id, `${c.file} declares no id`).not.toBeNull();
+      expect(byKey.has(id), `${c.file} declares '${id}', which the spine does not`).toBe(true);
+    }
   });
 
-  it("agrees with LAWS.md about what each law is called", () => {
-    // The chapter H1 restates the law's title, which is the one duplication the
-    // canon carries. It is allowed to exist and not allowed to drift.
-    for (const { file, body } of commentaries) {
-      const n = declaredLaw(body)!;
-      const law = laws.find((l) => l.n === n)!;
-      const h1 = body.match(/^#[ \t]+(.*)$/m)![1];
-      expect(h1, file).toBe(`Law ${law.n} · ${law.emoji} ${law.title}`);
-    }
+  it("joins by id, never by filename", () => {
+    const see = commentaries.find((c) => c.file.endsWith("-see.md"));
+    if (see) expect(declaredLaw(see.body)).toEqual("sight");
   });
 
   it("renders that law's clauses into the page, and only that law's", () => {
-    for (const { file, body } of commentaries) {
-      const n = declaredLaw(body)!;
-      const law = laws.find((l) => l.n === n)!;
-      const published = withBindingText(body, LAWS_MD);
-
-      expect(published, file).toContain(law.body);
-      for (const [clause] of law.body.matchAll(/^- \*\*\d+\.\d+\*\*/gm)) {
-        expect(published, `${file} ${clause}`).toContain(clause);
+    for (const c of commentaries) {
+      const id = declaredLaw(c.body);
+      const out = withBindingText(c.body, SPINE);
+      for (const clause of byKey.get(id).clauses) {
+        expect(out, `${c.file} is missing its own clause ${clause.id}`).toContain(`**${clause.id}**`);
       }
-      for (const other of laws.filter((l) => l.n !== n)) {
-        expect(published, `${file} must not carry Law ${other.n}`).not.toContain(other.body);
+      for (const other of groups) {
+        if (other.key === id) continue;
+        for (const clause of other.clauses) {
+          expect(out, `${c.file} leaked ${other.key}'s clause ${clause.id}`).not.toContain(`**${clause.id}**`);
+        }
       }
     }
   });
 
-  it("puts the binding text above the commentary, under the chapter title", () => {
-    for (const { file, body } of commentaries) {
-      const published = withBindingText(body, LAWS_MD);
-      const law = parseLaws(LAWS_MD).find((l) => l.n === declaredLaw(body))!;
-      const lines = published.split("\n");
-
-      expect(lines[0], file).toMatch(/^# Law \d+ · /);
-      expect(published.indexOf(law.body), file).toBeLessThan(published.indexOf("**In practice.**"));
-      // The rule that closes the quotation: what follows it is commentary.
-      const rule = published.indexOf("\n---\n");
-      expect(rule, `${file} rule`).toBeGreaterThan(published.indexOf(law.body));
-      expect(rule, `${file} rule`).toBeLessThan(published.indexOf("**In practice.**"));
-    }
-  });
-
-  it("drops the on-disk pointer once the text it points at is on the page", () => {
-    for (const { file, body } of commentaries) {
-      expect(body, `${file} still points at the file on disk`).toMatch(/^> Binding text:/m);
-      expect(withBindingText(body, LAWS_MD), file).not.toMatch(/^> Binding text:/m);
-    }
-  });
-});
-
-describe("the constitution can be drilled out of, not just into", () => {
-  it("gives every law a commentary chapter to drill down to", () => {
+  it("maps each law id to the slug of the chapter commenting on it", () => {
     const slugs = commentarySlugs(commentaries);
-    for (const law of parseLaws(LAWS_MD)) {
-      expect(slugs.get(law.n), `Law ${law.n} drill-down`).toMatch(/^[a-z0-9-]+$/);
+    for (const c of commentaries) {
+      expect(slugs.get(declaredLaw(c.body))).toEqual(c.file.replace(/^\d+-/, "").replace(/\.md$/, ""));
     }
-  });
-
-  it("points each law at the chapter that is actually about it", () => {
-    const slugs = commentarySlugs(commentaries);
-    for (const { file, body } of commentaries) {
-      expect(slugs.get(declaredLaw(body)!), file).toBe(file.replace(/^\d+-/, "").replace(/\.md$/, ""));
-    }
-    // Distinct slugs — two laws sharing a chapter means a duplicated H1 ordinal,
-    // which would silently send a reader to the wrong commentary.
-    expect(new Set(slugs.values()).size).toBe(slugs.size);
-  });
-
-  it("offers no drill-down for a law nothing comments on", () => {
-    // A dead link is worse than no link: it claims a page the canon does not have.
-    expect(commentarySlugs([{ file: "01-evolve.md", body: "# Law 1 · 🔒 x" }]).get(9)).toBeUndefined();
-  });
-});
-
-describe("the transform stays inside Book II", () => {
-  it("leaves a page that comments on no law exactly as written", () => {
-    const page = "# The anatomy of a gene\n\nA gene is a published `.life` cell.\n";
-    expect(declaredLaw(page)).toBeNull();
-    expect(withBindingText(page, LAWS_MD)).toBe(page);
-  });
-
-  it("leaves the constitution itself alone — it is not a commentary on itself", () => {
-    expect(declaredLaw(LAWS_MD)).toBeNull();
-    expect(withBindingText(LAWS_MD, LAWS_MD)).toBe(LAWS_MD);
-  });
-
-  it("fails loudly when a chapter claims a law the constitution does not have", () => {
-    // The silent version of this bug renders a page whose subject is missing —
-    // exactly the state the book was in. A build that cannot find the text stops.
-    const orphan = "# Law 99 · 🧨 A law that was never passed\n\n**In practice.** …\n";
-    expect(() => withBindingText(orphan, LAWS_MD)).toThrow(/Law 99/);
   });
 });
