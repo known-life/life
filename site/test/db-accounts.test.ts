@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { getOrCreateGithubAccount, syntheticGithubId, type Account } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // The account upsert is the auth root of every publish: /api/auth/prove calls
 // getOrCreateGithubAccount after lifekey proof, and a 500 here takes publishing

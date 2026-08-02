@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ensureEmbeddings, semanticSearch } from "../../.genome/registry/src/registry/lib/semantic";
 import { searchPackages, type PackageRecord } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // Semantic /search pins three contracts, all over the REAL schema.sql:
 //   1. the embeddings cache lifecycle — filled lazily, keyed to latest_version,

@@ -3,7 +3,7 @@ import {
   insertVersion, getVersionLines, fillVersionLines, censusRows, linesCoverage, linesByMonth,
 } from "../../.genome/registry/src/registry/lib/db";
 import { handleCensus } from "../../.genome/registry/src/registry/routes/census";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // The pool's own mass. `lib/lines.ts` decides what counts as code (pinned in the
 // gene's own tests/lines.test.mjs); THIS file pins the storage and the answer —

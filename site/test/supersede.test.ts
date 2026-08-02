@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { setRetired, getPackage, topPackages, isRetired } from "../../.genome/registry/src/registry/lib/db";
 import { listMarkdown } from "../../.genome/registry/src/registry/lib/pages";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // superseded_by is the package-level "this gene was renamed/replaced" pointer
 // that de-clutters explore: legacy genes with more historical installs

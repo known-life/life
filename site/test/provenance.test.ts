@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { rawFromOpenSsh, verifyRaw } from "../../.genome/lifekey/lib/verify.mjs";
 import { insertVersion, getVersion, type InsertVersionInput } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 import { makeKey } from "./helpers";
 
 // Publisher-signed provenance (productionize/20): the publish route verifies an

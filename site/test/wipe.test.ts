@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { wipeName, getPackage } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // `--delete` (wipeName) hard-removes a gene and every row attached to it. The
 // embeddings table has `package REFERENCES packages(name)`, so a gene that was

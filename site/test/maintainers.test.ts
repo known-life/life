@@ -7,7 +7,7 @@ import {
   listMaintainers,
   type Account,
 } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // Account-level maintainer delegation: a login the owner trusts to publish ANY
 // name they own. canManageName is the single authority chokepoint behind

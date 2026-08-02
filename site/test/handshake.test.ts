@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { handleHandshakeNonce, handleHandshakeProve, handleHandshakePubkey } from "../../.genome/registry/src/registry/routes/handshake";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 import { makeKey, type TestKey } from "./helpers";
 
 // The lifekey sign-in: challenge → prove. The bug these pin: the challenge nonce

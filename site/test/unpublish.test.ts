@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { downloadsByVersion, dependentsOf, unpublishVersion, getVersion, highestVersion } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // unpublish lost its arbitrary 72h time window (lifecycle.ts) — you own your
 // genes and may hard-remove any version at any age. The ONE guard left is

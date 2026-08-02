@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { handleIndex } from "../../.genome/registry/src/registry/routes/transparency";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // The transparency index (productionize/21): the full public record of every
 // cut version — package, version, content_hash, published_at, yanked, signer,

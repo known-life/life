@@ -6,7 +6,7 @@
 // these cases pin each intent to its own body.
 import { describe, it, expect, beforeEach } from "vitest";
 import { handleExplore } from "../../.genome/registry/src/registry/routes/package";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 const env = (db: MockD1) => ({ DB: db }) as any;
 

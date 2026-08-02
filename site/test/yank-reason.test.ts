@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { deprecateVersion, getVersion, highestVersion } from "../../.genome/registry/src/registry/lib/db";
-import { MockD1 } from "./d1-mock";
+import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 
 // The yank reason is the agent-legible half of deprecation: stored with the
 // version forever, served on resolve, and carried by the MVS flip's
