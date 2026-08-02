@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { rawFromOpenSsh, verifyRaw } from "../../.genome/lifekey/lib/verify.mjs";
-import { insertVersion, getVersion } from "../../.genome/registry/src/registry/lib/db";
+import { insertVersion, getVersion, type InsertVersionInput } from "../../.genome/registry/src/registry/lib/db";
 import { MockD1 } from "./d1-mock";
 import { makeKey } from "./helpers";
 
@@ -59,15 +59,19 @@ describe("provenance column — round-trips the version row", () => {
     ).bind().run();
   });
 
-  const input = (version: string, provenance_json: string | null) => ({
+  // TYPED, so the next required field added to the insert contract fails the
+  // typecheck here instead of crashing at runtime on an undefined property.
+  const input = (version: string, provenance_json: string | null): InsertVersionInput => ({
     package: "demo", version, content_hash: "h", manifest: {}, contract: null,
     requires: [], provides: [], imports: [], inputs: [], scan_json: "{}", fit_json: "{}",
     provenance_json, summary: null, description: null, author: null, license: null,
     homepage: null, repository: null, keywords: [], readme: null, bytes: 1,
-    // `lines` became a REQUIRED field on the insert input when the registry grew
-    // per-gene LOC metrics; this fixture predates that and was passing `undefined`,
-    // so insertVersion threw on `v.lines.code` rather than on anything provenance
-    // does. The gene's contract moved and its repo-side consumer did not (Law 17.4).
+    // `lines` is REQUIRED by insertVersion's input type, and this fixture had
+    // gone without it — the call crashed on `v.lines.code` rather than failing
+    // a type check, because the fixture is an untyped object literal. It stayed
+    // invisible while the file could not even load (it imported a vendored
+    // lifekey copy that the vendor cull deleted), so the suite reported a failed
+    // FILE and nobody saw the assertions had stopped running.
     lines: { code: 0, test: 0, docs: 0, skill: 0, vendor: 0 },
   });
 
