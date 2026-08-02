@@ -23,7 +23,13 @@ export default defineConfig({
       // instrument files outside this project root (the gene tree).
       allowExternal: true,
       include: [
-        gene("scan.ts"), gene("lifekey-verify.ts"), gene("jwt.ts"), gene("gh-secrets.ts"),
+        // `vendor/lifekey-verify.mjs` — it moved under vendor/ in registry@3.3.2,
+        // and the extension was ALREADY wrong here (`.ts`, while the vendored
+        // copy has always been `.mjs`), so this entry had been pointing at
+        // nothing. A coverage include that resolves to no file does not fail —
+        // it silently drops out of the ratchet, which then guards less than it
+        // claims to (Law 5.10). Fixed with the move rather than after it.
+        gene("scan.ts"), gene("vendor/lifekey-verify.mjs"), gene("jwt.ts"), gene("gh-secrets.ts"),
       ],
       // A regression ratchet set just below achieved coverage — it fails CI the
       // moment a future edit drops a tested path. Not 100%: the residual lines
