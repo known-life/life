@@ -149,11 +149,11 @@ of the repo is a .life that happens to use the genepool this worker hosts.
 An [Astro](https://astro.build) app with the Cloudflare adapter, deployed as a
 single SSR Worker plus edge static assets:
 
-- **The registry API** — the genepool's request-handling core (`publish` ·
-  `resolve` · `package` · `claim` · `lifecycle` · `maintainers` · `auth` ·
-  `mcp` · `setup` · `github-app` · `skill` · the `/api/index` transparency
-  index, mirrored into the public repo so registry history is append-only in
-  a git log this worker can't rewrite), which lives in **the
+- **The registry API** — the genepool's request-handling core (publish ·
+  resolve · auth · lifecycle · MCP · `/api/census`, the pool's own code mass ·
+  `/api/index`, the transparency index mirrored into the public repo so
+  registry history is append-only in a log this worker can't rewrite;
+  `router.ts`'s dispatch is the inventory), which lives in **the
   `known.life/registry` gene** (`imports:` above), materialized into
   `.genome/registry/` and imported by `src/middleware.ts` — the repo holds no
   copy; the gene is the sole source. Its credential-free vitest suite
