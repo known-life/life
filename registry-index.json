@@ -1,5 +1,5 @@
 {
- "count": 3277,
+ "count": 3280,
  "versions": [
   {
    "package": "anthropic",
@@ -19803,6 +19803,15 @@
   },
   {
    "package": "queue",
+   "version": "0.11.7",
+   "content_hash": "55524ab0ee49ed15c60c3f516f3e5dd33f7ed841300698fbe606176ec606cecc",
+   "published_at": 1785710284690,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "queue",
    "version": "0.2.0",
    "content_hash": "287f11a02ce3eea7fba102c7ef5f72c41048fa7a2f1c03130683c90d3770f25f",
    "published_at": 1783324405377,
@@ -20769,6 +20778,15 @@
    "version": "3.3.15",
    "content_hash": "9cf86328f8b33bf2ce0fdba8d7ac4928af798c818c576e9f70e788f4106df3d2",
    "published_at": 1785704277375,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "registry",
+   "version": "3.3.16",
+   "content_hash": "8f3cbe6f2157349a1b55994da97c9d8c32d276745c71f53707d4afba3364a87a",
+   "published_at": 1785710135573,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -25341,6 +25359,15 @@
    "version": "1.33.6",
    "content_hash": "a6066f4f393e4904b569e03cb16d1c1c3e260da42ebe6a652835c4dff3b310b1",
    "published_at": 1785706978274,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "sessions",
+   "version": "1.33.7",
+   "content_hash": "61d3b567a6c27cf2f1883f37a7b723998705200f626b72202c343bd4a5a256f2",
+   "published_at": 1785710084639,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

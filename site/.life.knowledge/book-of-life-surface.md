@@ -1,5 +1,5 @@
 ---
-summary: "How known.life/book renders the Book of Life from the life-guide and laws genes instead of copying it: canon/scripture collections, derived index with no table of contents, page + .md twin editions, file-link rewrite, Book II commentaries with Law clauses rendered in, and canonSize() everywhere."
+summary: "How known.life/book renders the Book of Life from the life-guide and laws genes instead of copying it: canon/scripture collections, derived index with no table of contents, page + .md twin editions, file-link rewrite, Book II commentaries with Law clauses rendered in through the laws gene's own reader, the constitution page rendered from the clause files, why a build/ file must resolve the genome by walk-up rather than by depth, and canonSize() everywhere."
 ---
 
 # The /book surface — rendering the canon, not copying it
@@ -39,42 +39,54 @@ stale `.genome/` renders a book the pool has moved past).
 
 ## Book II shows the clauses, it does not point at them
 
-The sixteen commentary chapters of Book II open the same way — `# Law N · <emoji>
-<title>`, then a pointer: *"Binding text: `.genome/laws/LAWS.md`, Law N — the only
+The sixteen commentary chapters of Book II open the same way — `# ⚖<id> · <emoji>
+<title>`, then a pointer: *"Binding text: `.genome/laws/LAWS.md` — the only
 source of truth. This is commentary."* On disk that is exactly right; an agent
-reading the gene has the file a path away. **On the web it is a dead end.** The
-book shipped for months with sixteen pages arguing about clauses they never
-showed, and the only thing offered instead was a filesystem path a browser cannot
-open. `/book/law/the-laws` had the whole constitution, but nothing carried a
-reader from the commentary on Law 1 to Law 1.
+reading the gene has the clause files a path away. **On the web it is a dead
+end.** The book shipped for months with sixteen pages arguing about clauses they
+never showed, and the only thing offered instead was a filesystem path a browser
+cannot open. `/book/law/the-laws` had the whole constitution, but nothing carried
+a reader from the commentary on a Law to the Law.
 
-`build/law-binding.mjs` swaps the pointer for the thing it points at: it parses
-`LAWS.md` with **the `laws` gene's own convention** (`## <n>. <emoji> <title>`,
-body until the next `## ` — a port of the `lawsBlock` loop in that gene's
-`hooks/session-start-inject.js`, which the isolate forces to stay self-contained
-and un-importable), matches each chapter to the Law its H1 declares, and renders
-that Law's clauses in where the pointer was, closed by a rule. So the page reads:
-title, binding text, `---`, commentary.
+`build/law-binding.mjs` swaps the pointer for the thing it points at. It parses
+nothing: the `laws` gene's `readLaws(spineFile)` walks its own spine and clause
+files and hands back `{header, groups}`, and this file renders what comes out.
+That is not a convenience — this file used to carry a hand-ported copy of the
+gene's parser, the split to one-clause-per-file landed, and the copy went on
+decoding a shape that no longer existed. One format, one reader.
+
+It matches each chapter to the clause its H1 declares and renders that Law's
+clauses in where the pointer was, closed by a rule. So the page reads: title,
+binding text, `---`, commentary.
 
 Two things make this a rendering rather than the second copy the whole surface
 exists to avoid. The clauses are read from the `laws` gene at build time and
 authored nowhere — not here, not in `life-guide`. And the join is derived: the
-chapter's own H1 says which Law it is, so a chapter added or a Law renumbered
-needs nothing here. `test/law-binding.test.ts` holds the join — every chapter
-finds its Law, its H1 title matches `LAWS.md`, a page carries no other Law's
-clauses, and a chapter naming a Law that does not exist **throws** rather than
-rendering commentary with nothing to comment on.
+chapter's own H1 says which clause it is, so a chapter added or a Law re-ranked
+needs nothing here. It is an **id**, never a position — `⚖glk` survives a
+rewording, a re-rank, or a move between groups, which is the whole point of the
+clause-file scheme. `test/law-binding.test.ts` holds the join — every chapter
+finds its Law, a page carries no other Law's clauses, and a chapter naming a
+clause that does not exist **throws** rather than rendering commentary with
+nothing to comment on.
 
 The return trip is the other half of the same seam. `/book/law/the-laws` is the
 one page that holds every Law and every clause, and it was a wall you could read
 but not leave — sixteen commentaries linked *to* it and nothing linked back. Each
 law heading now carries a drill-down to its commentary, derived the same way in
 reverse (`commentarySlugs()`: the chapter's filename gives the URL, its H1 gives
-the Law), and a Law nothing comments on simply gets no link rather than a dead
-one. **The `.md` editions differ here on purpose**: the binding text is content,
-so the markdown twin carries it, but the drill-down is navigation, and
-`/book/law/the-laws.md` is the constitution as an agent should receive it — byte
-for byte what `LAWS.md` says, with no inserted links to read past.
+the clause id), and a Law nothing comments on simply gets no link rather than a
+dead one. **The `.md` editions differ here on purpose**: the binding text is
+content, so the markdown twin carries it, but the drill-down is navigation, and
+`/book/law/the-laws.md` is the constitution as an agent should receive it — every
+clause the session wall carries, with no inserted links to read past.
+
+That page is itself a rendering now, not a file. `LAWS.md` is a **spine** —
+frontmatter naming the groups in order, over an opening body — so echoing it puts
+the framing on screen with no law under it, which is what the page did for the
+first hour after the split. `constitutionMarkdown()` builds it from `readLaws`:
+groups in spine order, clauses in rank order, the drill-down inserted per group
+for the page edition and omitted for the twin.
 
 One transform, two pipelines, because the editions are compiled differently:
 `src/lib/book.ts` applies it to every chapter body (`Chapter.markdown`, which is
@@ -83,6 +95,25 @@ markdown compile. Both call the same function over the same source, so the two
 editions cannot disagree about the constitution either. The remark half runs
 *first* in `astro.config.mjs` — it re-parses the page it rewrites, so it must not
 land on a tree `remarkCanonLinks` has already edited.
+
+**A `build/` file must never write `../../.genome` against its own location.**
+`build/` is called from both pipelines, and they resolve paths from different
+places: the remark half runs unbundled from source, but `src/lib/book.ts` is
+compiled into the worker and Astro prerenders it from `dist/_worker.js/chunks/`,
+where every `../..` lands inside `dist/`. A path that is right in vitest and in
+remark is wrong in the build, which is how the un-fork shipped eleven red deploys
+behind 450 green tests. `law-binding.mjs` resolves the genome once, by walk-up —
+`genomeRoot(process.cwd())`, the `genome` gene's own resolver — and exports
+`LAWS_SPINE` and `COMMENTARY_DIR` for everything else to import. Gene *code* can
+be reached by static import (the bundler follows it and inlines it, as
+`middleware.ts` does with `registry` and `viewer`), but a CommonJS gene ending in
+`require.main === module` cannot: that guard survives as an undefined `require`
+in ESM scope, so require it at the resolved path instead. Gene *data* — the
+clause files — can never be inlined and always needs the walk-up.
+
+That is also why `site/.life` runs `npm run build` inside its test command. The
+suite must run the build it vouches for; nothing else in the rail executes
+`build/` the way the deploy does.
 
 **Verifying a remark change locally needs `rm -rf .astro dist` first.** Astro's
 content layer caches rendered markdown, so a plugin edit with no source edit
@@ -155,4 +186,4 @@ that is the signal something has been hard-coded that should have been derived.
 
 ## Summary (unabridged)
 
-How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, how Book II's commentaries get the Law's binding text rendered in instead of a filesystem path, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went.
+How known.life/book is built — the Book of Life rendered from the life-guide and laws genes rather than authored here: the content collections, the derived canon (no table of contents anywhere), the two editions (page + .md twin), the file-link rewrite, how Book II's commentaries get the Law's binding text rendered in instead of a filesystem path (through the laws gene's own reader — this file carried a hand-ported copy of that parser and it cost a red deploy), why a build/ file must resolve the genome by walk-up rather than against its own location, why every surface around the book derives its size too (and /llms.txt became an endpoint), why the Accept negotiation was tried and dropped, and where the old /docs pages went.
