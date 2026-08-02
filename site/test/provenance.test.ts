@@ -73,6 +73,8 @@ describe("provenance column — round-trips the version row", () => {
     // lifekey copy that the vendor cull deleted), so the suite reported a failed
     // FILE and nobody saw the assertions had stopped running.
     lines: { code: 0, test: 0, docs: 0, skill: 0, vendor: 0 },
+    // The exported surface, added when publish grew the resurrection check.
+    symbols: [],
   });
 
   it("a signed publish stores {v,login,sig,key} and reads it back", async () => {

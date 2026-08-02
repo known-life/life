@@ -138,7 +138,7 @@ describe("POST /api/publish — the refusals are the contract", () => {
       requires: [], provides: [], imports: [], inputs: [], scan_json: "{}", fit_json: "{}",
       provenance_json: null, summary: null, description: null, author: null, license: null,
       homepage: null, repository: null, keywords: [], readme: null, bytes: 1,
-      lines: { code: 0, test: 0, docs: 1, skill: 0, vendor: 0 },
+      lines: { code: 0, test: 0, docs: 1, skill: 0, vendor: 0 }, symbols: [],
     });
 
     const res = await publish(good);

@@ -25,7 +25,7 @@ describe("version line counts — stored where the mass changes", () => {
     package: name, version: v, content_hash: `h-${name}-${v}`, manifest: {}, contract: null,
     requires: [], provides: [], imports: [], inputs: [], scan_json: "{}", fit_json: "{}",
     provenance_json: null, summary: null, description: null, author: null, license: null,
-    homepage: null, repository: null, keywords: [], readme: null, bytes: 1, lines,
+    homepage: null, repository: null, keywords: [], readme: null, bytes: 1, lines, symbols: [],
   });
 
   const seed = async (name: string) => {
