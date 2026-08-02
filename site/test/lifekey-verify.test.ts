@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rawFromOpenSsh, verifyRaw } from "../../.genome/registry/src/registry/lib/vendor/lifekey-verify";
+import { rawFromOpenSsh, verifyRaw } from "../../.genome/lifekey/lib/verify.mjs";
 import { makeKey, b64 } from "./helpers";
 import vector from "./vectors/lifekey.json";
 

@@ -1,6 +1,11 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 const gene = (f) => fileURLToPath(new URL(`../.genome/registry/src/registry/lib/${f}`, import.meta.url));
+// lifekey's own tree. `verify.mjs` used to be covered through a vendored COPY
+// inside the registry gene; registry@3.3.5 deleted every vendor dir and imports
+// the sibling directly, so the coverage entry has to follow the code to its
+// owner. It stays in the spine either way — it is the auth root of trust.
+const lk = (f) => fileURLToPath(new URL(`../.genome/lifekey/lib/${f}`, import.meta.url));
 
 // The worker's security spine — scan (leak gate), lifekey-verify (auth root of
 // trust), jwt (the write-endpoint bearer), gh-secrets (the CI-credential
@@ -23,13 +28,11 @@ export default defineConfig({
       // instrument files outside this project root (the gene tree).
       allowExternal: true,
       include: [
-        // `vendor/lifekey-verify.mjs` — it moved under vendor/ in registry@3.3.2,
-        // and the extension was ALREADY wrong here (`.ts`, while the vendored
-        // copy has always been `.mjs`), so this entry had been pointing at
-        // nothing. A coverage include that resolves to no file does not fail —
-        // it silently drops out of the ratchet, which then guards less than it
-        // claims to (Law 5.10). Fixed with the move rather than after it.
-        gene("scan.ts"), gene("vendor/lifekey-verify.mjs"), gene("jwt.ts"), gene("gh-secrets.ts"),
+        // A coverage include that resolves to no file does not FAIL — it silently
+        // drops out of the ratchet, which then guards less than it claims to
+        // (Law 5.10). This list has been wrong that way once already, so every
+        // entry here is a real path with a real extension.
+        gene("scan.ts"), gene("jwt.ts"), gene("gh-secrets.ts"), lk("verify.mjs"),
       ],
       // A regression ratchet set just below achieved coverage — it fails CI the
       // moment a future edit drops a tested path. Not 100%: the residual lines
