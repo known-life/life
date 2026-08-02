@@ -1,6 +1,5 @@
-import { fileURLToPath } from "node:url";
 import { getCollection, type CollectionEntry } from "astro:content";
-import { withBindingText } from "../../build/law-binding.mjs";
+import { withBindingText, constitutionMarkdown } from "../../build/law-binding.mjs";
 
 /**
  * The Book of Life, derived — never declared.
@@ -102,14 +101,6 @@ export async function getCanon(): Promise<Book[]> {
   const pages = await getCollection("canon");
   const scripture = await getCollection("scripture");
 
-  // The constitution, read once for the whole build: Book II's commentary
-  // chapters are rendered with the Law each one comments on (build/law-binding.mjs).
-  const lawsEntry = scripture.find((s) => s.id === OPENINGS.law.id);
-  if (!lawsEntry) throw new Error(`book: ${OPENINGS.law.id} not found`);
-  // The laws gene reads its own clause files; the book hands it the spine path
-  // and renders what comes back, so the format has exactly one reader.
-  const lawsSpine = fileURLToPath(new URL("../../../.genome/laws/LAWS.md", import.meta.url));
-
   const dirs = [...new Set(pages.map((p) => p.id.split("/")[0]))].sort();
 
   cached = dirs.map((dir, i) => {
@@ -129,7 +120,7 @@ export async function getCanon(): Promise<Book[]> {
           title: h1(entry.body ?? ""),
           href: `/book/${slug}/${s}`,
           entry,
-          markdown: withBindingText(entry.body ?? "", lawsSpine),
+          markdown: withBindingText(entry.body ?? ""),
         };
       });
 
@@ -142,7 +133,10 @@ export async function getCanon(): Promise<Book[]> {
         title: opening.title,
         href: `/book/${slug}/${opening.slug}`,
         entry,
-        markdown: entry.body ?? "",
+        // The Laws are no longer a file to echo: `LAWS.md` is a spine over the
+        // gene's clause files, so the constitution is rendered from them (see
+        // `constitutionMarkdown`). Every other opening IS its file.
+        markdown: opening.id === OPENINGS.law.id ? constitutionMarkdown() : (entry.body ?? ""),
       });
     }
 

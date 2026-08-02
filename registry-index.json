@@ -1,5 +1,5 @@
 {
- "count": 3267,
+ "count": 3277,
  "versions": [
   {
    "package": "anthropic",
@@ -3138,6 +3138,15 @@
    "version": "4.3.9",
    "content_hash": "20e0b9970d33a02c6f5a3094f5dc0dc0309d42a43f7c2659a8321e62d730f19e",
    "published_at": 1785448629422,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "claude-code",
+   "version": "4.4.0",
+   "content_hash": "df69c302cf19a4139e5c305b82c9fe9f430cdd74e3d22b3fea05e01533e3117b",
+   "published_at": 1785707673633,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -8219,6 +8228,15 @@
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
   },
   {
+   "package": "genome",
+   "version": "0.2.5",
+   "content_hash": "eadc84fd70c0b1f51793bdc1f764673ceb60fdbbe27961bbcfb671a2dde666d0",
+   "published_at": 1785707480908,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
    "package": "geo",
    "version": "1.0.0",
    "content_hash": "1fd21ff34f7a2590b190d5357fab9c2a32ab8805dab8f642243b0be1e661da64",
@@ -8853,6 +8871,24 @@
    "version": "1.24.1",
    "content_hash": "0836bcc69642a9e3cba92848a054d52f2372920274e87946d2210b6b4d3a8100",
    "published_at": 1785408693976,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "git-sync",
+   "version": "1.24.10",
+   "content_hash": "93d8c79d99d780fa920b99d0426454eee1172fd3d41875d19140a33356aebb0a",
+   "published_at": 1785708064155,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "git-sync",
+   "version": "1.24.11",
+   "content_hash": "c06c0a7bffb79b4f5046c54ca3a03d0c36782950b153c484bd97c2a5d6d4af51",
+   "published_at": 1785709417691,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -12162,6 +12198,15 @@
   },
   {
    "package": "knowledge",
+   "version": "3.3.37",
+   "content_hash": "ee0d02f27014b9c9aa66947bd9d41d25a962389df06bf1cf1c168ae3dbf30558",
+   "published_at": 1785707957288,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "knowledge",
    "version": "3.3.4",
    "content_hash": "c6f07a8559ca3fbe98b42442e06a6aed6ab11b998364fa0be9dd546e04a8cec6",
    "published_at": 1785236673358,
@@ -13803,6 +13848,15 @@
    "version": "1.3.2",
    "content_hash": "122f9fefaa1c5ccd887343984763ab780ba7e9a61725fb4e0e43acae24071cf8",
    "published_at": 1785596156481,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "leak-guard",
+   "version": "1.3.3",
+   "content_hash": "8d56836c402d019786518eedade962cfdb52044340ed5f18dc28fc4c0052fde9",
+   "published_at": 1785708195387,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -15954,6 +16008,33 @@
    "version": "5.11.2",
    "content_hash": "7b6e94731289ac452e0f2491475e144c02ecf777c0ae9fb6dfc4c7ab21fe2ea0",
    "published_at": 1785688805179,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life",
+   "version": "5.11.20",
+   "content_hash": "d952d35c7c10712b3f94fd8ece27d602334a273d70fea8dac9b0b34594df2e88",
+   "published_at": 1785707837320,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life",
+   "version": "5.11.21",
+   "content_hash": "d20d895bf9cd2e36efde6e955a5e16470535a7a320ad2f4635b244fe555c6622",
+   "published_at": 1785708066823,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life",
+   "version": "5.11.22",
+   "content_hash": "0a816765e741419af3850af3cfd7f35361efeabb74f42331083a4e12abf83d59",
+   "published_at": 1785709430397,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -23460,6 +23541,15 @@
    "version": "5.9.6",
    "content_hash": "732ec37fd74643e5b0af39444e425bd0698e66243af5f188a0731e82aceb2d1c",
    "published_at": 1785706406687,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "secrets",
+   "version": "5.9.7",
+   "content_hash": "57941cc2dfa57b40ab498ab252281a4a56aa478fed49966bdcd5a56c44cbeb1a",
+   "published_at": 1785707376284,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

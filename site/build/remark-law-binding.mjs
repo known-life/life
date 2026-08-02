@@ -1,6 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { withBindingText, declaredLaw, commentarySlugs } from "./law-binding.mjs";
+import { join } from "node:path";
+import {
+  withBindingText,
+  declaredLaw,
+  commentarySlugs,
+  constitutionMarkdown,
+  COMMENTARY_DIR,
+} from "./law-binding.mjs";
 
 /**
  * The rendered half of `law-binding.mjs`, both directions of the same seam.
@@ -17,27 +23,12 @@ import { withBindingText, declaredLaw, commentarySlugs } from "./law-binding.mjs
  * `src/lib/book.ts` applies it to the markdown twin too and the two editions
  * carry the same clauses. The OUT one is a navigation affordance, and
  * `/book/law/the-laws.md` is the constitution as an agent should receive it —
- * byte for byte what `LAWS.md` says, with no sixteen inserted links to read past.
+ * every clause the session wall carries, with no inserted links to read past.
  */
-const GENOME = new URL("../../.genome/", import.meta.url);
-const LAWS_FILE = fileURLToPath(new URL("laws/LAWS.md", GENOME));
-const COMMENTARY_DIR = fileURLToPath(new URL("life-guide/.life.knowledge/02-law/", GENOME));
-
-/** Only the canon's own chapters — a docs page that happened to say "Law 3" is not one. */
+/** Only the canon's own chapters — a docs page that happened to cite a clause is not one. */
 const isCanonChapter = (file) => /\.life\.knowledge[\\/]/.test(pathOf(file));
 const isConstitution = (file) => /laws[\\/]LAWS\.md$/.test(pathOf(file));
 const pathOf = (file) => String(file?.path ?? file?.history?.[0] ?? "");
-
-/** A heading's plain text, for reading the `N.` ordinal off `## 1. 🔒 You evolve…`. */
-function headingText(node) {
-  let out = "";
-  const walk = (n) => {
-    if (typeof n.value === "string") out += n.value;
-    (n.children ?? []).forEach(walk);
-  };
-  walk(node);
-  return out;
-}
 
 export function remarkLawBinding() {
   // unified calls an attacher with the processor as `this`, which is how the
@@ -47,23 +38,12 @@ export function remarkLawBinding() {
   const slugs = commentarySlugs(
     readdirSync(COMMENTARY_DIR)
       .filter((file) => /^\d+-.*\.md$/.test(file))
-      .map((file) => ({ file, body: readFileSync(COMMENTARY_DIR + file, "utf8") })),
+      .map((file) => ({ file, body: readFileSync(join(COMMENTARY_DIR, file), "utf8") })),
   );
 
   return (tree, file) => {
     if (isConstitution(file)) {
-      // Walk backwards: every insertion shifts the indices after it.
-      for (let i = tree.children.length - 1; i >= 0; i--) {
-        const node = tree.children[i];
-        if (node.type !== "heading" || node.depth !== 2) continue;
-        const n = Number(headingText(node).match(/^(\d+)\./)?.[1]);
-        const slug = slugs.get(n);
-        if (!slug) continue;
-        tree.children.splice(i + 1, 0, {
-          type: "html",
-          value: `<p class="law-drill"><a href="/book/law/${slug}">Commentary on Law ${n} — what it means in practice, and the failure it prevents →</a></p>`,
-        });
-      }
+      tree.children = processor.parse(constitutionMarkdown(slugs)).children;
       return;
     }
 
@@ -72,7 +52,7 @@ export function remarkLawBinding() {
     const source = String(file.value ?? "");
     if (declaredLaw(source) === null) return;
 
-    const rendered = withBindingText(source, LAWS_FILE);
+    const rendered = withBindingText(source);
     if (rendered === source) return;
 
     tree.children = processor.parse(rendered).children;

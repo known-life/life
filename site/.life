@@ -51,7 +51,12 @@ imports:
 # green on every push because it never ran them. `.life.lock` is the honest
 # trigger — a gene pin moving IS this suite's input changing.
 tests:
-  - run: "npm ci && npm run test:coverage"
+  # The build is part of the SUITE, not a deploy step. vitest runs `build/` from
+  # source, where a genome path written against the module's own location still
+  # resolves; the real build runs the same code from `dist/_worker.js/chunks/`,
+  # where it does not. That gap shipped a red deploy on main behind 450 green
+  # tests — the suite must run the build it is vouching for.
+  - run: "npm ci && npm run test:coverage && cp ../install.sh public/install.sh && npm run build"
     when:
       - "site/**"
       - ".genome/viewer/**"

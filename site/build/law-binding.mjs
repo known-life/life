@@ -1,22 +1,24 @@
 import { createRequire } from "node:module";
-const { readLaws } = createRequire(import.meta.url)("../../.genome/laws/hooks/session-start-inject.js");
+import path from "node:path";
+// CommonJS: `module.exports = {…}` names nothing to an ESM importer, so the
+// default IS the exports object.
+import genomeGene from "../../.genome/genome/bin/gene.cjs";
+
+const { genomeRoot } = genomeGene;
 
 /**
  * Book II's commentary chapters, given the text they comment on.
  *
- * Each of the sixteen chapters in `02-law/` opens `# Law N · <emoji> <title>` and
- * then a pointer — "Binding text: `.genome/laws/LAWS.md`, Law N" — before the
- * commentary starts. That pointer is right on disk, where an agent reading the
- * gene has `.genome/laws/LAWS.md` a path away. On the web it is a dead end: the
- * reader is given a filesystem path they cannot open, so the page discusses
- * clauses it never shows. This swaps the pointer for the thing it points at.
+ * Each of the sixteen chapters in `02-law/` opens `# ⚖<id> · <emoji> <title>` and
+ * then a pointer — "Binding text: `.genome/laws/LAWS.md`" — before the commentary
+ * starts. That pointer is right on disk, where an agent reading the gene has the
+ * clause files a path away. On the web it is a dead end: the reader is given a
+ * filesystem path they cannot open, so the page discusses clauses it never shows.
+ * This swaps the pointer for the thing it points at.
  *
- * It is a rendering, not a copy. The clauses are read out of the `laws` gene's own
- * `LAWS.md` at build time and parsed with that gene's own convention (`## <n>.
- * <emoji> <title>`, body until the next `## ` — the same shape
- * `hooks/session-start-inject.js` decodes to build the session wall). No law text
- * is authored here or in `life-guide`, so the constitution still has exactly one
- * source and this file cannot make the book say something LAWS.md does not.
+ * It is a rendering, not a copy: the `laws` gene reads its own clause files
+ * (`readLaws`) and this hands back what comes out, so the format has exactly one
+ * reader and no law text is authored here or in `life-guide`.
  *
  * One rule, two pipelines: `src/lib/book.ts` applies it to every chapter body,
  * which is the whole `.md` edition, and `remark-law-binding.mjs` applies it to
@@ -25,11 +27,38 @@ const { readLaws } = createRequire(import.meta.url)("../../.genome/laws/hooks/se
  */
 
 /**
- * `LAWS.md` → its laws, in file order. A faithful port of the `laws` gene's own
- * parser (the `lawsBlock` loop in `hooks/session-start-inject.js`), differing only
- * in what it returns: structured laws rather than the `<life-laws>` wall. The
- * ordinal is split off the title here because the chapter H1 already carries
- * "Law N ·" — repeating it would be the restatement this whole file avoids.
+ * The genome, by walk-up rather than by depth.
+ *
+ * This module's own location is not an anchor: Astro prerenders the book from
+ * `dist/_worker.js/chunks/`, so anything written `../../.genome` against this
+ * file resolves inside `dist/` and reads nothing — which is exactly how the
+ * un-fork of this file first shipped, and it reddened the deploy. The `genome`
+ * gene owns finding a genome; the build always runs inside the repo, so walking
+ * up from its own directory is the one anchor the bundler cannot move.
+ */
+const GENOME = genomeRoot(process.cwd());
+if (!GENOME) throw new Error(`law-binding: no .genome above ${process.cwd()}`);
+
+/**
+ * The `laws` gene reads its own format — this file must never parse it again.
+ * Required at its resolved path rather than imported: the hook ends in a
+ * `require.main === module` self-run guard, which is correct CommonJS and
+ * survives bundling as an undefined `require` in ESM scope.
+ */
+const { readLaws } = createRequire(import.meta.url)(
+  path.join(GENOME, "laws", "hooks", "session-start-inject.js"),
+);
+
+/** The spine the `laws` gene parses; its clause files sit beside it in `laws/`. */
+export const LAWS_SPINE = path.join(GENOME, "laws", "LAWS.md");
+
+/** Book II's commentary chapters, in the `life-guide` gene. */
+export const COMMENTARY_DIR = path.join(GENOME, "life-guide", ".life.knowledge", "02-law");
+
+/**
+ * The clause a commentary chapter declares — the `⚖<id>` in its H1, the permanent
+ * id the `laws` gene keys a group by. An id, not a position: a Law can be reworded,
+ * re-ranked, or moved and every citation ever written still resolves.
  */
 export function declaredLaw(body) {
   const m = String(body).match(/^#[ \t]+⚖([a-z0-9-]+)[ \t]*·/m);
@@ -37,11 +66,11 @@ export function declaredLaw(body) {
 }
 
 /**
- * Law number → the slug of the chapter that comments on it, derived from the
+ * Clause id → the slug of the chapter that comments on it, derived from the
  * commentary chapters themselves: the filename gives the URL (the canon's
- * `<ordinal>-<slug>` rule), the H1 gives the Law. No table, so a chapter renamed
- * or a Law renumbered needs nothing here — and a Law with no commentary yet
- * simply has no entry, which is the honest state rather than a dead link.
+ * `<ordinal>-<slug>` rule), the H1 gives the clause. No table, so a chapter
+ * renamed or a Law re-ranked needs nothing here — and a Law with no commentary
+ * yet simply has no entry, which is the honest state rather than a dead link.
  *
  * This is the return trip. `withBindingText` carries the constitution INTO the
  * commentary; this carries a reader from the constitution OUT to it, so the one
@@ -50,8 +79,8 @@ export function declaredLaw(body) {
 export function commentarySlugs(chapters) {
   const slugs = new Map();
   for (const { file, body } of chapters) {
-    const n = declaredLaw(body);
-    if (n !== null) slugs.set(n, file.replace(/^\d+-/, "").replace(/\.md$/, ""));
+    const id = declaredLaw(body);
+    if (id !== null) slugs.set(id, file.replace(/^\d+-/, "").replace(/\.md$/, ""));
   }
   return slugs;
 }
@@ -72,7 +101,7 @@ const CANON_URL = "https://known.life/book/law/the-laws";
  * DOES declare a Law and cannot be matched to one throws rather than quietly
  * rendering commentary with nothing to comment on.
  */
-export function withBindingText(body, spineFile) {
+export function withBindingText(body, spineFile = LAWS_SPINE) {
   const id = declaredLaw(body);
   if (id === null) return String(body);
 
@@ -95,4 +124,39 @@ export function withBindingText(body, spineFile) {
   return String(body)
     .replace(POINTER, "")
     .replace(/^(#[ \t]+⚖[a-z0-9-]+[ \t]*·[^\n]*\n)/m, `$1${block}`);
+}
+
+/**
+ * The constitution itself — the one page that holds every Law and every clause.
+ *
+ * `LAWS.md` alone will not do it any more: since the split to one-file-per-clause
+ * it is a SPINE, frontmatter naming the groups in order over an opening body, and
+ * a page rendered from it shows the framing with no law under it. So the page is
+ * rendered the way the session wall is, from the gene's own `readLaws` — spine
+ * order for the groups, rank order within each — and the web edition cannot say
+ * something the injected constitution does not.
+ *
+ * `slugs` (from `commentarySlugs`) adds the drill-down out to each Law's
+ * commentary chapter. The markdown twin passes none: `/book/law/the-laws.md` is
+ * the constitution as an agent should receive it, with no inserted links to read
+ * past — while the page without them is a wall you can read but not leave.
+ */
+export function constitutionMarkdown(slugs = new Map(), spineFile = LAWS_SPINE) {
+  const { header, groups } = readLaws(spineFile);
+  if (!groups.length) throw new Error(`law-binding: the laws gene read no groups from ${spineFile}`);
+
+  const out = [header, ""];
+  for (const g of groups) {
+    out.push(`## ⚖${g.key} ${g.emoji} ${g.title}`, "");
+    const slug = slugs.get(g.key);
+    if (slug) {
+      out.push(
+        `<p class="law-drill"><a href="/book/law/${slug}">Commentary on ⚖${g.key}` +
+          " — what it means in practice, and the failure it prevents →</a></p>",
+        "",
+      );
+    }
+    out.push(g.clauses.map((c) => `- **${c.id}** ${c.body}`).join("\n"), "");
+  }
+  return out.join("\n");
 }
