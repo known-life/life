@@ -64,6 +64,11 @@ describe("provenance column — round-trips the version row", () => {
     requires: [], provides: [], imports: [], inputs: [], scan_json: "{}", fit_json: "{}",
     provenance_json, summary: null, description: null, author: null, license: null,
     homepage: null, repository: null, keywords: [], readme: null, bytes: 1,
+    // `lines` became a REQUIRED field on the insert input when the registry grew
+    // per-gene LOC metrics; this fixture predates that and was passing `undefined`,
+    // so insertVersion threw on `v.lines.code` rather than on anything provenance
+    // does. The gene's contract moved and its repo-side consumer did not (Law 17.4).
+    lines: { code: 0, test: 0, docs: 0, skill: 0, vendor: 0 },
   });
 
   it("a signed publish stores {v,login,sig,key} and reads it back", async () => {
