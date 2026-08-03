@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { viewerFetch } from "../../.genome/viewer/src/router";
 import { seal } from "../../.genome/viewer/src/crypto";
 import { readSession } from "../../.genome/viewer/src/session";
-import { renderMarkdown } from "../../.genome/viewer/src/markdown";
+import { renderMarkdown } from "../../.genome/markdown/lib/markdown.mjs";
 import { lifeMeta } from "../../.genome/viewer/src/lifefile";
 import { validRepoName, scaffoldFiles } from "../../.genome/viewer/src/scaffold";
 import type { ViewerConfig } from "../../.genome/viewer/src/config";
