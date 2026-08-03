@@ -33,6 +33,11 @@ imports:
     # it, an installer change "deploys" as a silent no-op until the next site/ touch.
     deploy_inputs:
       - install.sh
+      # The viewer mount passes this life's accents (app/lib/palette.ts — the ONE
+      # declaration both faces read), so a brand edit must redeploy this worker
+      # too. Same class as install.sh: an input the build embeds from outside
+      # site/, invisible to change detection keyed on `site/**`.
+      - app/lib/palette.ts
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
 # (the trust-store/handshake root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
@@ -193,25 +198,23 @@ single SSR Worker plus edge static assets:
   (`imports:` above), materialized into `.genome/viewer/` and mounted as one
   `viewerFetch(request, config)` call from `src/middleware.ts` — the repo
   holds no copy; edit = fetch → mutate → re-vendor, exactly like the registry.
-  Its credential-free vitest suite lives in `site/test/viewer-*.test.ts`.
-- **The installer** — `install.sh` (repo root) is copied into `public/` at build
-  time and served from `known.life/install.sh`, so cold-start never depends on
-  raw GitHub. Because that file lives outside this directory, the frontmatter
-  declares it under `deploy_inputs:` (engine ≥3.46.0) so an installer edit
-  triggers this unit's ci-auto deploy — before that, change detection keyed on
-  `site/**` alone and an installer change shipped as a silent no-op. The other
-  outside input, `.life.lock`, needs no declaration: the engine derives it (life
-  ≥5.8.0), shipping and testing this unit whenever a gene it declares in
-  `imports:` moves its pin.
+  That mount is also where this life's BRAND enters: the gene ships default
+  accents so any other life wears its own, and we pass `app/lib/palette.ts` —
+  the one declaration the native app reads too, so the two faces cannot drift to
+  different blues. Its credential-free vitest suite lives in
+  `site/test/viewer-*.test.ts`.
+- **Two build inputs from outside this dir**, both declared under
+  `deploy_inputs:` because change detection keys on `site/**` and would ship
+  either as a silent no-op: `install.sh` (repo root, copied into `public/` at
+  build time and served from `known.life/install.sh`, so cold-start never
+  depends on raw GitHub) and `app/lib/palette.ts` (the accents above).
+  `.life.lock` needs no declaration — the engine derives it, shipping and
+  testing this unit whenever a gene in `imports:` moves its pin.
 - **The engine** — shipped as the `life` package's `files["life"]`, served from
   `/api/resolve/life/latest` like any other module (no separate static asset).
 
-`build/` is the build-time half that never ships — the Book of Life's two source
-transforms: `remark-canon-links.mjs` rewrites file-relative chapter links into
-book URLs, and `law-binding.mjs` renders each Law's binding text into its Book II
-commentary, where the gene's on-disk pointer to `LAWS.md` sits (a path no web
-reader can open). Both editions run the latter — `src/lib/book.ts` for the
-markdown twin, `remark-law-binding.mjs` for the page.
+`build/` is the build-time half that never ships — the Book of Life's source
+transforms, covered in that same knowledge page.
 
 ## How it deploys
 

@@ -28,6 +28,7 @@
     ".astro/types.d.ts",
     "**/*",
     "../.genome/registry/src/**/*.ts",
-    "../.genome/viewer/src/**/*.ts"
+    "../.genome/viewer/src/**/*.ts",
+    "../app/lib/palette.ts"
   ]
 }
