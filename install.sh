@@ -53,7 +53,7 @@ rm -f .genome/.adapter.json
 # the exec below, with no per-package latency hiccup in between.
 echo "Fetching setup → .genome/setup ..."
 curl -fsSL "$REGISTRY/api/resolve/setup/latest" -o .genome/.setup.json
-node -e 'const fs=require("fs"),p=require("path");const d=JSON.parse(fs.readFileSync(".genome/.setup.json","utf8"));if(!d||!d.files){console.error("setup gene malformed");process.exit(1)}const dest=".genome/setup";for(const[rel,c]of Object.entries(d.files)){const f=p.join(dest,rel);fs.mkdirSync(p.dirname(f),{recursive:true});fs.writeFileSync(f,c)}const sh=p.join(dest,"bin","setup.sh");if(fs.existsSync(sh))fs.chmodSync(sh,0o755);'
+node -e 'const fs=require("fs"),p=require("path");const d=JSON.parse(fs.readFileSync(".genome/.setup.json","utf8"));if(!d||!d.files){console.error("setup gene malformed");process.exit(1)}const dest=".genome/setup";for(const[rel,c]of Object.entries(d.files)){const f=p.join(dest,rel);fs.mkdirSync(p.dirname(f),{recursive:true});fs.writeFileSync(f,c)}'
 rm -f .genome/.setup.json
 
 # 4. Stub .life if absent. One paragraph, no verb list — the agent should be
@@ -88,8 +88,8 @@ fi
 
 echo ""
 
-# Hand off to setup. The engine's `setup` verb execs the setup gene's
-# bin/setup.sh, which is a resumable state machine:
+# Hand off to setup. The engine's `setup` verb runs the setup gene's
+# bin/setup.mjs, which is a resumable state machine:
 #
 #   - env has CLOUDFLARE_API_TOKEN + GITHUB_TOKEN + CLOUDFLARE_ACCOUNT_ID
 #     (CI / pre-populated env) → fast-path straight to provisioning.

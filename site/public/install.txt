@@ -5,11 +5,13 @@ You are an AI coding agent. A human asked you to "set up known.life", "install
 known.life", "install life", "add life to this repo", "make this repo
 Life-aware", "update known.life", "life setup", "go alive", or similar. This
 file is your runbook — there's no human-run installer; you do the whole thing.
-The human is interrupted exactly twice, both in the browser: a GitHub sign-in
-(device flow — they enter a short code) and one Cloudflare OAuth consent (they
-click "Authorize" — known.life brokers a short-lived deploy token; no token to
-create, nothing pasted into the terminal). No SSH-key paste either: setup
-auto-registers your identity key on GitHub via the sign-in.
+The human is interrupted three times, all in the browser and all one tap: a
+GitHub sign-in (device flow — they enter a short code), one Cloudflare OAuth
+consent (they click "Authorize" — known.life brokers a short-lived deploy
+token), and installing the known.life verifier GitHub App on the repo (what
+makes the vault re-open in every future session without a stored token).
+Nothing is ever pasted into the terminal, and there's no SSH-key paste either:
+setup auto-registers your identity key on GitHub via the sign-in.
 
 FIRST — IS THIS AN INSTALL OR AN UPDATE?
   Check for `./.life.engine` in the repo root.
@@ -22,7 +24,7 @@ FIRST — IS THIS AN INSTALL OR AN UPDATE?
 The flow has two arcs:
 
   ARC 1  (no user input, seconds): make the repo Life-aware.
-  ARC 2  (two browser moments, then fully automatic): become alive.
+  ARC 2  (three browser taps, then fully automatic): become alive.
 
 
 ================================================================================
@@ -61,14 +63,16 @@ Tell the user, in your own voice:
 
     "<repo> is Life-aware and the engine runs. To go fully alive — your own
      lifekey identity, a private secrets vault, and the default toolset — I
-     need you twice, both in the browser: a GitHub sign-in and one Cloudflare
-     consent click. No tokens to create or paste. Want to do that now?"
+     need you three times, all in the browser and all one tap: a GitHub
+     sign-in, a Cloudflare consent click, and installing the known.life
+     verifier app on this repo. No tokens to create or paste. Want to do that
+     now?"
 
 If they say no, stop here.
 
 
 ================================================================================
-ARC 2 — BECOME ALIVE (one command, two browser moments)
+ARC 2 — BECOME ALIVE (one command, three browser taps)
 ================================================================================
 
 STEP 3 — Run setup; relay each NEED: block verbatim
@@ -86,6 +90,10 @@ wait for their "done", and re-run `./.life.engine setup`. The interaction is:
      known.life stores the grant and brokers a short-lived, scoped deploy token
      per need — no token is created, pasted, or stored, and there's no Account
      ID to find. Nothing enters the terminal.
+  3. Verifier app install — setup prints a GitHub App install URL; the user
+     picks the repo and clicks Install. This is what makes the vault durable:
+     every later session proves itself by having known.life read a one-time
+     nonce back from the repo, so no credential has to be stored anywhere.
 
 NEVER echo a credential back; NEVER commit one. Credentials are one-way data:
 into the vault, never out. (The `leak-guard` gene, installed by default,
@@ -93,24 +101,30 @@ blocks env/argv-dumping commands so a token can't spill into the transcript.)
 
 STEP 4 — What setup provisions
 ------------------------------
-What setup does (8 idempotent stages, each announced; re-run after fixing
-anything and it converges):
+What setup does (12 idempotent stages, each announced; re-run after fixing
+anything and it converges). Three of them deploy a Worker into the user's own
+Cloudflare account — the vault, the artifact surface, and the data plane:
 
-  1. preflight   — confirm the Cloudflare consent and the GitHub grant are
-                   live BEFORE touching anything irreversible.
-  2. adapters    — install the cloudflare + github adapter genes.
-  3. cloudflare  — connect the infra adapter.
-  4. vault       — install + deploy the secrets vault (a public Worker), opted
-                   into tokenless /exchange.
-  5. lifekey     — generate an Ed25519 identity, AUTO-REGISTER it on
-                   github.com/<login>.keys via the sign-in's token (no SSH
-                   paste), and flush the private half to the vault.
-  6. root .life  — write `secrets_worker_url:` + `proxy_hosts:` so future
-                   sessions hydrate identity from the vault automatically.
-  7. defaults    — install the baseline genome (the Laws, session memory, the
-                   knowledge base, a secret-leak guard, the book of life, …).
-  8. evolve + self-test — compile the harness, then exercise the tokenless
-                   /exchange round-trip future sessions will use.
+   1. preflight   — confirm the Cloudflare consent and the GitHub grant are
+                    live BEFORE touching anything irreversible.
+   2. verifier    — the known.life verifier GitHub App (the third browser tap);
+                    what makes /exchange durable with no stored credential.
+   3. adapters    — install the cloudflare + github adapter genes.
+   4. cloudflare  — connect the infra adapter.
+   5. vault       — install + deploy the secrets vault (a Worker), opted into
+                    tokenless /exchange.
+   6. lifekey     — generate an Ed25519 identity, AUTO-REGISTER it on
+                    github.com/<login>.keys via the sign-in's token (no SSH
+                    paste), and flush the private half to the vault.
+   7. root .life  — write `secrets_worker_url:` + `proxy_hosts:` so future
+                    sessions hydrate identity from the vault automatically.
+   8. baseline    — install the baseline genome (the Laws, session memory, the
+                    knowledge base, a secret-leak guard, the book of life, …).
+   9. artifact    — deploy the publish surface (a Worker).
+  10. dataplane   — deploy the /v1 data plane (a Worker).
+  11. reconcile   — compile the harness layer.
+  12. self-test   — exercise the tokenless /exchange round-trip future sessions
+                    will use.
 
 On any `✗`, pass the message to the user verbatim — each names the exact
 problem and remediation. After they fix it, re-run.

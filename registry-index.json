@@ -1,5 +1,5 @@
 {
- "count": 3472,
+ "count": 3474,
  "versions": [
   {
    "package": "anthropic",
@@ -16941,6 +16941,15 @@
   },
   {
    "package": "life",
+   "version": "5.12.15",
+   "content_hash": "75b107c8ea88dcc28dfa03b48ee7aba48f30b31009932d5179320bd21d1a9674",
+   "published_at": 1785776492779,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life",
    "version": "5.12.2",
    "content_hash": "02316aa506c8dbe00d7ece864de097b1ecd882703f5b9a1295e590e9c14191b8",
    "published_at": 1785715596879,
@@ -26781,6 +26790,15 @@
    "version": "1.33.17",
    "content_hash": "96f4e6446b81967687ad7004076640047fb265428846199bf3f80c0f7a3b6563",
    "published_at": 1785776234485,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "sessions",
+   "version": "1.33.18",
+   "content_hash": "c79a457596dfb905851e99498db9cd353695b1da294a8d1360d4de7070057707",
+   "published_at": 1785776319984,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

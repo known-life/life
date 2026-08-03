@@ -33,11 +33,11 @@ life evolve          # pull engine + deps + compile the harness (.claude/)</code
 
   <h2>3 · Add capabilities — import from the genepool</h2>
   <p>Capabilities (a secrets vault, session memory, the Laws, …) are genes on <a href="/explore">known.life</a>. Inherit one by name — like <code>npm install --save</code>, it vendors the gene into <code>.genome/</code>, pins it in <code>.life.lock</code>, <strong>records it in your <code>.life</code> <code>imports:</code></strong>, and wires its hooks/skills into the harness:</p>
-  <pre><code>life inherit known.life/markdown-memory   # vendored, saved to .life, and wired in one step</code></pre>
+  <pre><code>life inherit known.life/knowledge   # vendored, saved to .life, and wired in one step</code></pre>
   <p>Recording the import is what makes the inherit <em>durable</em>: a session-start <code>evolve</code> reconciles the module tree against <code>imports:</code> (plus the baseline genome), so a gene that only pinned the lock would be pruned next session — the declared import is what survives. To pin a version or stage several at once, declare them by hand and inherit everything declared:</p>
   <pre><code># .life
 imports:
-  known.life/markdown-memory:
+  known.life/knowledge:
   known.life/sessions@1.2.3:         # pin a version to freeze it</code></pre>
   <pre><code>life inherit     # fetch every declared import into .genome/, pin in .life.lock, wire the harness</code></pre>
   <p>Browse and inspect before importing — every gene page is agent-readable:</p>
@@ -53,15 +53,16 @@ life deploy &lt;dir&gt;      # provision + ship a living directory</code></pre>
   <h2>5 · Become alive (the full setup)</h2>
   <p>"Life-aware" is an engine and a manifest. <strong>Alive</strong> is a repo with its own cryptographic identity, a private secrets vault, and a baseline genome installed. One verb does the whole onboarding:</p>
   <pre><code>life setup</code></pre>
-  <p>Tell the agent <em>"set up known.life"</em> (or "bring this repo to life") and it follows the runbook at <a href="/install.txt">/install.txt</a>. It stops the user exactly once, for two credentials:</p>
+  <p>Tell the agent <em>"set up known.life"</em> (or "bring this repo to life") and it follows the runbook at <a href="/install.txt">/install.txt</a>. It stops the user three times, all in the browser and all one tap:</p>
   <ul>
     <li><strong>A GitHub sign-in</strong> — the agent runs GitHub's device flow (it shows a short code, the user approves it in the browser). No personal access token to mint. <strong>No key paste to do by hand either:</strong> setup generates an Ed25519 lifekey and enrols its public half at the registry — the sign-in's proof of push access to your repo is what authorizes the enrolment. That key then signs every genepool write you publish.</li>
     <li><strong>A Cloudflare consent</strong> (Workers · KV · D1 · R2) — the agent hands you one <a href="https://dash.cloudflare.com">dash.cloudflare.com</a> link; you sign in and click Authorize, choosing the account to deploy into. No token to create, nothing to paste, no account-id. known.life keeps the refresh token and brokers a short-lived deploy token per need — the container never holds a long-lived Cloudflare credential.</li>
+    <li><strong>The known.life verifier app</strong> — a GitHub App installed on the repo. It never reads your code; it only confirms a push. That is what makes the vault durable: every later session re-opens it by having known.life read a one-time nonce back from the repo, so no credential is stored anywhere.</li>
   </ul>
   <p>The flow's contract:</p>
   <ul>
     <li><strong>Preflight first</strong> — revalidates the brokered Cloudflare access and the GitHub grant before doing anything irreversible.</li>
-    <li><strong>Every stage announces</strong> — one ✓ or ✗ per stage; no silent failures. The stages: preflight, adapters, cloudflare connect, vault deploy, lifekey (generate + auto-register + flush to vault), root <code>.life</code>, baseline genome, evolve + self-test.</li>
+    <li><strong>Every stage announces</strong> — one ✓ or ✗ per stage; no silent failures. The twelve stages: preflight, verifier, adapters, cloudflare connect, vault deploy, lifekey (generate + auto-register + flush to vault), root <code>.life</code>, baseline genome, artifact deploy, dataplane deploy, reconcile, self-test — three of which (vault, artifact, dataplane) deploy a Worker into your own account.</li>
     <li><strong>Idempotent</strong> — re-run any time; it resumes where it left off (an existing Cloudflare consent is reused, not re-prompted).</li>
     <li><strong>Self-tests re-entry</strong> — runs the same tokenless <code>/exchange</code> future sessions will use against the fresh vault (the session proves it can push the repo; the lifekey is not involved); if it passes, future sessions authenticate with no input at all.</li>
   </ul>

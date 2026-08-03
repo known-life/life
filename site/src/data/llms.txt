@@ -18,8 +18,9 @@ truth. One file-existence check tells you which half applies:
 
 - **`./.life.engine` absent** → fresh install. install.txt walks two arcs: make
   the repo Life-aware (drop in the engine, no tokens), then `life setup` to
-  become alive — a GitHub sign-in and one Cloudflare OAuth consent in the
-  browser, no tokens pasted, every later session re-entering automatically.
+  become alive — three one-tap browser moments (a GitHub sign-in, a Cloudflare
+  OAuth consent, and installing the known.life verifier app on the repo), no
+  tokens pasted, every later session re-entering automatically.
 - **`./.life.engine` present** → already Life-aware; "update"/"upgrade" is just
   `life evolve` (newer engine, re-pinned imports, regenerated harness). Done
   when it reports clean.
