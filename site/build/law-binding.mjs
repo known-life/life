@@ -9,7 +9,8 @@ const { genomeRoot } = genomeGene;
 /**
  * Book II's commentary chapters, given the text they comment on.
  *
- * Each chapter in `02-law/` opens `# <mark><id> · <emoji> <title>` and
+ * Each chapter in `02-law/` opens `# law/<slug> · <emoji> <title>` — the form the
+ * `laws` gene owns and this build imports rather than spells — and
  * then a pointer — "Binding text: `.genome/laws/LAWS.md`" — before the commentary
  * starts. That pointer is right on disk, where an agent reading the gene has the
  * clause files a path away. On the web it is a dead end: the reader is given a
@@ -45,7 +46,7 @@ if (!GENOME) throw new Error(`law-binding: no .genome above ${process.cwd()}`);
  * `require.main === module` self-run guard, which is correct CommonJS and
  * survives bundling as an undefined `require` in ESM scope.
  */
-const { readLaws } = createRequire(import.meta.url)(
+const { readLaws, CITE_PREFIX, cite, declaredSlug } = createRequire(import.meta.url)(
   path.join(GENOME, "laws", "hooks", "session-start-inject.js"),
 );
 
@@ -67,8 +68,7 @@ export function declaredLaw(body) {
   // laws gene's format doc specifies as the citation form. A glyph is somebody's
   // rendering choice and belongs nowhere in this file; a specified prefix is the
   // contract the H1 is written against.
-  const m = String(body).match(/^#[ \t]+law\/([a-z][a-z0-9-]*)[ \t]*·/m);
-  return m ? m[1] : null;
+  return declaredSlug(body);
 }
 
 /**
@@ -113,11 +113,11 @@ export function withBindingText(body, spineFile = LAWS_SPINE) {
 
   const { groups } = readLaws(spineFile);
   const law = groups.find((g) => g.key === id);
-  if (!law) throw new Error(`law-binding: chapter declares law/${id}, but the laws gene has no group '${id}'`);
+  if (!law) throw new Error(`law-binding: chapter declares ${cite(id)}, but the laws gene has no group '${id}'`);
 
   const block = [
     "",
-    `> **law/${law.key} — the binding text**, rendered from the \`laws\` gene's own clause files:` +
+    `> **${cite(law.key)} — the binding text**, rendered from the \`laws\` gene's own clause files:` +
       " the only source of truth, injected in full into every waking. Everything after" +
       ` the rule below is commentary. [The whole constitution →](${CANON_URL})`,
     "",
@@ -130,7 +130,7 @@ export function withBindingText(body, spineFile = LAWS_SPINE) {
   return String(body)
     .replace(POINTER, "")
     // Same contract as declaredLaw.
-    .replace(/^(#[ \t]+law\/[a-z][a-z0-9-]*[ \t]*·[^\n]*\n)/m, `$1${block}`);
+    .replace(new RegExp(`^(#[ \\t]+${CITE_PREFIX}[a-z][a-z0-9-]*[ \\t]*·[^\\n]*\\n)`, "m"), `$1${block}`);
 }
 
 /**
@@ -154,11 +154,11 @@ export function constitutionMarkdown(slugs = new Map(), spineFile = LAWS_SPINE) 
 
   const out = [header, ""];
   for (const g of groups) {
-    out.push(`## law/${g.key} ${g.emoji} ${g.title}`, "");
+    out.push(`## ${cite(g.key)} ${g.emoji} ${g.title}`, "");
     const slug = slugs.get(g.key);
     if (slug) {
       out.push(
-        `<p class="law-drill"><a href="/book/law/${slug}">Commentary on law/${g.key}` +
+        `<p class="law-drill"><a href="/book/law/${slug}">Commentary on ${cite(g.key)}` +
           " — what it means in practice, and the failure it prevents →</a></p>",
         "",
       );
