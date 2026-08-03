@@ -1,10 +1,10 @@
 /**
- * Book II's commentary chapters bind to the constitution by PERMANENT ID.
+ * Book II's commentary chapters bind to the constitution by PERMANENT SLUG.
  *
  * The `laws` gene owns the format and reads it — `readLaws(spineFile)` walks the
  * spine's groups and the one-file-per-clause dir. `build/law-binding.mjs` calls
  * that reader and renders; it does not parse. These cases pin the JOIN, never the
- * format: an ordinal assertion here would re-introduce the coupling clause ids
+ * format: an ordinal assertion here would re-introduce the coupling clause slugs
  * exist to remove — "ordinals were a position, and a position is not an
  * identity", the spine's own words.
  */
@@ -40,7 +40,7 @@ describe("the laws gene is the only reader of its own format", () => {
     }
   });
 
-  it("gives every clause a permanent id and hands it to exactly one group", () => {
+  it("gives every clause a permanent slug and hands it to exactly one group", () => {
     const seen = new Map();
     for (const g of groups) {
       for (const c of g.clauses) {

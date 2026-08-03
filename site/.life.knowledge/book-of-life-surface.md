@@ -39,14 +39,14 @@ stale `.genome/` renders a book the pool has moved past).
 
 ## Book II shows the clauses, it does not point at them
 
-The sixteen commentary chapters of Book II open the same way — `# ⚖<id> · <emoji>
-<title>`, then a pointer: *"Binding text: `.genome/laws/LAWS.md` — the only
-source of truth. This is commentary."* On disk that is exactly right; an agent
-reading the gene has the clause files a path away. **On the web it is a dead
-end.** The book shipped for months with sixteen pages arguing about clauses they
+The seventeen commentary chapters of Book II open the same way — `# ※<key> ·
+<emoji> <title>`, then a pointer: *"Binding text: `.genome/laws/laws/`, ※<key> —
+the only source of truth. This is commentary."* On disk that is exactly right; an
+agent reading the gene has the clause files a path away. **On the web it is a
+dead end.** The book shipped for months with pages arguing about clauses they
 never showed, and the only thing offered instead was a filesystem path a browser
 cannot open. `/book/law/the-laws` had the whole constitution, but nothing carried
-a reader from the commentary on a Law to the Law.
+a reader from the commentary on ※verify to ※verify itself.
 
 `build/law-binding.mjs` swaps the pointer for the thing it points at. It parses
 nothing: the `laws` gene's `readLaws(spineFile)` walks its own spine and clause
@@ -55,20 +55,22 @@ That is not a convenience — this file used to carry a hand-ported copy of the
 gene's parser, the split to one-clause-per-file landed, and the copy went on
 decoding a shape that no longer existed. One format, one reader.
 
-It matches each chapter to the clause its H1 declares and renders that Law's
+It matches each chapter to the group its H1 declares and renders that group's
 clauses in where the pointer was, closed by a rule. So the page reads: title,
 binding text, `---`, commentary.
 
 Two things make this a rendering rather than the second copy the whole surface
 exists to avoid. The clauses are read from the `laws` gene at build time and
 authored nowhere — not here, not in `life-guide`. And the join is derived: the
-chapter's own H1 says which clause it is, so a chapter added or a Law re-ranked
-needs nothing here. It is an **id**, never a position — `⚖glk` survives a
-rewording, a re-rank, or a move between groups, which is the whole point of the
-clause-file scheme. `test/law-binding.test.ts` holds the join — every chapter
-finds its Law, a page carries no other Law's clauses, and a chapter naming a
-clause that does not exist **throws** rather than rendering commentary with
-nothing to comment on.
+chapter's own H1 says which group it comments on, so a chapter added or a clause
+re-ranked needs nothing here. It is a **permanent slug**, never a position —
+※go-and-look survives a rewording, a re-rank, or a move between groups, which is
+the whole point of the clause-file scheme. `test/law-binding.test.ts` holds the
+join — every chapter finds its group, a page carries no other group's clauses,
+and a chapter naming a group that does not exist **throws** rather than rendering
+commentary with nothing to comment on. The cases pin the join and never the
+format; an ordinal assertion here would re-introduce the exact coupling the
+permanent slugs exist to remove.
 
 The return trip is the other half of the same seam. `/book/law/the-laws` is the
 one page that holds every Law and every clause, and it was a wall you could read
@@ -169,11 +171,11 @@ to the middleware**, which is the only reason a gene page like `/laws` answers a
 all. Declare a redirect where it actually runs. The general lesson, twice over:
 this deployment's asset layer does less than the docs promise, so anything
 resting on it (`_redirects`, `run_worker_first`) must be verified live before it
-is believed — and a config that lies is worse than no config (Law 5.10).
+is believed — and a config that lies is worse than no config (※lying-signal).
 
 **Governance stayed site-side**, at `/docs/governance`. It is *this registry's*
 operating policy — namespace rules, operator scope, takedowns — not the protocol,
-and it does not belong in a gene every `.life` inherits (Law 9.4: publish the
+and it does not belong in a gene every `.life` inherits (※lift-not-copy: publish the
 generic shape, keep what is only yours). The registry protocol chapter links out
 to it rather than absorbing it.
 

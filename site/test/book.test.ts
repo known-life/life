@@ -133,7 +133,7 @@ describe("file links become book URLs", () => {
 
   it("leaves a link it cannot resolve visibly unrewritten", () => {
     // A guess here would be a silent 404 in the page; an untouched `.md` href is
-    // a bug a reader can see (Law 11.3 — fail visibly, never degrade quietly).
+    // a bug a reader can see (※fail-fast — fail visibly, never degrade quietly).
     expect(rewrite("./notes.txt", practice)).toBe("./notes.txt");
     expect(rewrite("/docs/quick-start", practice)).toBe("/docs/quick-start");
   });

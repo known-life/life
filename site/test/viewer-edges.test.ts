@@ -136,7 +136,12 @@ describe("rendered-HTML escape discipline (XSS)", () => {
 describe("session cookie edges", () => {
   it("rejects tampering, wrong version, and garbage", async () => {
     const good = (await sessionCookie()).split("=")[1];
-    const flip = good.slice(0, -2) + (good.endsWith("A") ? "BB" : "AA");
+    // Tamper the FIRST character, never the last: base64url's final character
+    // carries only the significant bits of a partial byte, so rewriting it leaves
+    // the decoded payload — and therefore the signature — untouched whenever the
+    // payload length falls the wrong way mod 3. That made the old tamper a no-op
+    // on roughly a third of runs, keyed to the digits in `iat`.
+    const flip = (good[0] === "A" ? "B" : "A") + good.slice(1);
     const req = (c: string) => new Request(`${ORIGIN}/app`, { headers: { Cookie: `life_view=${c}` } });
     expect(await readSession(req(flip), cfg)).toBeNull();
     expect(await readSession(req("zzzz"), cfg)).toBeNull();

@@ -181,7 +181,7 @@ describe("/exchange/repo-token — the one door that releases a credential", () 
     // "verifier app not registered" — telling an operator to re-register a
     // perfectly healthy App when the real fix was to accept a pending permission
     // update. That misreport is exactly the state a partial App widening
-    // produces, so it has to name itself (Law 5.10).
+    // produces, so it has to name itself (※lying-signal).
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: any, init: any = {}) => {

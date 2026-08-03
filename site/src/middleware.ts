@@ -119,7 +119,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // What DOES hold is the seam this worker already runs on: an asset miss falls
   // through to the middleware, which is the only reason a gene page like `/laws`
   // answers at all. A redirect declared where it actually runs beats a prettier
-  // one that silently doesn't (Law 5.10 — a config that lies is worse than none).
+  // one that silently doesn't (※lying-signal — a config that lies is worse than none).
   const MOVED: Record<string, string> = {
     "/docs/interface": "/book/spec/life-schema",
     "/docs/spec/manifest": "/book/spec/manifest-format",
