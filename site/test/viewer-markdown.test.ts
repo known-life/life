@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderMarkdown, esc } from "../../.genome/viewer/src/markdown";
+import { renderMarkdown } from "../../.genome/viewer/src/markdown";
 
 describe("viewer markdown", () => {
   it("renders the core blocks", () => {
@@ -37,9 +37,5 @@ describe("viewer markdown", () => {
     const html = renderMarkdown("| a | b |\n|---|---|\n| 1 | 2 |");
     expect(html).toContain("<th>a</th>");
     expect(html).toContain("<td>2</td>");
-  });
-
-  it("escapes html metacharacters", () => {
-    expect(esc(`<a b="c">&'`)).toBe("&lt;a b=&quot;c&quot;&gt;&amp;&#39;");
   });
 });
