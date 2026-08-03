@@ -1,10 +1,9 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 const gene = (f: string) => fileURLToPath(new URL(`../.genome/registry/src/registry/lib/${f}`, import.meta.url));
-// lifekey's own tree. `verify.mjs` used to be covered through a vendored COPY
-// inside the registry gene; registry@3.3.5 deleted every vendor dir and imports
-// the sibling directly, so the coverage entry has to follow the code to its
-// owner. It stays in the spine either way — it is the auth root of trust.
+// lifekey's own tree. The registry imports `verify.mjs` from the sibling rather
+// than vendoring a copy, so the coverage entry follows the code to its owner.
+// It stays in the spine either way — it is the auth root of trust.
 const lk = (f: string) => fileURLToPath(new URL(`../.genome/lifekey/lib/${f}`, import.meta.url));
 
 // The worker's security spine — scan (leak gate), lifekey-verify (auth root of

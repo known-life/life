@@ -1,5 +1,5 @@
 {
- "count": 3549,
+ "count": 3551,
  "versions": [
   {
    "package": "anthropic",
@@ -1545,6 +1545,15 @@
    "version": "1.0.2",
    "content_hash": "b8c9d821f4df5635e2f2c1c3eef7542653822dea3db0a239885c927411f4dea4",
    "published_at": 1785786151501,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "avatar",
+   "version": "1.0.3",
+   "content_hash": "4e2f36405fc89fca9ae6dfd67e5a50c6dd25132051eb33b23b6ae2f713daeda1",
+   "published_at": 1785792750790,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
@@ -31326,6 +31335,15 @@
    "version": "0.12.10",
    "content_hash": "d278120f1b3ec11e247e32a709197729233447034a77f215a783c0ec0716a744",
    "published_at": 1785787079531,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "viewer",
+   "version": "0.12.11",
+   "content_hash": "f219dbe88733e7858b6bc5e0533b002d4c034e2e7cb6fc31c4249894f776e524",
+   "published_at": 1785792070675,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

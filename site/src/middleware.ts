@@ -52,8 +52,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const previewBot = /\b(whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|telegrambot|discordbot|linkedinbot|pinterestbot|skypeuripreview|snapchat|viber)\b/i.test(ua);
     if ((!wantsHtml || agentUa) && !previewBot) {
       // Serve the runbook BODY (200), not a redirect: an agent curling `/`
-      // without -L gets a bodyless 302 and reads the site as broken (lived
-      // 2026-07-18). `/llms.txt` prerenders to a static asset (from
+      // without -L gets a bodyless 302 and reads the site as broken.
+      // `/llms.txt` prerenders to a static asset (from
       // `src/pages/llms.txt.ts`) and is excluded from the worker
       // via _routes.json — an internal Astro rewrite has no route to land on —
       // but the ASSETS binding reaches it in-process (site/.life assets:).
@@ -112,10 +112,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // It lives here because the two framework-native routes both failed on this
   // deployment, each verified live rather than assumed:
   //   · Astro's default emits `dist/_redirects`. Cloudflare documents that file
-  //     for Workers static assets; here nothing parses it — all seven 404'd with
-  //     the file sitting in the bundle (2026-07-28).
+  //     for Workers static assets; here nothing parses it — every redirect 404s
+  //     with the file sitting in the bundle.
   //   · `build: { redirects: false }` puts them in the SSR manifest instead.
-  //     They 404'd again — a static build has no handler behind the entry.
+  //     They 404 again — a static build has no handler behind the entry.
   // What DOES hold is the seam this worker already runs on: an asset miss falls
   // through to the middleware, which is the only reason a gene page like `/laws`
   // answers at all. A redirect declared where it actually runs beats a prettier

@@ -7,8 +7,8 @@ import { getCanon, canonSize } from "../lib/book.ts";
  * (`src/data/llms.txt`) so it stays editable as prose; the one thing this
  * endpoint does is fill `{{books}}` from the real canon.
  *
- * It used to be a static asset in `public/`, with the books listed by hand. That
- * list said "five books" for as long as there were six — the same failure the
+ * A static asset in `public/` with the books listed by hand goes stale silently —
+ * the list says "five books" for as long as there are six, the same failure the
  * book index is built to be immune to (law/derive-dont-maintain). Anything here that restates
  * the canon's shape must be derived, or it must not be here.
  */
