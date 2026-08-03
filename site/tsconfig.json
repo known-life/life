@@ -5,6 +5,7 @@
     // src/registry/lib/lifekey-verify.mjs (no hand-port). allowJs lets TS
     // resolve it and infer the exported types from the source itself;
     // checkJs:false keeps the gene's JS out of our strict error surface.
+    "erasableSyntaxOnly": true,
     "allowJs": true,
     "checkJs": false,
     // The registry and viewer genes are PURE SOURCE — they declare no npm deps
