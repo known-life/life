@@ -1,5 +1,5 @@
 ---
-summary: "How known.life/book renders the Book of Life from the life-guide and laws genes instead of copying it: canon/scripture collections, derived index with no table of contents, page + .md twin editions, file-link rewrite, Book II commentaries with Law clauses rendered in through the laws gene's own reader, the constitution page rendered from the clause files, why a build/ file must resolve the genome by walk-up rather than by depth, and canonSize() everywhere."
+summary: "How known.life/book renders the Book of Life from the life-guide and laws genes instead of copying it: derived canon with no table of contents, page + .md twin editions, file-link rewrite, Book II commentaries with clauses rendered in via the laws gene's own reader, genome resolved by walk-up."
 ---
 
 # The /book surface — rendering the canon, not copying it
