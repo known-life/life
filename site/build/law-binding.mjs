@@ -9,7 +9,7 @@ const { genomeRoot } = genomeGene;
 /**
  * Book II's commentary chapters, given the text they comment on.
  *
- * Each of the sixteen chapters in `02-law/` opens `# ⚖<id> · <emoji> <title>` and
+ * Each chapter in `02-law/` opens `# <mark><id> · <emoji> <title>` and
  * then a pointer — "Binding text: `.genome/laws/LAWS.md`" — before the commentary
  * starts. That pointer is right on disk, where an agent reading the gene has the
  * clause files a path away. On the web it is a dead end: the reader is given a
@@ -56,12 +56,18 @@ export const LAWS_SPINE = path.join(GENOME, "laws", "LAWS.md");
 export const COMMENTARY_DIR = path.join(GENOME, "life-guide", ".life.knowledge", "02-law");
 
 /**
- * The clause a commentary chapter declares — the `⚖<id>` in its H1, the permanent
+ * The clause a commentary chapter declares — the sigil-prefixed `<id>` in its H1,
+ * the permanent
  * id the `laws` gene keys a group by. An id, not a position: a Law can be reworded,
  * re-ranked, or moved and every citation ever written still resolves.
  */
 export function declaredLaw(body) {
-  const m = String(body).match(/^#[ \t]+⚖([a-z0-9-]+)[ \t]*·/m);
+  // The SIGIL is not pinned here. It is the laws gene's presentation choice and it
+  // has changed; a copy of it in this file is a second source that drifts silently
+  // and takes the whole join down with it (⚖derive-dont-maintain). What is stable
+  // is the SHAPE — one leading mark, the clause id, the middot — so match that and
+  // let the mark be whatever the gene renders.
+  const m = String(body).match(/^#[ \t]+[^\s\w]?([a-z0-9-]+)[ \t]*·/mu);
   return m ? m[1] : null;
 }
 
@@ -123,7 +129,8 @@ export function withBindingText(body, spineFile = LAWS_SPINE) {
 
   return String(body)
     .replace(POINTER, "")
-    .replace(/^(#[ \t]+⚖[a-z0-9-]+[ \t]*·[^\n]*\n)/m, `$1${block}`);
+    // Same reason as declaredLaw: match the SHAPE, not the gene's current mark.
+    .replace(/^(#[ \t]+[^\s\w]?[a-z0-9-]+[ \t]*·[^\n]*\n)/mu, `$1${block}`);
 }
 
 /**
