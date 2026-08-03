@@ -6,8 +6,8 @@
 // reached the renderer, would still paint a plausible pill — in somebody else's
 // brand. Asserting on the emitted HTML is the only check that can tell.
 import { describe, it, expect } from "vitest";
-import { kindPill } from "../.genome/viewer/src/pages-cells.ts";
-import type { ViewerConfig } from "../.genome/viewer/src/config.ts";
+import { kindPill } from "../../.genome/viewer/src/pages-cells";
+import type { ViewerConfig } from "../../.genome/viewer/src/config";
 
 const mount = (palette?: ViewerConfig["palette"]) => ({ palette }) as ViewerConfig;
 
