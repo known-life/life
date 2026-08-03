@@ -13,7 +13,7 @@ import { visit } from "unist-util-visit";
  *
  * A link that does NOT resolve is left exactly as written rather than guessed at
  * — a visibly broken `.md` href in the page is a bug you can see, where a
- * silently rewritten wrong URL is one you cannot (※fail-fast).
+ * silently rewritten wrong URL is one you cannot (law/fail-fast).
  */
 const unordinal = (s) => s.replace(/^\d+-/, "");
 

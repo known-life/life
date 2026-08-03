@@ -86,7 +86,7 @@ requires:
       # the reported version can never disagree with the code that shipped.
       # It was a literal in the gene bumped by hand — it drifted two majors once —
       # and then briefly a vite `define` here, which was the same stamping done by
-      # hand when the substrate already had `vars:` (※native-path).
+      # hand when the substrate already had `vars:` (law/native-path).
       REGISTRY_VERSION: "{{gene:registry}}"
       # The origin the viewer will present for THIS life's plane — the key the
       # transport map below matches on (src/middleware.ts). It was a hardcoded
@@ -115,7 +115,7 @@ requires:
       - /api/resolve/life/latest=200
       # The multi-life viewer's sign-in page (src/viewer, mounted at /app).
       - /app=200
-    # Eyes on the one production surface every .life depends on (※sight). `observe:`
+    # Eyes on the one production surface every .life depends on (law/sight). `observe:`
     # is the PORTABLE observability knob (cloudflare gene ≥1.36.8) — the adapter maps
     # it to CF Workers Logs + Traces metadata. Read it back with `node scripts/
     # observe.mjs`. Logs + traces share the Workers Logs free tier (200k events/day);

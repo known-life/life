@@ -10,7 +10,7 @@ import { withBindingText, constitutionMarkdown } from "../../build/law-binding.m
  * chapters are the remaining files in filename order. Titles come from each
  * page's own H1. So a chapter added to the gene appears here on the next deploy
  * with nothing to update, and a rendering can never claim a chapter the gene does
- * not have (※derive-dont-maintain — prefer the derived to the maintained).
+ * not have (law/derive-dont-maintain — prefer the derived to the maintained).
  *
  * The only hand-written entries are OPENINGS: the two chapters whose files live
  * outside the knowledge tree because something load-bearing reads them where they

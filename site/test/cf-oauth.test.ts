@@ -543,7 +543,7 @@ describe("mintAccessToken — dead-grant vs transient (the 502→409 + no-strand
 // Live cost of getting it wrong, 2026-08-03: six sessions plus CI minting at
 // once, every deploy in the repo red on `409 grant_unusable`, and a plain mint
 // minutes later succeeding untouched. A status that misreports its own cause
-// makes the reader act on the code instead of the condition (※lying-signal).
+// makes the reader act on the code instead of the condition (law/lying-signal).
 describe("invalid_grant is a dead-grant verdict only when the mint was UNCONTENDED", () => {
   const REPO = "octocat/life";
   const LOCK = "cf:token:lock:octocat:octocat/life";

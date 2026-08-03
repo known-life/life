@@ -62,12 +62,12 @@ export const COMMENTARY_DIR = path.join(GENOME, "life-guide", ".life.knowledge",
  * re-ranked, or moved and every citation ever written still resolves.
  */
 export function declaredLaw(body) {
-  // The SIGIL is not pinned here. It is the laws gene's presentation choice and it
-  // has changed; a copy of it in this file is a second source that drifts silently
-  // and takes the whole join down with it (※derive-dont-maintain). What is stable
-  // is the SHAPE — one leading mark, the clause id, the middot — so match that and
-  // let the mark be whatever the gene renders.
-  const m = String(body).match(/^#[ \t]+[^\s\w]?([a-z0-9-]+)[ \t]*·/mu);
+  // `law/` is pinned and a decorative sigil would not be. The distinction is that
+  // this prefix is not presentation: it is the clause file's own path, which the
+  // laws gene's format doc specifies as the citation form. A glyph is somebody's
+  // rendering choice and belongs nowhere in this file; a specified prefix is the
+  // contract the H1 is written against.
+  const m = String(body).match(/^#[ \t]+law\/([a-z][a-z0-9-]*)[ \t]*·/m);
   return m ? m[1] : null;
 }
 
@@ -113,11 +113,11 @@ export function withBindingText(body, spineFile = LAWS_SPINE) {
 
   const { groups } = readLaws(spineFile);
   const law = groups.find((g) => g.key === id);
-  if (!law) throw new Error(`law-binding: chapter declares ※${id}, but the laws gene has no group '${id}'`);
+  if (!law) throw new Error(`law-binding: chapter declares law/${id}, but the laws gene has no group '${id}'`);
 
   const block = [
     "",
-    `> **※${law.key} — the binding text**, rendered from the \`laws\` gene's own clause files:` +
+    `> **law/${law.key} — the binding text**, rendered from the \`laws\` gene's own clause files:` +
       " the only source of truth, injected in full into every waking. Everything after" +
       ` the rule below is commentary. [The whole constitution →](${CANON_URL})`,
     "",
@@ -129,8 +129,8 @@ export function withBindingText(body, spineFile = LAWS_SPINE) {
 
   return String(body)
     .replace(POINTER, "")
-    // Same reason as declaredLaw: match the SHAPE, not the gene's current mark.
-    .replace(/^(#[ \t]+[^\s\w]?[a-z0-9-]+[ \t]*·[^\n]*\n)/mu, `$1${block}`);
+    // Same contract as declaredLaw.
+    .replace(/^(#[ \t]+law\/[a-z][a-z0-9-]*[ \t]*·[^\n]*\n)/m, `$1${block}`);
 }
 
 /**
@@ -154,11 +154,11 @@ export function constitutionMarkdown(slugs = new Map(), spineFile = LAWS_SPINE) 
 
   const out = [header, ""];
   for (const g of groups) {
-    out.push(`## ※${g.key} ${g.emoji} ${g.title}`, "");
+    out.push(`## law/${g.key} ${g.emoji} ${g.title}`, "");
     const slug = slugs.get(g.key);
     if (slug) {
       out.push(
-        `<p class="law-drill"><a href="/book/law/${slug}">Commentary on ※${g.key}` +
+        `<p class="law-drill"><a href="/book/law/${slug}">Commentary on law/${g.key}` +
           " — what it means in practice, and the failure it prevents →</a></p>",
         "",
       );

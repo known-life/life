@@ -30,7 +30,7 @@ export default defineConfig({
       include: [
         // A coverage include that resolves to no file does not FAIL — it silently
         // drops out of the ratchet, which then guards less than it claims to
-        // (※lying-signal). This list has been wrong that way once already, so every
+        // (law/lying-signal). This list has been wrong that way once already, so every
         // entry here is a real path with a real extension.
         gene("scan.ts"), gene("jwt.ts"), gene("gh-secrets.ts"), lk("verify.mjs"),
       ],
