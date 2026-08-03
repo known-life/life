@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   s256,
   genVerifier,
@@ -530,5 +530,62 @@ describe("mintAccessToken — dead-grant vs transient (the 502→409 + no-strand
     const g = await getGrant(e, "octocat", REPO);
     expect(await decryptSecret(e, g!.refresh_token_enc)).toBe("new-refresh"); // rotation persisted
     expect((await getCachedToken(e, "octocat", REPO))?.access_token).toBe("cf-access-new"); // shared with concurrent sessions
+  });
+});
+
+// The verdict split that decides whether a human gets summoned. Cloudflare
+// answers `invalid_grant` for two opposite conditions: a genuinely revoked
+// refresh token (re-consent is the only fix) and the LOSER of a concurrent
+// rotation (nothing is wrong; the winner already rotated). The re-read cannot
+// tell them apart, because KV is eventually consistent and the winner's new
+// token may not be visible yet — so the split is on CONTENTION.
+//
+// Live cost of getting it wrong, 2026-08-03: six sessions plus CI minting at
+// once, every deploy in the repo red on `409 grant_unusable`, and a plain mint
+// minutes later succeeding untouched. A status that misreports its own cause
+// makes the reader act on the code instead of the condition (※lying-signal).
+describe("invalid_grant is a dead-grant verdict only when the mint was UNCONTENDED", () => {
+  const REPO = "octocat/life";
+  const LOCK = "cf:token:lock:octocat:octocat/life";
+  const realFetch = globalThis.fetch;
+
+  // Cloudflare's token endpoint, answering exactly as it does to a refresh token
+  // that has been rotated out from under this caller.
+  const invalidGrant = () =>
+    Promise.resolve({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "invalid_grant", error_description: "refresh token is invalid" }),
+    } as unknown as Response);
+
+  const seeded = async () => {
+    const e = env();
+    await putGrant(e, "octocat", REPO, {
+      refresh_token_enc: await encryptSecret(e, "refresh-v1"),
+      account_id: "acc1",
+      account_name: "Acme",
+      accounts: [{ id: "acc1", name: "Acme" }],
+      repo: REPO,
+      updated_at: 1,
+    });
+    return e;
+  };
+
+  beforeEach(() => {
+    globalThis.fetch = invalidGrant as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it("UNCONTENDED: nobody else was minting, so invalid_grant IS the grant — null, which the route turns into 409 grant_unusable", async () => {
+    const e = await seeded();
+    expect(await mintAccessToken(e, "octocat", REPO)).toBeNull();
+  });
+
+  it("CONTENDED: another mint held the lock, so invalid_grant is a lost race — THROWS, which the route turns into a retryable 502", async () => {
+    const e = await seeded();
+    await e.KNOWN_KV.put(LOCK, "1", { expirationTtl: 60 }); // a concurrent mint is in flight
+    await expect(mintAccessToken(e, "octocat", REPO)).rejects.toThrow(/invalid_grant/);
   });
 });
