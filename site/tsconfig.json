@@ -6,6 +6,27 @@
     // resolve it and infer the exported types from the source itself;
     // checkJs:false keeps the gene's JS out of our strict error surface.
     "allowJs": true,
-    "checkJs": false
-  }
+    "checkJs": false,
+    // The registry and viewer genes are PURE SOURCE — they declare no npm deps
+    // because the consumer owns them, which makes this project the only place
+    // their types can resolve at all. Node walks up from the importing file, and
+    // the genes sit in ../.genome/, outside this root, so the four bare imports
+    // have to be pointed here explicitly. Mirrors the vite `resolve.alias` in
+    // astro.config.mjs, which does the same job for the bundle.
+    "paths": {
+      "jose": ["./node_modules/jose"],
+      "tweetnacl": ["./node_modules/tweetnacl"],
+      "blakejs": ["./node_modules/blakejs"],
+      "@anthropic-ai/sdk": ["./node_modules/@anthropic-ai/sdk"]
+    }
+  },
+  // `astro check` scopes itself to this project; the genes it mounts would go
+  // unchecked everywhere otherwise, since neither gene can type-check itself
+  // without the deps it deliberately does not declare.
+  "include": [
+    ".astro/types.d.ts",
+    "**/*",
+    "../.genome/registry/src/**/*.ts",
+    "../.genome/viewer/src/**/*.ts"
+  ]
 }

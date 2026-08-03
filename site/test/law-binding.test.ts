@@ -22,13 +22,18 @@ const { readLaws } = createRequire(import.meta.url)(
   resolve(HERE, "../../.genome/laws/hooks/session-start-inject.js"),
 );
 
+/** The reader's return shape, as this suite consumes it — the gene owns the format. */
+type Clause = { slug: string };
+type LawGroup = { key: string; emoji: string; title: string; clauses: Clause[] };
+const spineGroups = (): LawGroup[] => (readLaws(SPINE) as { groups: LawGroup[] }).groups;
+
 const commentaries = readdirSync(LAW_BOOK)
   .filter((f) => f.endsWith(".md") && f !== "index.md")
   .sort()
   .map((file) => ({ file, body: readFileSync(join(LAW_BOOK, file), "utf8") }));
 
 describe("the laws gene is the only reader of its own format", () => {
-  const { groups } = readLaws(SPINE);
+  const groups = spineGroups();
 
   it("returns every law group with a key, an emoji, a title and clauses", () => {
     expect(groups.length).toBeGreaterThan(0);
@@ -52,7 +57,7 @@ describe("the laws gene is the only reader of its own format", () => {
 });
 
 describe("every commentary chapter is joined to the law it comments on", () => {
-  const { groups } = readLaws(SPINE);
+  const groups = spineGroups();
   const byKey = new Map(groups.map((g) => [g.key, g]));
 
   it("declares a law by id in its heading, and that id exists", () => {
@@ -72,7 +77,7 @@ describe("every commentary chapter is joined to the law it comments on", () => {
     for (const c of commentaries) {
       const id = declaredLaw(c.body);
       const out = withBindingText(c.body, SPINE);
-      for (const clause of byKey.get(id).clauses) {
+      for (const clause of byKey.get(id)!.clauses) {
         expect(out, `${c.file} is missing its own clause ${clause.slug}`).toContain(`**${clause.slug}**`);
       }
       for (const other of groups) {

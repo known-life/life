@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { registryFetch } from "../../.genome/registry/src/registry/router";
 import { handleIcon } from "../../.genome/registry/src/registry/routes/icon";
-// @ts-expect-error — plain .mjs, shared with scripts/put-icons.mjs.
+// Plain .mjs, shared with scripts/put-icons.mjs so the key layout has
+// exactly one definition; tsconfig's allowJs resolves it.
 import { iconKey } from "../../.genome/registry/src/registry/lib/icons.mjs";
 import type { Env } from "../../.genome/registry/src/registry/lib/types";
 
@@ -46,14 +47,14 @@ describe("a gene's icon is served by the pool that holds the gene", () => {
   });
 
   it("serves the bytes for a gene that has art", async () => {
-    const res = await handleIcon(envWith({ [iconKey("expo")]: PNG }), "expo");
+    const res = await handleIcon(envWith({ [iconKey("expo")]: PNG }), "expo", "GET");
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("image/png");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG);
   });
 
   it("caches for a day rather than forever — gene art gets redrawn", async () => {
-    const res = await handleIcon(envWith({ [iconKey("expo")]: PNG }), "expo");
+    const res = await handleIcon(envWith({ [iconKey("expo")]: PNG }), "expo", "GET");
     const cc = res.headers.get("Cache-Control") ?? "";
     expect(cc).toContain("max-age=86400");
     expect(cc).not.toContain("immutable");
@@ -61,7 +62,7 @@ describe("a gene's icon is served by the pool that holds the gene", () => {
   });
 
   it("404s for a gene with no art, so the consumer draws its own fallback", async () => {
-    const res = await handleIcon(envWith({}), "a-gene-published-tomorrow");
+    const res = await handleIcon(envWith({}), "a-gene-published-tomorrow", "GET");
     expect(res.status).toBe(404);
     // Cached, but briefly: publishing art must show up without a purge.
     expect(res.headers.get("Cache-Control")).toContain("max-age=300");

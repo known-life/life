@@ -1,11 +1,11 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-const gene = (f) => fileURLToPath(new URL(`../.genome/registry/src/registry/lib/${f}`, import.meta.url));
+const gene = (f: string) => fileURLToPath(new URL(`../.genome/registry/src/registry/lib/${f}`, import.meta.url));
 // lifekey's own tree. `verify.mjs` used to be covered through a vendored COPY
 // inside the registry gene; registry@3.3.5 deleted every vendor dir and imports
 // the sibling directly, so the coverage entry has to follow the code to its
 // owner. It stays in the spine either way — it is the auth root of trust.
-const lk = (f) => fileURLToPath(new URL(`../.genome/lifekey/lib/${f}`, import.meta.url));
+const lk = (f: string) => fileURLToPath(new URL(`../.genome/lifekey/lib/${f}`, import.meta.url));
 
 // The worker's security spine — scan (leak gate), lifekey-verify (auth root of
 // trust), jwt (the write-endpoint bearer), gh-secrets (the CI-credential

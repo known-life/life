@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { jsonBody } from "./json-body";
 import { generateKeyPairSync, createVerify, sign as nodeSign } from "node:crypto";
 import { makeAppJwt } from "../../.genome/registry/src/registry/lib/github-app";
 import { handshakeMessage as callerAuthMessage } from "../../.genome/registry/src/registry/lib/handshake";
@@ -334,18 +335,18 @@ describe("handleExchangeDeleteBranch", () => {
 // so is the App permission it shared (contents:write, still needed to reap).
 
 describe("handleAppInstalled (onboarding gate)", () => {
-  const GET = (repo) => new Request(`https://known.life/exchange/installed${repo !== undefined ? `?repo=${repo}` : ""}`);
+  const GET = (repo?: string) => new Request(`https://known.life/exchange/installed${repo !== undefined ? `?repo=${repo}` : ""}`);
   it("installed:true + install_url when the App is on the repo", async () => {
     ghMock({ installed: true });
     const r = await handleAppInstalled(GET("o/r"), baseEnv());
-    const j = await r.json();
+    const j = await jsonBody(r);
     expect(r.status).toBe(200);
     expect(j.installed).toBe(true);
     expect(j.install_url).toBe("https://github.com/apps/known-life-verifier/installations/new");
   });
   it("installed:false (+ the install link) when the App is NOT on the repo", async () => {
     ghMock({ installed: false });
-    const j = await (await handleAppInstalled(GET("o/r"), baseEnv())).json();
+    const j = await jsonBody(await handleAppInstalled(GET("o/r"), baseEnv()));
     expect(j.installed).toBe(false);
     expect(j.install_url).toContain("/installations/new");
   });

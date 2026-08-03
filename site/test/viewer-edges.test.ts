@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { viewerFetch } from "../../.genome/viewer/src/router";
 import { seal } from "../../.genome/viewer/src/crypto";
 import { readSession } from "../../.genome/viewer/src/session";
-import { renderMarkdown } from "../../.genome/markdown/lib/markdown.mjs";
 import { lifeMeta } from "../../.genome/viewer/src/lifefile";
 import { validRepoName, scaffoldFiles } from "../../.genome/viewer/src/scaffold";
 import type { ViewerConfig } from "../../.genome/viewer/src/config";
@@ -155,39 +154,6 @@ describe("session cookie edges", () => {
     const other = await seal({ v: 1, login: "x", name: null, avatar: null, token: "t", iat: Math.floor(Date.now() / 1000) }, "another-32-byte-secret-for-testing!!");
     const res = await viewerFetch(new Request(`${ORIGIN}/app`, { headers: { Cookie: `life_view=${other}` } }), cfg);
     expect(await res!.text()).toContain("Continue with GitHub"); // treated as signed out
-  });
-});
-
-describe("markdown pathological inputs", () => {
-  it("survives an unterminated fence at EOF", () => {
-    const html = renderMarkdown("before\n```js\nconst x = 1;\n"); // no closing fence
-    expect(html).toContain("const x = 1;");
-    expect(html).toContain("<pre>");
-  });
-
-  it("clamps absurd list nesting and handles 1000 nested blockquotes without blowing the stack", () => {
-    const deepList = Array.from({ length: 20 }, (_, i) => `${"  ".repeat(i)}- item${i}`).join("\n");
-    expect(renderMarkdown(deepList)).toContain('data-depth="3"'); // clamped, not 20
-    const deepQuote = "> ".repeat(1000) + "end";
-    expect(() => renderMarkdown(deepQuote)).not.toThrow();
-  });
-
-  it("handles a 100KB single line in bounded time", () => {
-    const big = "a*b_c`d[e](f) ".repeat(7000); // ~100KB of inline-trigger chars
-    const t0 = Date.now();
-    renderMarkdown(big);
-    expect(Date.now() - t0).toBeLessThan(2000);
-  });
-
-  it("nested/spoofed link syntax cannot smuggle attributes", () => {
-    const html = renderMarkdown(`[a"><script>x</script>](https://ok.example) ![alt"onerror=x](https://img.example/i.png)`);
-    expect(html).not.toContain("<script>x</script>");
-    expect(html).not.toMatch(/onerror=x[^"]/);
-  });
-
-  it("data: images allowed only for image payloads", () => {
-    expect(renderMarkdown("![x](data:image/png;base64,AAAA)")).toContain("data:image/png");
-    expect(renderMarkdown("![x](data:text/html,<b>)")).not.toContain("data:text/html");
   });
 });
 

@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
+import { jsonBody } from "./json-body";
 import { handleAuthorize, handleConsent, handleToken, handleRevoke } from "../../.genome/registry/src/registry/routes/mcp-oauth";
 import { issueSsoSession, SSO_COOKIE } from "../../.genome/registry/src/registry/lib/jwt";
+
+/**
+ * The token endpoint's success body, as RFC 6749 §5.1 defines it. Named here
+ * because these cases FEED a token from one response into the next request —
+ * the rotation chain only means anything if the value really is a string.
+ */
+type TokenResponse = {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+};
 
 // The native public client (registry@2.2.1): a custom-scheme redirect
 // (known-life://auth — the Life app) is a first-class PKCE client. Pins:
@@ -91,16 +104,16 @@ describe("native custom-scheme client", () => {
   it("code exchange for a custom-scheme binding returns a refresh_token; https binding does not", async () => {
     const e = env();
     const nativeCode = await mintCodeFor(e, "known-life://auth");
-    const nat = await (await handleToken(tokenReq({
+    const nat = await jsonBody<TokenResponse>(await handleToken(tokenReq({
       grant_type: "authorization_code", code: nativeCode, redirect_uri: "known-life://auth", code_verifier: VERIFIER,
-    }), e)).json();
+    }), e));
     expect(nat.access_token).toBeTruthy();
     expect(nat.refresh_token).toBeTruthy();
 
     const webCode = await mintCodeFor(e, "https://known.life/cb");
-    const web = await (await handleToken(tokenReq({
+    const web = await jsonBody<TokenResponse>(await handleToken(tokenReq({
       grant_type: "authorization_code", code: webCode, redirect_uri: "https://known.life/cb", code_verifier: VERIFIER,
-    }), e)).json();
+    }), e));
     expect(web.access_token).toBeTruthy();
     expect(web.refresh_token).toBeUndefined();
   });
@@ -108,13 +121,13 @@ describe("native custom-scheme client", () => {
   it("refresh rotates on use — the presented token dies, the successor works", async () => {
     const e = env();
     const code = await mintCodeFor(e, "known-life://auth");
-    const first = await (await handleToken(tokenReq({
+    const first = await jsonBody<TokenResponse>(await handleToken(tokenReq({
       grant_type: "authorization_code", code, redirect_uri: "known-life://auth", code_verifier: VERIFIER,
-    }), e)).json();
+    }), e));
 
-    const second = await (await handleToken(tokenReq({
+    const second = await jsonBody<TokenResponse>(await handleToken(tokenReq({
       grant_type: "refresh_token", refresh_token: first.refresh_token,
-    }), e)).json();
+    }), e));
     expect(second.access_token).toBeTruthy();
     expect(second.refresh_token).toBeTruthy();
     expect(second.refresh_token).not.toBe(first.refresh_token);
@@ -131,9 +144,9 @@ describe("native custom-scheme client", () => {
   it("revoke ends the line (200 even for unknown tokens — RFC 7009)", async () => {
     const e = env();
     const code = await mintCodeFor(e, "known-life://auth");
-    const t = await (await handleToken(tokenReq({
+    const t = await jsonBody<TokenResponse>(await handleToken(tokenReq({
       grant_type: "authorization_code", code, redirect_uri: "known-life://auth", code_verifier: VERIFIER,
-    }), e)).json();
+    }), e));
 
     const rev = await handleRevoke(new Request("https://known.life/api/oauth/revoke", {
       method: "POST",
