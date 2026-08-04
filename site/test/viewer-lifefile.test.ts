@@ -53,9 +53,22 @@ describe("lifeMeta — what the viewer lifts from a head", () => {
   });
 
   it("discovers the plane and artifact host from one head (the one data path)", () => {
-    const m = lifeMeta('name: j\ndataplane: data.justin.vin\nartifacts: "https://artifact.justin.vin"\n---\n');
+    // The artifact host is declared where every real `.life` declares it — the
+    // `artifact` gene's own `imports:` entry. `declaredHost` strips the owner
+    // prefix and falls back to the GENE's name, so a bare top-level key would
+    // have to be `artifact:`; no `.life` in the tree uses one, and asserting a
+    // plural `artifacts:` here tested a shape the system does not have.
+    const m = lifeMeta(
+      'name: j\ndataplane: data.justin.vin\nimports:\n  known.life/artifact: "https://artifact.justin.vin"\n---\n',
+    );
     expect(m.dataplane).toBe("https://data.justin.vin");
     expect(m.artifacts).toBe("https://artifact.justin.vin");
+    expect(m.error).toBe(null);
+  });
+
+  it("a life that declares no artifact host reads null — the gene derives it", () => {
+    const m = lifeMeta("name: j\ndataplane: data.justin.vin\n---\n");
+    expect(m.artifacts).toBe(null);
     expect(m.error).toBe(null);
   });
 

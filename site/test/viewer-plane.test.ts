@@ -30,7 +30,11 @@ const cfg: ViewerConfig = {
 // parser and started reading through `known.life/lifefile` (2026-07-30), it
 // refuses it too. Unquoted, this fixture made every test in this file render the
 // 422 "has a .life that does not parse" page instead of the app.
-const LIFE_MANIFEST = `name: life\ndataplane: "${PLANE}"\nartifacts: "https://artifact.example"\n---\nbody`;
+// The artifact host is declared where every real `.life` declares it: the
+// `artifact` gene's own `imports:` entry. `declaredHost` reads that entry, and
+// its bare-key fallback is the GENE's name — so a plural `artifacts:` key, which
+// no `.life` in the tree uses, read as "undeclared" and the open URLs vanished.
+const LIFE_MANIFEST = `name: life\ndataplane: "${PLANE}"\nimports:\n  known.life/artifact: "https://artifact.example"\n---\nbody`;
 const BARE_MANIFEST = `name: bare\nsummary: a life with no plane yet\n---\nbody`;
 
 const seenAuth: string[] = [];
@@ -250,7 +254,7 @@ describe("viewer plane contract (the one data path)", () => {
     for (const s of ["My Chart", "Tools", "1 item", "Move to Folder", "Visibility", "Delete", "New Folder"]) {
       expect(html).toContain(s);
     }
-    expect(html).toContain("artifact.example/" + "a".repeat(32)); // open URL off the manifest's artifacts: host
+    expect(html).toContain("artifact.example/" + "a".repeat(32)); // open URL off the manifest's artifact import
   });
 
   it("artifact writes ride the proxy: PATCH pin, :publish, DELETE", async () => {
