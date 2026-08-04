@@ -3,12 +3,15 @@
 // Workers Observability, in the terminal (law:sight: my own eyes on the one
 // production surface every .life depends on, no dashboard required).
 //
-// This is the READ side of the [observability] block in ../wrangler.toml: that
-// turns span/log capture ON; this reads it back. Same telemetry the Cloudflare
-// dashboard shows, via POST /accounts/{id}/workers/observability/telemetry/query.
+// This is the READ side of `observe: true` in ../.life (infra.compute) — the
+// portable knob the cloudflare adapter maps to Workers Logs + Traces at deploy.
+// That turns span/log capture ON; this reads it back. Same telemetry the
+// Cloudflare dashboard shows, via POST
+// /accounts/{id}/workers/observability/telemetry/query. (Not ../wrangler.toml:
+// that file is local-dev bindings only, and no deploy path reads it.)
 //
 // Auth: CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID from the environment if set,
-// else minted on demand via the cloudflare gene's mint-cf-token.sh — the same
+// else minted on demand via the cloudflare gene's mint-cf-token.js — the same
 // short-lived broker token CI deploys with, so there is no long-lived secret and
 // no second auth path.
 //
@@ -54,8 +57,11 @@ if (!token || !account) {
   const dir = mkdtempSync(join(tmpdir(), "obs-"));
   const out = join(dir, "cf.env");
   try {
-    execFileSync("bash", [join(REPO_ROOT, ".genome/cloudflare/mint-cf-token.sh"), out], {
-      stdio: ["ignore", "ignore", "ignore"],
+    // `node mint-cf-token.js <outfile>` — the gene's interactive mint. It is
+    // fail-open (always exits 0, writing nothing it couldn't get), so the empty
+    // read below is the honest signal and the check at line 70 is what reports it.
+    execFileSync("node", [join(REPO_ROOT, ".genome/cloudflare/mint-cf-token.js"), out], {
+      stdio: ["ignore", "ignore", "inherit"],
       env: { ...process.env, CLAUDE_PROJECT_DIR: REPO_ROOT },
     });
     for (const line of readFileSync(out, "utf8").split("\n")) {
@@ -65,7 +71,8 @@ if (!token || !account) {
       if (k === "CLOUDFLARE_API_TOKEN") token = v;
       if (k === "CLOUDFLARE_ACCOUNT_ID") account = v;
     }
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } catch { /* the credential check below is the one report */ }
+  finally { rmSync(dir, { recursive: true, force: true }); }
 }
 if (!token || !account) {
   console.error("no Cloudflare credentials — set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, or ensure the broker mint works (life ask cloudflare).");

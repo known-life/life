@@ -1,5 +1,5 @@
 {
- "count": 3728,
+ "count": 3729,
  "versions": [
   {
    "package": "anthropic",
@@ -18420,6 +18420,15 @@
    "version": "5.12.40",
    "content_hash": "70a34d2c174f105c579633ad8e29d5851829d9969f51e088edc8291fe9cbdd66",
    "published_at": 1785855332201,
+   "yanked": false,
+   "signer": "DomVinyard",
+   "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"
+  },
+  {
+   "package": "life",
+   "version": "5.12.41",
+   "content_hash": "1206f789f183e51dcbc728ff1578a0728ee565f6721a451dee630032d4205f2b",
+   "published_at": 1785855830760,
    "yanked": false,
    "signer": "DomVinyard",
    "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMATEEZhUqvo++V/qpse/lZk3eTaT77GQhIeWZvZz302"

@@ -1,63 +1,45 @@
 #:schema node_modules/wrangler/config-schema.json
-# known.life — registry + docs site
+# known.life — LOCAL DEV ONLY.
 #
-# Bindings reference live Cloudflare resources by ID. To populate the TODOs:
-#   wrangler kv namespace list           # → id for KNOWN_KV
-#   wrangler r2 bucket list              # → name confirms; binding uses bucket_name
-#   wrangler d1 list                     # → uuid for the DB binding
-# The IDs are stable once provisioned — fill them in once, never again.
+# This file does NOT deploy anything and is not read by any deploy path. The
+# production deploy goes through the cloudflare adapter's Workers REST upload,
+# driven entirely by this unit's `.life` head — which is the sole source for the
+# worker name, the custom domain, the assets, the resource names and binding
+# vars, the D1 schema apply, the secrets and the observability config.
+#
+# Its ONE reader is `platformProxy: { enabled: true }` in astro.config.mjs: the
+# bindings below are what makes `astro dev` serve a homepage that can read D1.
+# So keep it to bindings the local runtime needs, and nothing the head declares —
+# a fuller copy here is a twin that drifts silently, which is what this file was
+# (it carried `main`, `[assets]`, a `[[routes]]` custom domain and two never-filled
+# `TODO_FILL_IN_FROM_wrangler_*` ids, while never once being read).
+#
+# Local bindings are simulated by miniflare against `.wrangler/state`, so the
+# ids below are placeholders the config schema requires, never dialled. They are
+# deliberately NOT the live resource ids: nothing verifies a value here, so a real
+# one would be a fact going stale in a file no deploy reads.
 
 name = "known-life"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
-main = "dist/_worker.js/index.js"
 
-# Astro's Cloudflare adapter emits dist/_worker.js (the SSR worker entry) plus
-# dist/ static assets (prerendered docs, public/* including install.sh). The
-# engine binary is no longer a static asset — it's the `life` registry package,
-# served from /api/resolve/life/latest like any other module.
-[assets]
-directory = "./dist"
-not_found_handling = "404-page"
-binding = "ASSETS"
-
-[[routes]]
-pattern = "known.life"
-custom_domain = true
-
-# D1 — see the registry gene's schema.sql (schema.sql here is a symlink into
-# .genome/registry/ — the gene is the sole source). The engine's cloudflare
-# adapter applies it idempotently on every deploy.
+# D1 — accounts, names, packages, versions, embeddings (the registry gene's
+# schema.sql; the adapter applies it on every deploy).
 [[d1_databases]]
 binding = "DB"
 database_name = "known-life-db"
-database_id = "TODO_FILL_IN_FROM_wrangler_d1_list"
+database_id = "local"
 
-# KV — auth sessions, rankings cache, rate limits. App-named (env.KNOWN_KV);
-# the worker code reads it under that exact name.
+# KV — auth sessions, rankings cache, rate limits. Read as env.KNOWN_KV.
 [[kv_namespaces]]
 binding = "KNOWN_KV"
-id = "TODO_FILL_IN_FROM_wrangler_kv_namespace_list"
+id = "local"
 
-# R2 — content-addressed package blobs (incl. the engine: the `life` package's
-# files, like every other module — there is no separate static engine asset).
+# R2 — content-addressed package blobs.
 [[r2_buckets]]
 binding = "KNOWN_R2"
 bucket_name = "known-life-known-r2"
 
-# Secrets (ANTHROPIC_API_KEY, etc.) come from `wrangler secret put` — not
-# checked in. The deploy workflow doesn't manage them; rotate via the CLI.
-#
-# MCP OAuth bridge (see src/registry/routes/mcp-oauth.ts):
-#   wrangler secret put KNOWN_OAUTH_CLIENT_ID
-#   wrangler secret put KNOWN_OAUTH_CLIENT_SECRET
-# (or set the matching GH Actions secrets and let deploy-site.yml sync them.)
-# The deploy workflow also flips `accounts.is_admin = 1` for the github_login
-# named in the `KNOWN_ADMIN_LOGIN` Actions secret (NOT a worker secret) — that
-# row controls who can publish over any name. No shared bearer.
-#
-# Observability (Workers Logs + Traces) is NOT configured here: the production
-# deploy goes through the cloudflare adapter's REST upload, which never reads
-# wrangler.toml. The canonical declaration lives in this unit's `.life` under
-# `cloudflare: { observability: … }`; read the telemetry back with
-# `node scripts/observe.mjs`.
+# env.AI (Workers AI, the /search embeddings) is deliberately absent: it has no
+# local simulation, so dev exercises the cached-embedding path. The binding is
+# real in production, declared as `infra.ai:` in the head like every other one.
