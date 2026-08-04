@@ -12,7 +12,7 @@ import { MockD1 } from "../../.genome/registry/tests/d1-mock.ts";
 // quietly include a number nobody took.
 //
 // The last one is the whole risk. A census that sums NULLs as zero looks exactly
-// like a pool that shrank (law/lying-signal), and the number it prints is the one someone
+// like a pool that shrank (law:lying-signal), and the number it prints is the one someone
 // quotes.
 
 describe("version line counts — stored where the mass changes", () => {
@@ -112,7 +112,7 @@ describe("GET /api/census — the pool's mass, with its denominator", () => {
   // The first live census called 10 CLAIMED NAMES "uncounted" — as if the pool
   // held mass nobody had measured. A name with no version has no bytes and never
   // did: same null, different fact, and lumping them made the honest denominator
-  // dishonest in the other direction (law/lying-signal).
+  // dishonest in the other direction (law:lying-signal).
   it("a claimed name holding no version is unpublished, not uncounted", async () => {
     await add("alpha", "1.0.0", 100);
     await db.prepare("INSERT INTO names (name, owner_account, created_at) VALUES ('reserved','acct',1)").bind().run();

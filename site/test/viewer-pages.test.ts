@@ -94,7 +94,7 @@ describe("viewer pages (mocked GitHub)", () => {
   it("says so plainly when the genepool does not answer — and still renders your lives", async () => {
     // `idpFetch` in this suite returns 500, which is the pool being unreachable.
     // The dashboard must NAME that rather than render an empty list that reads
-    // as "there are no genes" (law/fail-fast — no silent fallthrough). And the outage
+    // as "there are no genes" (law:fail-fast — no silent fallthrough). And the outage
     // must cost the genes section ONLY: a pool that is down taking the lives with
     // it would be the whole screen lost for half a reason.
     const html = await (await get("/app"))!.text();

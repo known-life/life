@@ -9,7 +9,7 @@ import { getCanon, canonSize } from "../lib/book.ts";
  *
  * A static asset in `public/` with the books listed by hand goes stale silently —
  * the list says "five books" for as long as there are six, the same failure the
- * book index is built to be immune to (law/derive-dont-maintain). Anything here that restates
+ * book index is built to be immune to (law:derive-dont-maintain). Anything here that restates
  * the canon's shape must be derived, or it must not be here.
  */
 export const GET: APIRoute = async () => {

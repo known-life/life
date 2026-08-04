@@ -55,7 +55,7 @@ describe("MCP serverInfo.version is declared, not maintained", () => {
     // It briefly answered "unknown" here. That is a degrade wearing the clothes
     // of an announced fallthrough: there is no situation in which serving it is
     // the right outcome, so it is a second path that is not load-bearing —
-    // exactly what law/fail-fast forbids. When the one path cannot do its job, say so
+    // exactly what law:fail-fast forbids. When the one path cannot do its job, say so
     // and stop.
     const res = await initialize({});
     expect(res.status).toBe(500);

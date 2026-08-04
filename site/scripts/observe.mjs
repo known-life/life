@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // observe.mjs — read the known-life worker's logs & traces from Cloudflare
-// Workers Observability, in the terminal (law/sight: my own eyes on the one
+// Workers Observability, in the terminal (law:sight: my own eyes on the one
 // production surface every .life depends on, no dashboard required).
 //
 // This is the READ side of the [observability] block in ../wrangler.toml: that

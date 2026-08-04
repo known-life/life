@@ -84,7 +84,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       // mounting the viewer wears its own brand instead of ours. It lives under
       // `app/` because a remote `eas build` uploads only that dir and so cannot
       // import from above it, while this build reaches in freely
-      // (law/no-second-copy: one declaration, not a matching pair).
+      // (law:no-second-copy: one declaration, not a matching pair).
       palette: PALETTE,
       // The data plane is the ONLY data path: the viewer discovers each
       // life's plane from its root `.life` head (`dataplane:`) and calls it
@@ -127,7 +127,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // What DOES hold is the seam this worker already runs on: an asset miss falls
   // through to the middleware, which is the only reason a gene page like `/laws`
   // answers at all. A redirect declared where it actually runs beats a prettier
-  // one that silently doesn't (law/lying-signal — a config that lies is worse than none).
+  // one that silently doesn't (law:lying-signal — a config that lies is worse than none).
   const MOVED: Record<string, string> = {
     "/docs/interface": "/book/spec/life-schema",
     "/docs/spec/manifest": "/book/spec/manifest-format",
