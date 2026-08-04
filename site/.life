@@ -33,11 +33,11 @@ imports:
     # it, an installer change "deploys" as a silent no-op until the next site/ touch.
     deploy_inputs:
       - install.sh
-      # The viewer mount passes this life's accents (app/lib/palette.ts — the ONE
+      # The viewer mount passes this life's accents (app/lib/palette.mjs — the ONE
       # declaration both faces read), so a brand edit must redeploy this worker
       # too. Same class as install.sh: an input the build embeds from outside
       # site/, invisible to change detection keyed on `site/**`.
-      - app/lib/palette.ts
+      - app/lib/palette.mjs
 
 # The worker's security-spine unit suite — scan (the leak gate), lifekey-verify
 # (the trust-store/handshake root), jwt (the write-endpoint bearer), db-accounts (the upsert behind
@@ -199,7 +199,7 @@ single SSR Worker plus edge static assets:
   `viewerFetch(request, config)` call from `src/middleware.ts` — the repo
   holds no copy; edit = fetch → mutate → re-vendor, exactly like the registry.
   That mount is also where this life's BRAND enters: the gene ships default
-  accents so any other life wears its own, and we pass `app/lib/palette.ts` —
+  accents so any other life wears its own, and we pass `app/lib/palette.mjs` —
   the one declaration the native app reads too, so the two faces cannot drift to
   different blues. Its credential-free vitest suite lives in
   `site/test/viewer-*.test.ts`.
@@ -207,7 +207,7 @@ single SSR Worker plus edge static assets:
   `deploy_inputs:` because change detection keys on `site/**` and would ship
   either as a silent no-op: `install.sh` (repo root, copied into `public/` at
   build time and served from `known.life/install.sh`, so cold-start never
-  depends on raw GitHub) and `app/lib/palette.ts` (the accents above).
+  depends on raw GitHub) and `app/lib/palette.mjs` (the accents above).
   `.life.lock` needs no declaration — the engine derives it, shipping and
   testing this unit whenever a gene in `imports:` moves its pin.
 - **The engine** — shipped as the `life` package's `files["life"]`, served from
