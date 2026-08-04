@@ -79,12 +79,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
         (await registryFetch(req, env, ctx)) ?? new Response("idp route missing", { status: 502 }),
       sessionSecret: env.JWT_SIGNING_KEY,
       brand: "Life",
-      // This life's own accents, declared once in `app/lib/palette.ts` and worn
+      // This life's own accents, declared once in `app/lib/palette.mjs` and worn
       // by both of its faces — the gene ships defaults so any OTHER life
       // mounting the viewer wears its own brand instead of ours. It lives under
       // `app/` because a remote `eas build` uploads only that dir and so cannot
       // import from above it, while this build reaches in freely
-      // (law:no-second-copy: one declaration, not a matching pair).
+      // (law:no-second-copy: one declaration, not a matching pair). `.mjs`, not
+      // `.ts`: esbuild walks up from every .ts file it compiles to find a
+      // tsconfig, so a shared .ts here dragged `app/tsconfig.json` — and its
+      // `extends: expo/tsconfig.base` — into a build that installs no app deps.
       palette: PALETTE,
       // The data plane is the ONLY data path: the viewer discovers each
       // life's plane from its root `.life` head (`dataplane:`) and calls it

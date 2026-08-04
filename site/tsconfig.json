@@ -29,6 +29,10 @@
     "**/*",
     "../.genome/registry/src/**/*.ts",
     "../.genome/viewer/src/**/*.ts",
-    "../app/lib/palette.ts"
+    // The shared palette. `.mjs` with JSDoc types, not `.ts` — a shared .ts
+    // here drags `app/tsconfig.json` into this build via esbuild's per-file
+    // tsconfig walk-up, and that head extends a package this project does not
+    // install. `allowJs` above is what lets the types still resolve.
+    "../app/lib/palette.mjs"
   ]
 }
