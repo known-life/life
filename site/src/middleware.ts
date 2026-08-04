@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { registryFetch } from "../../.genome/registry/src/registry/router";
 import type { Env } from "../../.genome/registry/src/registry/lib/types";
 import { viewerFetch } from "../../.genome/viewer/src/index";
-import { PALETTE } from "../../app/lib/palette";
+import { PALETTE } from "../../app/lib/palette.mjs";
 
 /**
  * The merge seam between the docs site (Astro) and the genepool (a request
