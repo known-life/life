@@ -46,15 +46,24 @@ imports:
 # `life test --changed` rail runs for site/, replacing the hand-kept worker-unit
 # job). cwd is this dir, so no `cd site`.
 #
-# `when:` because this suite's SUBJECT is not only this directory. The registry
-# and the viewer live in genes, vendored into `.genome/`, and `site/test/` is
-# where their credential-free suites are declared to run — so a gene republish
-# moves the code under test while `site/**` never changes, and the default
-# cell-path selection does not fire. That gap hid twelve red tests on main after
-# the parser sweep (2026-07-31): the viewer's fixtures became illegal `.life`
-# heads the moment it started reading through the real grammar, and CI reported
-# green on every push because it never ran them. `.life.lock` is the honest
-# trigger — a gene pin moving IS this suite's input changing.
+# `when:` because this suite's SUBJECT is not only this directory. `registry`
+# lives in a gene, vendored into `.genome/`, and a gene republish moves the code
+# under test while `site/**` never changes, so the default cell-path selection
+# does not fire. That gap hid twelve red tests on main after the parser sweep
+# (2026-07-31): fixtures became illegal `.life` heads the moment the code started
+# reading through the real grammar, and CI reported green on every push because
+# it never ran them. `.life.lock` is the honest trigger — a gene pin moving IS
+# this suite's input changing.
+#
+# THE VIEWER'S SUITE IS NO LONGER HERE. Ten files moved into the gene itself
+# (viewer@0.13.0), where 82 tests now run on bare `node --test` — a gene carries
+# the tests of itself, or every .life that inherits it inherits an unverified
+# artifact and only this repo ever knows. `viewer-scaffold.test.ts` stayed, and
+# is the one that should: it asserts PARITY between the gene's `lifeStub()` and
+# THIS repo's `install.sh`, so a web-scaffolded life and a curl-scaffolded one
+# stay indistinguishable. A test about a seam belongs to the side owning both
+# ends, and the gene has no install.sh. `.genome/viewer/**` stays in the globs
+# for exactly that one file.
 tests:
   # `check` is astro check — the TYPE gate, and it runs FIRST because a type
   # error is a defect the runtime suite can pass straight over. It found three
