@@ -8,8 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -23,7 +22,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",
-    "@vitest/coverage-v8": "^4.1.8",
     "vitest": "^4.1.8"
   }
 }

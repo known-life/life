@@ -80,7 +80,7 @@ tests:
   # resolves; the real build runs the same code from `dist/_worker.js/chunks/`,
   # where it does not. That gap shipped a red deploy on main behind 450 green
   # tests — the suite must run the build it is vouching for.
-  - run: "npm ci && npm run check && npm run test:coverage && cp ../install.sh public/install.sh && npm run build"
+  - run: "npm ci && npm run check && npm test && cp ../install.sh public/install.sh && npm run build"
     when:
       - "site/**"
       - ".genome/viewer/**"
@@ -185,8 +185,10 @@ single SSR Worker plus edge static assets:
   `router.ts`'s dispatch is the inventory), which lives in **the
   `known.life/registry` gene** (`imports:` above), materialized into
   `.genome/registry/` and imported by `src/middleware.ts` — the repo holds no
-  copy; the gene is the sole source. Its credential-free vitest suite
-  (`npm test`) lives in `site/test/`.
+  copy; the gene is the sole source, and so is its suite: the 46 files that
+  test the core live in the GENE, run by `life mutate registry`. What is left
+  here (`site/test/`) is the consumer's own half — how this worker deploys the
+  gene, and the book it renders.
 - **The docs site** (`src/pages`, `src/layouts`, `src/components`) — prerendered
   to static assets. The on-ramp only: quick start, the adapter references, and
   this registry's governance policy.
@@ -210,8 +212,8 @@ single SSR Worker plus edge static assets:
   That mount is also where this life's BRAND enters: the gene ships default
   accents so any other life wears its own, and we pass `app/lib/palette.mjs` —
   the one declaration the native app reads too, so the two faces cannot drift to
-  different blues. Its credential-free vitest suite lives in
-  `site/test/viewer-*.test.ts`.
+  different blues. Its suite came home to the gene the same way the registry's
+  did; `site/test/viewer-scaffold.test.ts` is the scaffold flow this worker owns.
 - **Two build inputs from outside this dir**, both declared under
   `deploy_inputs:` because change detection keys on `site/**` and would ship
   either as a silent no-op: `install.sh` (repo root, copied into `public/` at
